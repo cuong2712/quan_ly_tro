@@ -1,0 +1,17 @@
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\bin\Debug\net10.0\SmartRent.Application.deps.json
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\bin\Debug\net10.0\SmartRent.Application.dll
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\bin\Debug\net10.0\SmartRent.Application.pdb
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\bin\Debug\net10.0\SmartRent.Core.dll
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\bin\Debug\net10.0\SmartRent.Infrastructure.dll
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\bin\Debug\net10.0\SmartRent.Core.pdb
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\bin\Debug\net10.0\SmartRent.Infrastructure.pdb
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\SmartRent.Application.csproj.AssemblyReference.cache
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\SmartRent.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\SmartRent.Application.AssemblyInfoInputs.cache
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\SmartRent.Application.AssemblyInfo.cs
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\SmartRent.Application.csproj.CoreCompileInputs.cache
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\SmartRen.5AAA1322.Up2Date
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\SmartRent.Application.dll
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\refint\SmartRent.Application.dll
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\SmartRent.Application.pdb
+C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api\SmartRent.Application\obj\Debug\net10.0\ref\SmartRent.Application.dll

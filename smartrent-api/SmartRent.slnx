@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SmartRent.API/SmartRent.API.csproj" />
+  <Project Path="SmartRent.Application/SmartRent.Application.csproj" />
+  <Project Path="SmartRent.Core/SmartRent.Core.csproj" />
+  <Project Path="SmartRent.Infrastructure/SmartRent.Infrastructure.csproj" />
+</Solution>

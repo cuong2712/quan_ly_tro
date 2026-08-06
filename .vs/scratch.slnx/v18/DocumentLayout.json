@@ -1,0 +1,85 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\README.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:README.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Data\\AppDbContext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:smartrent-api\\SmartRent.Infrastructure\\Data\\AppDbContext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Data\\DataSeeder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:smartrent-api\\SmartRent.Infrastructure\\Data\\DataSeeder.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Repositories\\Repositories.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:smartrent-api\\SmartRent.Infrastructure\\Repositories\\Repositories.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "README.md",
+              "DocumentMoniker": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\README.md",
+              "RelativeDocumentMoniker": "README.md",
+              "ToolTip": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\README.md",
+              "RelativeToolTip": "README.md",
+              "ViewState": "AgIAAGsAAAAAAAAAAAAIwHUAAAASAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-07-29T01:57:24.975Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "AppDbContext.cs",
+              "DocumentMoniker": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Data\\AppDbContext.cs",
+              "RelativeDocumentMoniker": "smartrent-api\\SmartRent.Infrastructure\\Data\\AppDbContext.cs",
+              "ToolTip": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Data\\AppDbContext.cs",
+              "RelativeToolTip": "smartrent-api\\SmartRent.Infrastructure\\Data\\AppDbContext.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T01:55:28.561Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "DataSeeder.cs",
+              "DocumentMoniker": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Data\\DataSeeder.cs",
+              "RelativeDocumentMoniker": "smartrent-api\\SmartRent.Infrastructure\\Data\\DataSeeder.cs",
+              "ToolTip": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Data\\DataSeeder.cs",
+              "RelativeToolTip": "smartrent-api\\SmartRent.Infrastructure\\Data\\DataSeeder.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T01:55:25.92Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Repositories.cs",
+              "DocumentMoniker": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Repositories\\Repositories.cs",
+              "RelativeDocumentMoniker": "smartrent-api\\SmartRent.Infrastructure\\Repositories\\Repositories.cs",
+              "ToolTip": "C:\\Users\\nmcuong\\.gemini\\antigravity\\scratch\\smartrent-api\\SmartRent.Infrastructure\\Repositories\\Repositories.cs",
+              "RelativeToolTip": "smartrent-api\\SmartRent.Infrastructure\\Repositories\\Repositories.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-07-29T01:55:18.379Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
