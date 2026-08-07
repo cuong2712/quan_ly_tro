@@ -490,7 +490,7 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
               {roomList.length === 0 && <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={openAdd}><Plus size={16} /> Thêm phòng mới</button>}
             </div>
           ) : (
-        <div className="zone-room-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+        <div className="zone-room-grid">
           {filtered.map(r => {
             const sc = STATUS_CONFIG[r.status] || STATUS_CONFIG.Vacant;
             return (
@@ -502,41 +502,91 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                   cursor: 'pointer',
                   position: 'relative',
                   padding: '16px',
-                  borderRadius: 12,
+                  borderRadius: '14px',
                   background: 'var(--bg-card)',
-                  border: `1px solid ${sc.color}40`,
+                  border: `1px solid ${sc.color}33`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
                 }}
               >
-                {/* Status badge */}
-                <div style={{ position: 'absolute', top: 12, right: 12, background: sc.bg, color: sc.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, border: `1px solid ${sc.color}40` }}>
-                  {sc.label}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 10, background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Home size={20} color={sc.color} />
+                <div>
+                  {/* Header: Icon + Số phòng & Trạng thái */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 10,
+                        background: sc.bg,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        <Home size={18} color={sc.color} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                          Phòng {r.roomNumber}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                          Tầng {r.floor} • {r.area} m²
+                        </div>
+                      </div>
+                    </div>
+                    <span style={{
+                      background: sc.bg,
+                      color: sc.color,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: 20,
+                      border: `1px solid ${sc.color}40`,
+                      flexShrink: 0
+                    }}>
+                      {sc.label}
+                    </span>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)' }}>Phòng {r.roomNumber}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tầng {r.floor} • {r.area} m²</div>
+
+                  {/* Giá Thuê */}
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#6366f1', marginBottom: 10 }}>
+                    {formatVND(r.price)}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>/tháng</span>
+                  </div>
+
+                  {/* Chỉ số Điện / Nước - Phân bổ 2 bên cân đối */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: 12,
+                    color: 'var(--text-muted)',
+                    padding: '8px 12px',
+                    background: 'var(--bg-dark, rgba(0,0,0,0.15))',
+                    borderRadius: 8
+                  }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <Zap size={14} color="#f59e0b" /> Điện: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.elecMeter} kWh</strong>
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <Droplets size={14} color="#06b6d4" /> Nước: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.waterMeter} m³</strong>
+                    </span>
                   </div>
                 </div>
 
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#6366f1', marginBottom: 10 }}>
-                  {formatVND(r.price)}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>/tháng</span>
-                </div>
-
-                <div style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                  <span>⚡ {r.elecMeter} kWh</span>
-                  <span>💧 {r.waterMeter} m³</span>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
+                {/* Footer: Thao tác & Xem chi tiết */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--border-color)', marginTop: 'auto' }}>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-sm btn-secondary" onClick={e => openEdit(r, e)}><Edit size={13} /></button>
-                    <button className="btn btn-sm btn-danger" onClick={e => handleDelete(r, e)}><Trash2 size={13} /></button>
+                    <button className="btn btn-sm btn-secondary" onClick={e => openEdit(r, e)} title="Sửa thông tin phòng" style={{ padding: '5px 9px' }}>
+                      <Edit size={13} />
+                    </button>
+                    <button className="btn btn-sm btn-danger" onClick={e => handleDelete(r, e)} title="Xóa phòng" style={{ padding: '5px 9px' }}>
+                      <Trash2 size={13} />
+                    </button>
                   </div>
-                  <span style={{ color: 'var(--primary)', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ color: '#6366f1', fontSize: 12.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                     Chi tiết phòng <ChevronRight size={14} />
                   </span>
                 </div>
