@@ -14,9 +14,9 @@ public class ServicesController(ServiceMgmtService serviceMgmt) : ControllerBase
 {
     private Guid LandlordId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    // Lấy danh sách các loại dịch vụ do Chủ trọ cấu hình.
+    // Lấy danh sách các loại dịch vụ do Chủ trọ cấu hình (có thể lọc theo ZoneId).
     [HttpGet]
-    public async Task<IActionResult> GetServices() => Ok(await serviceMgmt.GetByLandlordAsync(LandlordId));
+    public async Task<IActionResult> GetServices([FromQuery] Guid? zoneId) => Ok(await serviceMgmt.GetByLandlordAsync(LandlordId, zoneId));
 
     // Thêm một loại dịch vụ mới.
     [HttpPost]

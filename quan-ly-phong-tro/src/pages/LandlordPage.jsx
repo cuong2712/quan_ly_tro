@@ -12,6 +12,8 @@ import {
   utilityService, tenantService, contractService, roomService, zoneService
 } from '../services';
 
+import { ErrorBoundary } from '../components/Common/ErrorBoundary';
+
 // Lazy load — chỉ load khi cần
 const LandlordDashboard = lazy(() => import('../components/Landlord/LandlordDashboard').then(m => ({ default: m.LandlordDashboard })));
 const ZoneExplorer      = lazy(() => import('../components/Landlord/ZoneExplorer').then(m => ({ default: m.ZoneExplorer })));
@@ -50,6 +52,7 @@ const TAB_FETCHERS = {
   },
   ll_services: {
     services: serviceMgmtService.getServices,
+    zones: zoneService.getZones,
   },
   ll_invoices: {
     invoices: invoiceService.getInvoices,
@@ -191,6 +194,7 @@ export default function LandlordPage() {
           <Suspense fallback={<TabLoader />}>
             <ServiceMgmt
               services={d.services || []} setServices={v => setCurrentData('services', v)}
+              zones={d.zones || []}
               onRefresh={() => handleRefresh()}
             />
           </Suspense>
@@ -268,7 +272,9 @@ export default function LandlordPage() {
           hideRoleSwitcher={true}
         />
         <main className="page-body">
-          {renderContent()}
+          <ErrorBoundary key={activeTab} onReset={() => handleRefresh()}>
+            {renderContent()}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

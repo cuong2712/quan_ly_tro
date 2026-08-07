@@ -77,7 +77,7 @@ export const utilityService = {
 };
 
 export const serviceMgmtService = {
-  getServices: () => apiClient.get('/services').then(r => r.data),
+  getServices: (zoneId) => apiClient.get('/services', { params: zoneId ? { zoneId } : {} }).then(r => r.data),
   createService: (data) => apiClient.post('/services', data).then(r => r.data),
   updateService: (id, data) => apiClient.put(`/services/${id}`, data).then(r => r.data),
   deleteService: (id) => apiClient.delete(`/services/${id}`).then(r => r.data),

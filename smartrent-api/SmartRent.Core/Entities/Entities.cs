@@ -129,6 +129,7 @@ public class Service
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid LandlordId { get; set; }
+    public Guid? ZoneId { get; set; }
     public string Name { get; set; } = string.Empty;
     public decimal Price { get; set; }
     public string Unit { get; set; } = "phòng/tháng";
@@ -138,6 +139,7 @@ public class Service
 
     // Navigation
     public User Landlord { get; set; } = null!;
+    public Zone? Zone { get; set; }
 }
 
 public class Invoice

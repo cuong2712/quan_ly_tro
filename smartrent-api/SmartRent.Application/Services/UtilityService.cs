@@ -42,7 +42,14 @@ public class UtilityService(AppDbContext db)
         if (tenant != null)
         {
             var existingInvoice = await db.Invoices.Include(i => i.Items).FirstOrDefaultAsync(i => i.RoomId == req.RoomId && i.Month == req.Month);
-            decimal serviceFee = 150000;
+            
+            // Lấy danh sách Dịch vụ đang hoạt động thuộc Khu vực của phòng (hoặc Tất cả các khu)
+            var activeServices = await db.Services
+                .Include(s => s.Zone)
+                .Where(s => s.LandlordId == landlordId && s.IsActive && (s.ZoneId == room.ZoneId || s.ZoneId == null))
+                .ToListAsync();
+
+            decimal serviceFee = activeServices.Count > 0 ? activeServices.Sum(s => s.Price) : 150000;
             decimal rentFee = room.Price;
 
             var activeContract = await db.Contracts.FirstOrDefaultAsync(c => c.RoomId == req.RoomId && c.Status == ContractStatus.Active);
@@ -53,6 +60,26 @@ public class UtilityService(AppDbContext db)
 
             decimal totalAmount = rentFee + elecCost + waterCost + serviceFee;
             var dueDate = DateTime.UtcNow.AddDays(7);
+
+            var itemsList = new List<InvoiceItem>
+            {
+                new InvoiceItem { Name = $"Tiền thuê phòng {room.RoomNumber}", Amount = rentFee },
+                new InvoiceItem { Name = $"Tiền điện ({elecUsed} kWh x {elecPrice:N0}đ)", Amount = elecCost },
+                new InvoiceItem { Name = $"Tiền nước ({waterUsed} m³ x {waterPrice:N0}đ)", Amount = waterCost },
+            };
+
+            if (activeServices.Count > 0)
+            {
+                foreach (var svc in activeServices)
+                {
+                    var zoneTag = svc.Zone != null ? $" ({svc.Zone.Name})" : "";
+                    itemsList.Add(new InvoiceItem { Name = $"{svc.Name}{zoneTag}", Amount = svc.Price });
+                }
+            }
+            else
+            {
+                itemsList.Add(new InvoiceItem { Name = "Phí dịch vụ cố định (Wi-Fi, rác)", Amount = serviceFee });
+            }
 
             if (existingInvoice == null)
             {
@@ -70,13 +97,7 @@ public class UtilityService(AppDbContext db)
                     TotalAmount = totalAmount,
                     DueDate = dueDate,
                     Status = InvoiceStatus.Unpaid,
-                    Items = new List<InvoiceItem>
-                    {
-                        new InvoiceItem { Name = $"Tiền thuê phòng {room.RoomNumber}", Amount = rentFee },
-                        new InvoiceItem { Name = $"Tiền điện ({elecUsed} kWh x {elecPrice:N0}đ)", Amount = elecCost },
-                        new InvoiceItem { Name = $"Tiền nước ({waterUsed} m³ x {waterPrice:N0}đ)", Amount = waterCost },
-                        new InvoiceItem { Name = "Phí dịch vụ cố định (Wi-Fi, rác)", Amount = serviceFee },
-                    }
+                    Items = itemsList
                 };
                 db.Invoices.Add(inv);
             }
@@ -89,10 +110,10 @@ public class UtilityService(AppDbContext db)
                 existingInvoice.TotalAmount = totalAmount;
 
                 existingInvoice.Items.Clear();
-                existingInvoice.Items.Add(new InvoiceItem { Name = $"Tiền thuê phòng {room.RoomNumber}", Amount = rentFee });
-                existingInvoice.Items.Add(new InvoiceItem { Name = $"Tiền điện ({elecUsed} kWh x {elecPrice:N0}đ)", Amount = elecCost });
-                existingInvoice.Items.Add(new InvoiceItem { Name = $"Tiền nước ({waterUsed} m³ x {waterPrice:N0}đ)", Amount = waterCost });
-                existingInvoice.Items.Add(new InvoiceItem { Name = "Phí dịch vụ cố định (Wi-Fi, rác)", Amount = serviceFee });
+                foreach (var item in itemsList)
+                {
+                    existingInvoice.Items.Add(item);
+                }
             }
         }
 

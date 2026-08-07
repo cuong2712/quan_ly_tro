@@ -3,10 +3,11 @@ import { Settings, Plus, Edit, Trash2, Wifi, Bike, Trash, ShieldCheck, Loader2 }
 import { formatVND } from '../../utils/formatters';
 import { serviceMgmtService } from '../../services';
 
-export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
+export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone = null, onRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selectedZoneFilter, setSelectedZoneFilter] = useState(targetZone ? targetZone.id : 'all');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -14,6 +15,7 @@ export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
     unit: 'phòng/tháng',
     icon: 'Settings',
     isActive: true,
+    zoneId: targetZone ? targetZone.id : '',
   });
 
   const renderIcon = (iconName) => {
@@ -39,6 +41,7 @@ export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
       unit: 'phòng/tháng',
       icon: 'Settings',
       isActive: true,
+      zoneId: targetZone ? targetZone.id : (selectedZoneFilter !== 'all' ? selectedZoneFilter : ''),
     });
     setIsModalOpen(true);
   };
@@ -51,6 +54,7 @@ export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
       unit: s.unit || 'phòng/tháng',
       icon: s.icon || 'Settings',
       isActive: s.isActive !== false,
+      zoneId: s.zoneId || (targetZone ? targetZone.id : ''),
     });
     setIsModalOpen(true);
   };
@@ -82,6 +86,7 @@ export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
         unit: formData.unit,
         icon: formData.icon || 'Settings',
         isActive: formData.isActive,
+        zoneId: formData.zoneId ? formData.zoneId : (targetZone ? targetZone.id : null),
       };
 
       if (editingService) {
@@ -105,16 +110,26 @@ export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
   };
 
   const serviceList = Array.isArray(services) ? services : [];
+  const filteredServices = serviceList.filter((s) => {
+    if (targetZone) {
+      return !s.zoneId || s.zoneId === targetZone.id;
+    }
+    if (selectedZoneFilter === 'all') return true;
+    return !s.zoneId || s.zoneId === selectedZoneFilter;
+  });
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h2 className="page-title">
-            <Settings size={24} color="#6366f1" /> Quản Lý Dịch Vụ Phụ Phí
+            <Settings size={24} color="#6366f1" />{' '}
+            {targetZone ? `Quản Lý Dịch Vụ - ${targetZone.name}` : 'Quản Lý Dịch Vụ Phụ Phí Theo Khu'}
           </h2>
           <p className="page-subtitle">
-            Thêm mới, sửa đơn giá và cấu hình dịch vụ Internet, giữ xe, rác, vệ sinh...
+            {targetZone
+              ? `Thêm mới, sửa đơn giá và cấu hình dịch vụ Internet, giữ xe, rác... riêng cho ${targetZone.name}.`
+              : 'Cấu hình đơn giá dịch vụ (Internet, giữ xe, rác, vệ sinh...) linh hoạt riêng cho từng khu vực hoặc toàn hệ thống.'}
           </p>
         </div>
         <button className="btn btn-primary" onClick={handleOpenAdd} disabled={saving}>
@@ -122,11 +137,36 @@ export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
         </button>
       </div>
 
+      {/* Zone Filter Tabs (chỉ hiện khi ở chế độ xem tổng quan không chọn targetZone cụ thể) */}
+      {!targetZone && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          <button
+            className={`btn btn-sm ${selectedZoneFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setSelectedZoneFilter('all')}
+          >
+            🌐 Tất cả các khu ({serviceList.length})
+          </button>
+          {zones.map((z) => {
+            const count = serviceList.filter((s) => s.zoneId === z.id || !s.zoneId).length;
+            return (
+              <button
+                key={z.id}
+                className={`btn btn-sm ${selectedZoneFilter === z.id ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setSelectedZoneFilter(z.id)}
+              >
+                🏢 {z.name} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="card-table-container">
         <table className="custom-table">
           <thead>
             <tr>
               <th>Mã Dịch Vụ</th>
+              <th>Khu Vực Áp Dụng</th>
               <th>Tên Dịch Vụ</th>
               <th>Đơn Giá Dịch Vụ</th>
               <th>Đơn Vị Tính</th>
@@ -135,19 +175,24 @@ export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
             </tr>
           </thead>
           <tbody>
-            {serviceList.length === 0 ? (
+            {filteredServices.length === 0 ? (
               <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
-                  Chưa có dịch vụ nào được cấu hình. Nhấn "Thêm Dịch Vụ Mới" để bắt đầu.
+                <td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
+                  Chưa có dịch vụ nào phù hợp với bộ lọc khu vực. Nhấn "Thêm Dịch Vụ Mới" để bắt đầu.
                 </td>
               </tr>
             ) : (
-              serviceList.map((s) => (
+              filteredServices.map((s) => (
                 <tr key={s.id}>
                   <td>
                     <strong>
                       {s.id ? (s.id.length > 8 ? s.id.substring(0, 8).toUpperCase() : s.id) : ''}
                     </strong>
+                  </td>
+                  <td>
+                    <span className="status-pill occupied" style={{ background: s.zoneId ? '#3b82f620' : '#8b5cf620', color: s.zoneId ? '#60a5fa' : '#c084fc' }}>
+                      {s.zoneName || (s.zoneId ? 'Khu vực cụ thể' : '🌐 Tất cả các khu')}
+                    </span>
                   </td>
                   <td>
                     <div
@@ -227,6 +272,22 @@ export const ServiceMgmt = ({ services = [], setServices, onRefresh }) => {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Khu Vực Áp Dụng</label>
+                  <select
+                    className="form-control"
+                    value={formData.zoneId || ''}
+                    onChange={(e) => setFormData({ ...formData, zoneId: e.target.value })}
+                  >
+                    <option value="">🌐 Tất cả các khu (Áp dụng chung)</option>
+                    {zones.map((z) => (
+                      <option key={z.id} value={z.id}>
+                        🏢 {z.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-row">

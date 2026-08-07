@@ -3,13 +3,15 @@ import {
   Building2, Home, Users, Plus, Edit, Trash2, ChevronRight,
   ArrowLeft, Zap, Droplets, FileText, CreditCard, Wrench,
   Phone, Mail, Calendar, DollarSign, User, MapPin, Search,
-  AlertCircle, CheckCircle, Clock, RefreshCw, MoreVertical, Shield
+  AlertCircle, CheckCircle, Clock, RefreshCw, MoreVertical, Shield, Settings
 } from 'lucide-react';
 import {
   zoneService, roomService, tenantService,
-  invoiceService, utilityService, contractService
+  invoiceService, utilityService, contractService, serviceMgmtService
 } from '../../services';
 import { formatVND } from '../../utils/formatters';
+import { ServiceMgmt } from './ServiceMgmt';
+import { ErrorBoundary } from '../Common/ErrorBoundary';
 
 // ─── Màu trạng thái phòng ────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -240,8 +242,10 @@ const ZoneList = ({ onSelectZone, onRefresh }) => {
 };
 
 // ─── LEVEL 2: Danh sách phòng trong khu trọ (Có nút Quay lại & Header Tổng quan) ───
-const RoomList = ({ zone, onSelectRoom, onBack }) => {
+const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
+  const [activeTab, setActiveTab] = useState(initialTab || 'rooms');
   const [rooms, setRooms] = useState([]);
+  const [zoneServices, setZoneServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -254,17 +258,51 @@ const RoomList = ({ zone, onSelectRoom, onBack }) => {
   });
 
   const load = useCallback(async () => {
+    if (!zone?.id) return;
     setLoading(true);
-    try { setRooms(await roomService.getRooms(zone.id)); }
-    catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [zone.id]);
+    try {
+      const res = await roomService.getRooms(zone.id);
+      setRooms(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error(e);
+      setRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [zone?.id]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadZoneServices = useCallback(async () => {
+    if (!zone?.id) return;
+    try {
+      const res = await serviceMgmtService.getServices(zone.id);
+      setZoneServices(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error(e);
+      setZoneServices([]);
+    }
+  }, [zone?.id]);
 
-  const filtered = rooms.filter(r => {
-    const matchSearch = r.roomNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.currentTenantName?.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    load();
+    loadZoneServices();
+  }, [load, loadZoneServices]);
+
+  if (!zone || !zone.id) {
+    return (
+      <div style={{ padding: 20, textAlign: 'center' }}>
+        <p>Không tìm thấy thông tin khu trọ.</p>
+        <button className="btn btn-primary" onClick={onBack}>Quay lại danh sách khu trọ</button>
+      </div>
+    );
+  }
+
+  const roomList = Array.isArray(rooms) ? rooms : [];
+  const serviceList = Array.isArray(zoneServices) ? zoneServices : [];
+
+  const filtered = roomList.filter(r => {
+    if (!r) return false;
+    const matchSearch = (r.roomNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.currentTenantName || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = statusFilter === 'all' || r.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -302,9 +340,13 @@ const RoomList = ({ zone, onSelectRoom, onBack }) => {
   };
 
   // Thống kê tổng số phòng trong khu này
-  const statusCounts = { all: rooms.length, Vacant: 0, Occupied: 0, Maintenance: 0 };
-  rooms.forEach(r => { statusCounts[r.status] = (statusCounts[r.status] || 0) + 1; });
-  const occupancyRate = rooms.length > 0 ? Math.round((statusCounts.Occupied / rooms.length) * 100) : 0;
+  const statusCounts = { all: roomList.length, Vacant: 0, Occupied: 0, Maintenance: 0 };
+  roomList.forEach(r => {
+    if (r && r.status) {
+      statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
+    }
+  });
+  const occupancyRate = roomList.length > 0 ? Math.round((statusCounts.Occupied / roomList.length) * 100) : 0;
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}><div className="tab-spinner" /></div>;
 
@@ -340,7 +382,7 @@ const RoomList = ({ zone, onSelectRoom, onBack }) => {
         {/* Thẻ Thống Kê Tổng Quan Của Khu Trọ */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
           <div style={{ padding: '12px', background: 'var(--bg-dark)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{rooms.length}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{roomList.length}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Tổng số phòng</div>
           </div>
           <div style={{ padding: '12px', background: 'rgba(99,102,241,0.12)', borderRadius: 10, textAlign: 'center' }}>
@@ -362,41 +404,69 @@ const RoomList = ({ zone, onSelectRoom, onBack }) => {
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="zone-room-filters" style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div className="search-box" style={{ flex: '1 1 220px', minWidth: 220, position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            className="search-input"
-            placeholder="Tìm số phòng..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{
-              background: 'var(--bg-card)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              padding: '8px 12px 8px 36px',
-              fontSize: '13px',
-              width: '100%',
-              outline: 'none'
-            }}
-          />
-        </div>
-        {['all', 'Occupied', 'Vacant', 'Maintenance'].map(s => (
-          <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStatusFilter(s)}>
-            {s === 'all' ? `Tất cả (${statusCounts.all})` : `${STATUS_CONFIG[s]?.label} (${statusCounts[s] || 0})`}
-          </button>
-        ))}
+      {/* 🧭 Sub-Tabs: Danh Sách Phòng vs Dịch Vụ Khu Trọ */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
+        <button
+          className={`btn ${activeTab === 'rooms' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('rooms')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700 }}
+        >
+          <Home size={16} /> Danh Sách Phòng ({roomList.length})
+        </button>
+        <button
+          className={`btn ${activeTab === 'services' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('services')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700 }}
+        >
+          <Settings size={16} /> Dịch Vụ Khu Trọ ({serviceList.length})
+        </button>
       </div>
 
-      {filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-          <Home size={48} style={{ opacity: 0.2, marginBottom: 12 }} />
-          <p>{rooms.length === 0 ? 'Chưa có phòng nào trong khu trọ này.' : 'Không tìm thấy phòng phù hợp'}</p>
-          {rooms.length === 0 && <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={openAdd}><Plus size={16} /> Thêm phòng mới</button>}
-        </div>
+      {activeTab === 'services' ? (
+        <ServiceMgmt
+          services={serviceList}
+          setServices={setZoneServices}
+          zones={[zone]}
+          targetZone={zone}
+          onRefresh={loadZoneServices}
+        />
       ) : (
+        <>
+          {/* Filter bar */}
+          <div className="zone-room-filters" style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div className="search-box" style={{ flex: '1 1 220px', minWidth: 220, position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                className="search-input"
+                placeholder="Tìm số phòng..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '8px 12px 8px 36px',
+                  fontSize: '13px',
+                  width: '100%',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            {['all', 'Occupied', 'Vacant', 'Maintenance'].map(s => (
+              <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStatusFilter(s)}>
+                {s === 'all' ? `Tất cả (${statusCounts.all})` : `${STATUS_CONFIG[s]?.label} (${statusCounts[s] || 0})`}
+              </button>
+            ))}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+              <Home size={48} style={{ opacity: 0.2, marginBottom: 12 }} />
+              <p>{roomList.length === 0 ? 'Chưa có phòng nào trong khu trọ này.' : 'Không tìm thấy phòng phù hợp'}</p>
+              {roomList.length === 0 && <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={openAdd}><Plus size={16} /> Thêm phòng mới</button>}
+            </div>
+          ) : (
         <div className="zone-room-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
           {filtered.map(r => {
             const sc = STATUS_CONFIG[r.status] || STATUS_CONFIG.Vacant;
@@ -513,6 +583,8 @@ const RoomList = ({ zone, onSelectRoom, onBack }) => {
             </form>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
@@ -763,8 +835,18 @@ export const ZoneExplorer = () => {
   useEffect(() => {
     const saved = sessionStorage.getItem('zone_nav');
     if (saved) {
-      const { level: l, zone, room } = JSON.parse(saved);
-      setLevel(l); setSelectedZone(zone); setSelectedRoom(room);
+      try {
+        const { level: l, zone, room } = JSON.parse(saved);
+        if ((l === 'rooms' || l === 'room-detail') && (!zone || !zone.id)) {
+          setLevel('zones'); setSelectedZone(null); setSelectedRoom(null);
+          sessionStorage.removeItem('zone_nav');
+        } else {
+          setLevel(l || 'zones'); setSelectedZone(zone || null); setSelectedRoom(room || null);
+        }
+      } catch {
+        sessionStorage.removeItem('zone_nav');
+        setLevel('zones');
+      }
     }
   }, []);
 
@@ -781,10 +863,22 @@ export const ZoneExplorer = () => {
   };
 
   return (
-    <div>
+    <ErrorBoundary key={level + (selectedZone?.id || '')} onReset={() => setLevel('zones')}>
       {level === 'zones' && <ZoneList onSelectZone={handleSelectZone} />}
-      {level === 'rooms' && selectedZone && <RoomList zone={selectedZone} onSelectRoom={handleSelectRoom} onBack={() => handleBack('zones')} />}
-      {level === 'room-detail' && selectedRoom && selectedZone && <RoomDetail room={selectedRoom} zone={selectedZone} onBack={handleBack} />}
-    </div>
+      {level === 'rooms' && (
+        selectedZone ? (
+          <RoomList zone={selectedZone} onSelectRoom={handleSelectRoom} onBack={() => handleBack('zones')} />
+        ) : (
+          <ZoneList onSelectZone={handleSelectZone} />
+        )
+      )}
+      {level === 'room-detail' && (
+        (selectedRoom && selectedZone) ? (
+          <RoomDetail room={selectedRoom} zone={selectedZone} onBack={handleBack} />
+        ) : (
+          <ZoneList onSelectZone={handleSelectZone} />
+        )
+      )}
+    </ErrorBoundary>
   );
 };

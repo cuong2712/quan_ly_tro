@@ -97,10 +97,21 @@ export const TenantInvoice = ({ activeTenant, invoices }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền thuê phòng</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(selectedInvoice.rentFee)}</td></tr>
-                  <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền điện</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(selectedInvoice.elecFee)}</td></tr>
-                  <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền nước</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(selectedInvoice.waterFee)}</td></tr>
-                  <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Phí dịch vụ</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(selectedInvoice.serviceFee)}</td></tr>
+                  {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
+                    selectedInvoice.items.map((item, idx) => (
+                      <tr key={idx}>
+                        <td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>{item.name}</td>
+                        <td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(item.amount || 0)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <>
+                      <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền thuê phòng</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(selectedInvoice.rentFee)}</td></tr>
+                      <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền điện</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(selectedInvoice.elecFee)}</td></tr>
+                      <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền nước</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(selectedInvoice.waterFee)}</td></tr>
+                      <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Phí dịch vụ</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(selectedInvoice.serviceFee)}</td></tr>
+                    </>
+                  )}
                 </tbody>
               </table>
 

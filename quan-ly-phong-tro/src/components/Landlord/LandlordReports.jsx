@@ -2,11 +2,15 @@ import React from 'react';
 import { BarChart3, Download, FileSpreadsheet, Printer, DollarSign, AlertCircle, Home, Zap, Users } from 'lucide-react';
 import { formatVND, exportToExcel, exportToPDF } from '../../utils/formatters';
 
-export const LandlordReports = ({ data }) => {
+export const LandlordReports = ({ data = {} }) => {
+  const invoices = Array.isArray(data.invoices) ? data.invoices : [];
+  const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+  const tenants = Array.isArray(data.tenants) ? data.tenants : [];
+
   const handleExportExcel = () => {
-    const reportData = data.invoices.map(inv => {
-      const room = data.rooms.find(r => r.id === inv.roomId);
-      const tenant = data.tenants.find(t => t.id === inv.tenantId);
+    const reportData = invoices.map(inv => {
+      const room = rooms.find(r => r.id === inv.roomId);
+      const tenant = tenants.find(t => t.id === inv.tenantId);
       return {
         'Mã Hóa Đơn': inv.invoiceCode,
         'Kỳ Tháng': inv.month,
@@ -101,9 +105,9 @@ export const LandlordReports = ({ data }) => {
               </tr>
             </thead>
             <tbody>
-              {data.invoices.map(inv => {
-                const room = data.rooms.find(r => r.id === inv.roomId);
-                const tenant = data.tenants.find(t => t.id === inv.tenantId);
+              {invoices.map(inv => {
+                const room = rooms.find(r => r.id === inv.roomId);
+                const tenant = tenants.find(t => t.id === inv.tenantId);
                 return (
                   <tr key={inv.id}>
                     <td>{inv.month}</td>

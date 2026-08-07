@@ -322,11 +322,22 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], tenants = 
                   </tr>
                 </thead>
                 <tbody>
-                  <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền thuê phòng</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(viewingInvoice.rentFee || 0)}</td></tr>
-                  <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền điện tiêu thụ</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(viewingInvoice.elecFee || 0)}</td></tr>
-                  <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền nước tiêu thụ</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(viewingInvoice.waterFee || 0)}</td></tr>
-                  {viewingInvoice.serviceFee > 0 && (
-                    <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Phí dịch vụ khác</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(viewingInvoice.serviceFee)}</td></tr>
+                  {viewingInvoice.items && viewingInvoice.items.length > 0 ? (
+                    viewingInvoice.items.map((item, idx) => (
+                      <tr key={idx}>
+                        <td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>{item.name}</td>
+                        <td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(item.amount || 0)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <>
+                      <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền thuê phòng</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(viewingInvoice.rentFee || 0)}</td></tr>
+                      <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền điện tiêu thụ</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(viewingInvoice.elecFee || 0)}</td></tr>
+                      <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Tiền nước tiêu thụ</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(viewingInvoice.waterFee || 0)}</td></tr>
+                      {viewingInvoice.serviceFee > 0 && (
+                        <tr><td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>Phí dịch vụ khác</td><td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatVND(viewingInvoice.serviceFee)}</td></tr>
+                      )}
+                    </>
                   )}
                   <tr style={{ fontWeight: 'bold', background: '#f8fafc' }}>
                     <td style={{ padding: '10px' }}>TỔNG CỘNG CẦN THANH TOÁN</td>

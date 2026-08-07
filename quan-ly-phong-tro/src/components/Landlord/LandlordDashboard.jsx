@@ -8,20 +8,26 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, ArcElement);
 
-export const LandlordDashboard = ({ data }) => {
-  const totalZones = data.zones.length;
-  const totalRooms = data.rooms.length;
-  const occupiedRooms = data.rooms.filter(r => r.status === 'occupied').length;
-  const vacantRooms = data.rooms.filter(r => r.status === 'vacant').length;
-  const totalTenants = data.tenants.length;
-  
-  const unpaidInvoices = data.invoices.filter(i => i.status === 'unpaid');
-  const unpaidCount = unpaidInvoices.length;
-  const outstandingDebt = unpaidInvoices.reduce((sum, i) => sum + i.totalAmount, 0);
+export const LandlordDashboard = ({ data = {} }) => {
+  const dbStats = data.dashboard || data || {};
+  const zones = Array.isArray(data.zones) ? data.zones : [];
+  const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+  const tenants = Array.isArray(data.tenants) ? data.tenants : [];
+  const invoices = Array.isArray(data.invoices) ? data.invoices : [];
 
-  const monthlyRevenue = data.invoices
-    .filter(i => i.month === '2026-07' && i.status === 'paid')
-    .reduce((sum, i) => sum + i.totalAmount, 0);
+  const totalZones = dbStats.totalZones ?? zones.length;
+  const totalRooms = dbStats.totalRooms ?? rooms.length;
+  const occupiedRooms = dbStats.occupied ?? rooms.filter(r => (r.status || '').toLowerCase() === 'occupied').length;
+  const vacantRooms = dbStats.vacant ?? rooms.filter(r => (r.status || '').toLowerCase() === 'vacant').length;
+  const totalTenants = dbStats.tenants ?? tenants.length;
+
+  const unpaidInvoices = invoices.filter(i => (i.status || '').toLowerCase() === 'unpaid');
+  const unpaidCount = dbStats.unpaidInvoices ?? unpaidInvoices.length;
+  const outstandingDebt = unpaidInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+
+  const monthlyRevenue = dbStats.revenue || invoices
+    .filter(i => i.month === '2026-07' && (i.status || '').toLowerCase() === 'paid')
+    .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
   const monthlyExpenses = 3500000; // Chi phí sửa chữa & bảo trì tháng 7
 
   // Biểu đồ Doanh thu theo tháng

@@ -92,6 +92,7 @@ public class AppDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasOne(x => x.Landlord).WithMany(u => u.Services).HasForeignKey(x => x.LandlordId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Zone).WithMany().HasForeignKey(x => x.ZoneId).OnDelete(DeleteBehavior.SetNull);
             e.Property(x => x.Price).HasColumnType("decimal(18,2)");
         });
 

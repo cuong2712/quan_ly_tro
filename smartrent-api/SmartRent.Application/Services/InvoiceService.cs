@@ -65,9 +65,55 @@ public class InvoiceService(AppDbContext db)
     {
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId) ?? throw new KeyNotFoundException("Phòng không tồn tại");
         var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.RoomId == req.RoomId) ?? throw new KeyNotFoundException("Không có khách thuê trong phòng này");
-        var totalAmount = req.RentFee + req.ElecFee + req.WaterFee + req.ServiceFee;
+
+        var activeServices = await db.Services
+            .Include(s => s.Zone)
+            .Where(s => s.LandlordId == landlordId && s.IsActive && (s.ZoneId == room.ZoneId || s.ZoneId == null))
+            .ToListAsync();
+
+        decimal serviceFee = req.ServiceFee;
+        if (serviceFee == 0 && activeServices.Count > 0)
+        {
+            serviceFee = activeServices.Sum(s => s.Price);
+        }
+
+        var totalAmount = req.RentFee + req.ElecFee + req.WaterFee + serviceFee;
         var code = $"HD-{req.Month.Replace("-", "")}-{room.RoomNumber}";
-        var inv = new Invoice { InvoiceCode = code, RoomId = req.RoomId, TenantProfileId = tenant.Id, Month = req.Month, RentFee = req.RentFee, ElecFee = req.ElecFee, WaterFee = req.WaterFee, ServiceFee = req.ServiceFee, TotalAmount = totalAmount, DueDate = req.DueDate, Items = [new InvoiceItem { Name = "Tiền thuê phòng", Amount = req.RentFee }, new InvoiceItem { Name = "Tiền điện", Amount = req.ElecFee }, new InvoiceItem { Name = "Tiền nước", Amount = req.WaterFee }, new InvoiceItem { Name = "Phí dịch vụ", Amount = req.ServiceFee }] };
+
+        var itemsList = new List<InvoiceItem>
+        {
+            new InvoiceItem { Name = "Tiền thuê phòng", Amount = req.RentFee },
+            new InvoiceItem { Name = "Tiền điện", Amount = req.ElecFee },
+            new InvoiceItem { Name = "Tiền nước", Amount = req.WaterFee }
+        };
+
+        if (activeServices.Count > 0)
+        {
+            foreach (var svc in activeServices)
+            {
+                var zoneTag = svc.Zone != null ? $" ({svc.Zone.Name})" : "";
+                itemsList.Add(new InvoiceItem { Name = $"{svc.Name}{zoneTag}", Amount = svc.Price });
+            }
+        }
+        else
+        {
+            itemsList.Add(new InvoiceItem { Name = "Phí dịch vụ", Amount = serviceFee });
+        }
+
+        var inv = new Invoice
+        {
+            InvoiceCode = code,
+            RoomId = req.RoomId,
+            TenantProfileId = tenant.Id,
+            Month = req.Month,
+            RentFee = req.RentFee,
+            ElecFee = req.ElecFee,
+            WaterFee = req.WaterFee,
+            ServiceFee = serviceFee,
+            TotalAmount = totalAmount,
+            DueDate = req.DueDate,
+            Items = itemsList
+        };
         db.Invoices.Add(inv);
         await db.SaveChangesAsync();
         inv.Room = room; inv.TenantProfile = tenant;
