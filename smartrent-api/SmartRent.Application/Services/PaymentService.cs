@@ -1,0 +1,128 @@
+using Microsoft.EntityFrameworkCore;
+using SmartRent.Core.DTOs;
+using SmartRent.Core.Entities;
+using SmartRent.Core.Enums;
+using SmartRent.Infrastructure.Data;
+
+namespace SmartRent.Application.Services;
+
+// Dịch vụ quản lý Giao dịch Thanh toán & Duyệt minh chứng biên lai (ProofImageUrl).
+public class PaymentService(AppDbContext db)
+{
+    // Lấy danh sách giao dịch thanh toán thuộc quyền quản lý của Chủ trọ.
+    public async Task<IEnumerable<PaymentDto>> GetByLandlordAsync(Guid landlordId)
+    {
+        var payments = await db.Payments
+            .Include(p => p.Invoice).ThenInclude(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(p => p.Invoice).ThenInclude(i => i.TenantProfile).ThenInclude(t => t.User)
+            .Where(p => p.Invoice.Room.Zone.LandlordId == landlordId)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+        return payments.Select(MapPayment);
+    }
+
+    // Lấy danh sách giao dịch thanh toán của Khách thuê theo ID hồ sơ (TenantProfileId).
+    public async Task<IEnumerable<PaymentDto>> GetByTenantAsync(Guid tenantProfileId)
+    {
+        var payments = await db.Payments
+            .Include(p => p.Invoice).ThenInclude(i => i.Room)
+            .Where(p => p.Invoice.TenantProfileId == tenantProfileId)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+        return payments.Select(MapPayment);
+    }
+
+    // Lấy danh sách giao dịch thanh toán của Khách thuê theo ID tài khoản (UserId).
+    public async Task<IEnumerable<PaymentDto>> GetByTenantUserIdAsync(Guid tenantUserId)
+    {
+        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        if (profile == null)
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            if (user != null)
+            {
+                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
+            }
+        }
+
+        if (profile == null) return [];
+
+        var payments = await db.Payments
+            .Include(p => p.Invoice).ThenInclude(i => i.Room)
+            .Where(p => p.Invoice.TenantProfileId == profile.Id || (profile.RoomId.HasValue && p.Invoice.RoomId == profile.RoomId.Value))
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+
+        return payments.Select(MapPayment);
+    }
+
+    // Khách thuê gửi thông tin thanh toán kèm ảnh minh chứng biên lai (ProofImageUrl).
+    public async Task<PaymentDto> SubmitAsync(Guid tenantUserId, SubmitPaymentRequest req)
+    {
+        var inv = await db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(i => i.Id == req.InvoiceId)
+            ?? throw new KeyNotFoundException("Hóa đơn không tồn tại");
+
+        var method = Enum.Parse<PaymentMethod>(req.Method, ignoreCase: true);
+        var pay = new Payment
+        {
+            InvoiceId = req.InvoiceId,
+            Amount = req.Amount > 0 ? req.Amount : inv.TotalAmount,
+            Method = method,
+            Status = PaymentStatus.PendingApproval,
+            ProofImageUrl = req.ProofImageUrl,
+            Note = req.Note
+        };
+
+        db.Payments.Add(pay);
+        await db.SaveChangesAsync();
+        pay.Invoice = inv;
+        return MapPayment(pay);
+    }
+
+    // Chủ trọ duyệt (Approve = true) hoặc từ chối (Approve = false) giao dịch thanh toán của khách thuê.
+    // Nếu duyệt thành công, tự động cập nhật hóa đơn tương ứng sang trạng thái Paid (Đã thanh toán).
+    public async Task<PaymentDto> ConfirmAsync(Guid id, Guid landlordId, ConfirmPaymentRequest req)
+    {
+        var pay = await db.Payments
+            .Include(p => p.Invoice).ThenInclude(i => i.Room)
+            .FirstOrDefaultAsync(p => p.Id == id)
+            ?? throw new KeyNotFoundException("Giao dịch thanh toán không tồn tại");
+
+        pay.Status = req.Approve ? PaymentStatus.Completed : PaymentStatus.Rejected;
+        pay.ConfirmedBy = landlordId;
+        pay.ConfirmedAt = DateTime.UtcNow;
+
+        if (req.Approve && pay.Invoice != null)
+        {
+            pay.Invoice.Status = InvoiceStatus.Paid;
+            pay.Invoice.PaidDate = DateTime.UtcNow;
+
+            if (pay.Invoice.Room != null && pay.Invoice.Room.Status == RoomStatus.Vacant)
+            {
+                pay.Invoice.Room.Status = RoomStatus.Occupied;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(req.Note))
+        {
+            pay.Note = req.Note;
+        }
+
+        await db.SaveChangesAsync();
+        return MapPayment(pay);
+    }
+
+    private static PaymentDto MapPayment(Payment p) => new(
+        p.Id,
+        p.InvoiceId,
+        p.Invoice?.InvoiceCode ?? "",
+        p.Amount,
+        p.Method.ToString(),
+        p.Status.ToString(),
+        p.ProofImageUrl,
+        p.Note,
+        p.CreatedAt,
+        p.ConfirmedAt
+    );
+}

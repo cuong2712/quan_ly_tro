@@ -1,0 +1,38 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using SmartRent.Application.Services;
+using SmartRent.Core.DTOs;
+using System.Security.Claims;
+
+namespace SmartRent.API.Controllers;
+
+// Controller quản lý Chỉ số Điện nước và Đơn giá Điện nước.
+[ApiController]
+[Route("api/[controller]")]
+[Authorize(Roles = "Landlord")]
+public class UtilitiesController(UtilityService utilityService) : ControllerBase
+{
+    private Guid LandlordId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    // Lấy nhật ký ghi nhận điện nước hàng tháng (có thể lọc theo phòng).
+    [HttpGet]
+    public async Task<IActionResult> GetLogs([FromQuery] Guid? roomId)
+        => Ok(await utilityService.GetByLandlordAsync(LandlordId, roomId));
+
+    // Chốt chỉ số điện nước mới cho phòng (tự động tính tiền và tạo hóa đơn).
+    [HttpPost]
+    public async Task<IActionResult> Record([FromBody] RecordUtilityRequest request)
+    {
+        try { return Ok(await utilityService.RecordAsync(LandlordId, request)); }
+        catch (KeyNotFoundException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Lấy bảng giá điện nước hiện tại của Chủ trọ.
+    [HttpGet("rate")]
+    public async Task<IActionResult> GetRate() => Ok(await utilityService.GetRateAsync(LandlordId));
+
+    // Cập nhật bảng giá điện (đ/kWh) và giá nước (đ/m³).
+    [HttpPut("rate")]
+    public async Task<IActionResult> UpdateRate([FromBody] UpdateUtilityRateRequest request)
+        => Ok(await utilityService.UpdateRateAsync(LandlordId, request));
+}

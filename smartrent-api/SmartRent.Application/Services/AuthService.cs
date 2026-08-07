@@ -12,12 +12,14 @@ using BCrypt.Net;
 
 namespace SmartRent.Application.Services;
 
+// Dịch vụ Xác thực & Phân quyền (Đăng nhập, cấp phát JWT AccessToken & RefreshToken, Đăng xuất).
 public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
 {
     private readonly string _jwtKey = config["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");
     private readonly string _jwtIssuer = config["Jwt:Issuer"] ?? "SmartRent";
     private readonly int _jwtExpireMinutes = int.Parse(config["Jwt:ExpireMinutes"] ?? "1440");
 
+    // Xử lý đăng nhập tài khoản bằng Email và Mật khẩu (trả về AccessToken, RefreshToken và thông tin User).
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Email == request.Email)
@@ -36,6 +38,7 @@ public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
         return new LoginResponse(accessToken, refreshToken, user.Role.ToString(), user.FullName, user.Email, user.AvatarUrl, user.Id);
     }
 
+    // Làm mới AccessToken bằng RefreshToken còn hạn.
     public async Task<LoginResponse> RefreshTokenAsync(string refreshToken)
     {
         var principal = ValidateToken(refreshToken);
