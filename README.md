@@ -131,7 +131,7 @@ Chỉnh sửa `SmartRent.API/appsettings.json`:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=smartrent_db;Username=postgres;Password=YOUR_PASSWORD"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=Quan_ly_phongtro;Username=postgres;Password=isiadmin"
   },
   "Jwt": {
     "Key": "YOUR_SUPER_SECRET_KEY_AT_LEAST_32_CHARS",
