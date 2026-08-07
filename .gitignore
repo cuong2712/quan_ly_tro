@@ -1,0 +1,55 @@
+# Visual Studio & IDE files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userossc
+*.sln.docstates
+*.userprefs
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# .NET Build artifacts & output directories
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.log
+api-startup*.log
+*.user
+*.cache
+*.ilk
+*.dir
+*.pdb
+
+# Node / JavaScript dependencies & build output
+node_modules/
+dist/
+dist-ssr/
+build/
+.npm/
+*.lcov
+
+# Environment & local settings
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+appsettings.Development.json
+appsettings.Local.json
+
+# Temporary files & cache
+[Tt]emp/
+[Tt]mp/
+*.tmp
+*.temp
