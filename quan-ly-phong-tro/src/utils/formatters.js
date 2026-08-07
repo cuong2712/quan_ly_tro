@@ -19,7 +19,7 @@ export const formatDate = (dateStr) => {
 };
 
 // Tạo liên kết hình ảnh QR Code chuyển khoản ngân hàng VietQR
-export const getVietQRUrl = ({ bankId = 'MB', accountNo = '0908123456', accountName = 'NGUYEN VAN HAI', amount = 0, addInfo = '' }) => {
+export const getVietQRUrl = ({ bankId = 'BIDV', accountNo = '6531211114', accountName = 'NGUYEN MANH CUONG', amount = 0, addInfo = '' }) => {
   const cleanInfo = encodeURIComponent(addInfo || 'Thanh toan tien nha');
   const cleanName = encodeURIComponent(accountName);
   return `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${cleanInfo}&accountName=${cleanName}`;
