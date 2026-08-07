@@ -432,10 +432,10 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
         />
       ) : (
         <>
-          {/* Filter bar */}
-          <div className="zone-room-filters" style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-            <div className="search-box" style={{ flex: '1 1 220px', minWidth: 220, position: 'relative' }}>
-              <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          {/* Filter bar - Đã căn chỉnh cân đối chiều cao 38px, icon center & flex gap */}
+          <div className="zone-room-filters" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 220, display: 'flex', alignItems: 'center' }}>
+              <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--text-muted)', pointerEvents: 'none' }} />
               <input
                 className="search-input"
                 placeholder="Tìm số phòng..."
@@ -445,19 +445,42 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                   background: 'var(--bg-card)',
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  padding: '8px 12px 8px 36px',
+                  borderRadius: '10px',
+                  padding: '0 14px 0 38px',
+                  height: '38px',
                   fontSize: '13px',
+                  fontWeight: 500,
                   width: '100%',
-                  outline: 'none'
+                  outline: 'none',
+                  boxSizing: 'border-box'
                 }}
               />
             </div>
-            {['all', 'Occupied', 'Vacant', 'Maintenance'].map(s => (
-              <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStatusFilter(s)}>
-                {s === 'all' ? `Tất cả (${statusCounts.all})` : `${STATUS_CONFIG[s]?.label} (${statusCounts[s] || 0})`}
-              </button>
-            ))}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {['all', 'Occupied', 'Vacant', 'Maintenance'].map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  style={{
+                    height: '38px',
+                    padding: '0 14px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    border: statusFilter === s ? '1px solid #6366f1' : '1px solid var(--border-color)',
+                    background: statusFilter === s ? '#6366f1' : 'var(--bg-card)',
+                    color: statusFilter === s ? '#ffffff' : 'var(--text-secondary)'
+                  }}
+                >
+                  {s === 'all' ? `Tất cả (${statusCounts.all})` : `${STATUS_CONFIG[s]?.label} (${statusCounts[s] || 0})`}
+                </button>
+              ))}
+            </div>
           </div>
 
           {filtered.length === 0 ? (
