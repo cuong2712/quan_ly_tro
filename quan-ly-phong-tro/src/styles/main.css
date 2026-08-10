@@ -983,3 +983,49 @@ body.light-mode .custom-table th {
   transform: translateY(-3px);
   box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.2);
 }
+
+/* ==========================================================================
+   CSS XUẤT FILE PDF - ĐẢM BẢO NỀN TRẮNG CHỮ ĐEN TRONG CẢ GIAO DIỆN TỐI (DARK MODE)
+   ========================================================================== */
+.pdf-export-active {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  padding: 24px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.pdf-export-active,
+.pdf-export-active * {
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  text-shadow: none !important;
+}
+
+.pdf-export-active h1,
+.pdf-export-active h2,
+.pdf-export-active h3,
+.pdf-export-active h4,
+.pdf-export-active h5,
+.pdf-export-active h6 {
+  color: #1e3a8a !important;
+}
+
+.pdf-export-active p,
+.pdf-export-active span,
+.pdf-export-active td,
+.pdf-export-active th,
+.pdf-export-active strong,
+.pdf-export-active div,
+.pdf-export-active label {
+  color: #0f172a !important;
+}
+
+.pdf-export-active div[style*="background"],
+.pdf-export-active .form-row > div,
+.pdf-export-active .sub-box {
+  background-color: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+

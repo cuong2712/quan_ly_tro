@@ -598,12 +598,12 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
               <h3 className="modal-title">Xem Chi Tiết Hợp Đồng: {viewingContract.contractCode}</h3>
               <button className="btn btn-sm btn-secondary" onClick={() => setViewingContract(null)}>X</button>
             </div>
-            <div className="modal-body" id="contract-pdf-content">
+            <div className="modal-body contract-paper" id="contract-pdf-content" style={{ background: '#ffffff', color: '#0f172a', padding: '28px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '20px', textTransform: 'uppercase', color: 'var(--primary)' }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
-                <p style={{ fontWeight: 'bold' }}>Độc lập - Tự do - Hạnh phúc</p>
-                <h3 style={{ marginTop: '16px', fontSize: '18px' }}>HỢP ĐỒNG THUÊ PHÒNG TRỌ</h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Mã số: {viewingContract.contractCode}</p>
+                <h2 style={{ fontSize: '20px', textTransform: 'uppercase', color: '#1e3a8a', fontWeight: '800' }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
+                <p style={{ fontWeight: 'bold', color: '#0f172a', marginTop: '4px' }}>Độc lập - Tự do - Hạnh phúc</p>
+                <h3 style={{ marginTop: '16px', fontSize: '18px', color: '#1e3a8a', fontWeight: '700' }}>HỢP ĐỒNG THUÊ PHÒNG TRỌ</h3>
+                <p style={{ fontSize: '12px', color: '#475569' }}>Mã số: {viewingContract.contractCode}</p>
               </div>
 
               {(() => {
@@ -622,21 +622,21 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 const tenantCccd = viewingContract.tenantCccd || viewingContract.TenantCccd || tenant?.cccd || tenant?.CCCD || 'Đã xác minh';
                 
                 return (
-                  <div style={{ lineHeight: '1.8', fontSize: '14px' }}>
-                    <p><strong>BÊN CHO THUÊ (BÊN A):</strong> {landlordName} {landlordPhone ? `- SĐT: ${landlordPhone}` : ''} {landlordEmail ? `(${landlordEmail})` : ''}</p>
-                    <p><strong>BÊN THUÊ PHÒNG (BÊN B):</strong> {tenantName} {tenantPhone ? `- SĐT: ${tenantPhone}` : ''} - CCCD: {tenantCccd}</p>
+                  <div style={{ lineHeight: '1.8', fontSize: '14px', color: '#0f172a' }}>
+                    <p style={{ color: '#0f172a' }}><strong style={{ color: '#0f172a' }}>BÊN CHO THUÊ (BÊN A):</strong> {landlordName} {landlordPhone ? `- SĐT: ${landlordPhone}` : ''} {landlordEmail ? `(${landlordEmail})` : ''}</p>
+                    <p style={{ color: '#0f172a' }}><strong style={{ color: '#0f172a' }}>BÊN THUÊ PHÒNG (BÊN B):</strong> {tenantName} {tenantPhone ? `- SĐT: ${tenantPhone}` : ''} - CCCD: {tenantCccd}</p>
                     
-                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
-                    <p>Bên A đồng ý cho Bên B thuê phòng số <strong>{room?.roomNumber || viewingContract.roomNumber || viewingContract.roomId}</strong> thuộc {zoneName} {zoneAddress ? `(Địa chỉ: ${zoneAddress})` : ''}.</p>
-                    <p>Thời hạn thuê: Từ ngày <strong>{formatDate(viewingContract.startDate)}</strong> đến ngày <strong>{formatDate(viewingContract.endDate)}</strong>.</p>
+                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
+                    <p style={{ color: '#0f172a' }}>Bên A đồng ý cho Bên B thuê phòng số <strong style={{ color: '#0f172a' }}>{room?.roomNumber || viewingContract.roomNumber || viewingContract.roomId}</strong> thuộc {zoneName} {zoneAddress ? `(Địa chỉ: ${zoneAddress})` : ''}.</p>
+                    <p style={{ color: '#0f172a' }}>Thời hạn thuê: Từ ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.startDate)}</strong> đến ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.endDate)}</strong>.</p>
 
-                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 2: GIÁ THUÊ VÀ ĐẶT CỌC</h4>
-                    <p>1. Giá tiền thuê phòng: <strong>{formatVND(viewingContract.rentAmount)} / tháng</strong>.</p>
-                    <p>2. Số tiền đặt cọc giữ phòng: <strong>{formatVND(viewingContract.deposit)}</strong>.</p>
-                    <p>3. Ngày thanh toán tiền nhà hàng tháng: Trước ngày <strong>{viewingContract.paymentTermDay || 5}</strong> hàng tháng.</p>
+                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 2: GIÁ THUÊ VÀ ĐẶT CỌC</h4>
+                    <p style={{ color: '#0f172a' }}>1. Giá tiền thuê phòng: <strong style={{ color: '#059669' }}>{formatVND(viewingContract.rentAmount)} / tháng</strong>.</p>
+                    <p style={{ color: '#0f172a' }}>2. Số tiền đặt cọc giữ phòng: <strong style={{ color: '#0f172a' }}>{formatVND(viewingContract.deposit)}</strong>.</p>
+                    <p style={{ color: '#0f172a' }}>3. Ngày thanh toán tiền nhà hàng tháng: Trước ngày <strong style={{ color: '#0f172a' }}>{viewingContract.paymentTermDay || 5}</strong> hàng tháng.</p>
 
-                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 3: QUY ĐỊNH CHUNG</h4>
-                    <p>{viewingContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}</p>
+                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 3: QUY ĐỊNH CHUNG</h4>
+                    <p style={{ color: '#0f172a' }}>{viewingContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}</p>
                   </div>
                 );
               })()}

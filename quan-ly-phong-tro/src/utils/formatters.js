@@ -40,48 +40,59 @@ export const exportToExcel = (data, fileName = 'Bao_Cao_SmartRent.xlsx', sheetNa
 };
 
 // Xuất file PDF bằng html2pdf.js hoặc window.print
-export const exportToPDF = (elementId, fileName = 'Document.pdf') => {
+export const exportToPDF = async (elementId, fileName = 'Document.pdf') => {
   const element = document.getElementById(elementId);
   if (!element) {
     alert('Không tìm thấy nội dung để xuất PDF');
     return;
   }
 
-  if (window.html2pdf) {
-    const opt = {
-      margin:       0.5,
-      filename:     fileName,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    window.html2pdf().set(opt).from(element).save();
-  } else {
-    // Fallback sang in ấn trực tiếp từ trình duyệt
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${fileName}</title>
-          <style>
-            body { font-family: 'Inter', sans-serif; padding: 20px; color: #1e293b; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
-            th { background-color: #f1f5f9; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          ${element.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+  // Tạm thời áp dụng class xuất PDF để đảm bảo tất cả chữ có màu đen/đậm trên nền trắng (kể cả khi ở giao diện tối Dark Mode)
+  element.classList.add('pdf-export-active');
+
+  try {
+    if (window.html2pdf) {
+      const opt = {
+        margin:       0.4,
+        filename:     fileName,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      await window.html2pdf().set(opt).from(element).save();
+    } else {
+      // Fallback sang in ấn trực tiếp từ trình duyệt
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${fileName}</title>
+            <style>
+              body { font-family: 'Inter', sans-serif; padding: 24px; color: #0f172a; background-color: #ffffff; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; color: #0f172a; }
+              th { background-color: #f1f5f9; color: #0f172a; }
+              .header { text-align: center; margin-bottom: 20px; }
+              .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+              div, p, span, h1, h2, h3, h4, h5, h6, strong { color: #0f172a !important; }
+            </style>
+          </head>
+          <body class="pdf-export-active">
+            ${element.innerHTML}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    }
+  } catch (err) {
+    console.error('Lỗi khi xuất file PDF:', err);
+  } finally {
+    // Loại bỏ class ép nền trắng sau khi xuất PDF xong
+    element.classList.remove('pdf-export-active');
   }
 };
