@@ -9,15 +9,26 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Giao dịch Thanh toán & Duyệt minh chứng biên lai (ProofImageUrl).
 public class PaymentService(AppDbContext db)
 {
-    // Lấy danh sách giao dịch thanh toán thuộc quyền quản lý của Chủ trọ.
-    public async Task<IEnumerable<PaymentDto>> GetByLandlordAsync(Guid landlordId)
+    // Lấy danh sách giao dịch thanh toán thuộc quyền quản lý của Chủ trọ (hỗ trợ phân trang).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
-        var payments = await db.Payments
+        var query = db.Payments
             .Include(p => p.Invoice).ThenInclude(i => i.Room).ThenInclude(r => r.Zone)
             .Include(p => p.Invoice).ThenInclude(i => i.TenantProfile).ThenInclude(t => t.User)
-            .Where(p => p.Invoice.Room.Zone.LandlordId == landlordId)
-            .OrderByDescending(p => p.CreatedAt)
-            .ToListAsync();
+            .Where(p => p.Invoice.Room.Zone.LandlordId == landlordId);
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderByDescending(p => p.CreatedAt)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(MapPayment);
+            return PagedResult<PaymentDto>.Create(dtos, totalItems, p, ps);
+        }
+        var payments = await query.OrderByDescending(p => p.CreatedAt).ToListAsync();
         return payments.Select(MapPayment);
     }
 

@@ -14,9 +14,10 @@ public class TenantsController(TenantService tenantService) : ControllerBase
 {
     private Guid LandlordId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    // Lấy danh sách tất cả người thuê trọ thuộc quyền quản lý của Chủ trọ.
+    // Lấy danh sách tất cả người thuê trọ thuộc quyền quản lý của Chủ trọ (hỗ trợ phân trang).
     [HttpGet]
-    public async Task<IActionResult> GetTenants() => Ok(await tenantService.GetByLandlordAsync(LandlordId));
+    public async Task<IActionResult> GetTenants([FromQuery] int? page, [FromQuery] int? pageSize)
+        => Ok(await tenantService.GetByLandlordAsync(LandlordId, page, pageSize));
 
     // Lấy chi tiết hồ sơ người thuê theo ID.
     [HttpGet("{id:guid}")]

@@ -8,11 +8,24 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Khu trọ / Tòa nhà của Chủ trọ.
 public class ZoneService(AppDbContext db)
 {
-    // Lấy danh sách tất cả các khu trọ thuộc về một Chủ trọ.
-    public async Task<IEnumerable<ZoneDto>> GetByLandlordAsync(Guid landlordId)
+    // Lấy danh sách tất cả các khu trọ thuộc về một Chủ trọ (hỗ trợ phân trang).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
-        var zones = await db.Zones.Include(z => z.Rooms).Where(z => z.LandlordId == landlordId).ToListAsync();
-        return zones.Select(z => new ZoneDto(z.Id, z.Name, z.Address, z.Description, z.TotalRooms, z.Rooms.Count, z.CreatedAt));
+        var query = db.Zones.Include(z => z.Rooms).Where(z => z.LandlordId == landlordId);
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderByDescending(z => z.CreatedAt)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(z => new ZoneDto(z.Id, z.Name, z.Address, z.Description, z.TotalRooms, z.Rooms.Count, z.CreatedAt));
+            return PagedResult<ZoneDto>.Create(dtos, totalItems, p, ps);
+        }
+        var list = await query.OrderByDescending(z => z.CreatedAt).ToListAsync();
+        return list.Select(z => new ZoneDto(z.Id, z.Name, z.Address, z.Description, z.TotalRooms, z.Rooms.Count, z.CreatedAt));
     }
 
     // Tạo mới một Khu trọ / Tòa nhà.

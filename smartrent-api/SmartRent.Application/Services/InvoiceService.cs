@@ -9,13 +9,25 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Hóa đơn tiền nhà (tạo mới hóa đơn, xem danh sách hóa đơn, cập nhật trạng thái thanh toán).
 public class InvoiceService(AppDbContext db)
 {
-    // Lấy danh sách hóa đơn dành cho Chủ trọ (lọc theo trạng thái và tháng).
-    public async Task<IEnumerable<InvoiceDto>> GetByLandlordAsync(Guid landlordId, string? status = null, string? month = null)
+    // Lấy danh sách hóa đơn của Chủ trọ (hỗ trợ phân trang và lọc theo trạng thái/tháng).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, string? status = null, string? month = null, int? page = null, int? pageSize = null)
     {
         var query = db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone).Include(i => i.TenantProfile).ThenInclude(t => t.User).Include(i => i.Items)
             .Where(i => i.Room.Zone.LandlordId == landlordId).AsQueryable();
         if (!string.IsNullOrEmpty(status)) query = query.Where(i => i.Status.ToString() == status);
         if (!string.IsNullOrEmpty(month)) query = query.Where(i => i.Month == month);
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderByDescending(i => i.CreatedAt)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(MapInvoice);
+            return PagedResult<InvoiceDto>.Create(dtos, totalItems, p, ps);
+        }
         return (await query.OrderByDescending(i => i.CreatedAt).ToListAsync()).Select(MapInvoice);
     }
 

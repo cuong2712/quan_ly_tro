@@ -9,12 +9,25 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Hợp đồng Thuê nhà (Tạo hợp đồng, thanh lý, gia hạn, cập nhật trạng thái phòng tự động).
 public class ContractService(AppDbContext db)
 {
-    // Lấy danh sách hợp đồng thuê nhà thuộc các phòng của Chủ trọ.
-    public async Task<IEnumerable<ContractDto>> GetByLandlordAsync(Guid landlordId)
+    // Lấy danh sách hợp đồng thuê nhà thuộc các phòng của Chủ trọ (hỗ trợ phân trang).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
-        var contracts = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone)
+        var query = db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .Where(c => c.Room.Zone.LandlordId == landlordId).ToListAsync();
+            .Where(c => c.Room.Zone.LandlordId == landlordId);
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderByDescending(c => c.CreatedAt)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(MapContract);
+            return PagedResult<ContractDto>.Create(dtos, totalItems, p, ps);
+        }
+        var contracts = await query.OrderByDescending(c => c.CreatedAt).ToListAsync();
         return contracts.Select(MapContract);
     }
 

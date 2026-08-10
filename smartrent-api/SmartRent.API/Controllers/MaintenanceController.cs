@@ -17,10 +17,10 @@ public class MaintenanceController(MaintenanceService maintenanceService) : Cont
 
     // Lấy danh sách yêu cầu bảo trì (Chủ trọ xem toàn bộ yêu cầu, Khách thuê xem các yêu cầu của phòng mình).
     [HttpGet]
-    public async Task<IActionResult> GetRequests()
+    public async Task<IActionResult> GetRequests([FromQuery] int? page, [FromQuery] int? pageSize)
     {
         if (CurrentRole == "Landlord")
-            return Ok(await maintenanceService.GetByLandlordAsync(CurrentUserId));
+            return Ok(await maintenanceService.GetByLandlordAsync(CurrentUserId, page, pageSize));
             
         return Ok(await maintenanceService.GetByTenantUserIdAsync(CurrentUserId));
     }

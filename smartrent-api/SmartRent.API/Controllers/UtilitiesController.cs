@@ -14,10 +14,10 @@ public class UtilitiesController(UtilityService utilityService) : ControllerBase
 {
     private Guid LandlordId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    // Lấy nhật ký ghi nhận điện nước hàng tháng (có thể lọc theo phòng).
+    // Lấy nhật ký ghi nhận điện nước hàng tháng (có thể lọc theo phòng và phân trang).
     [HttpGet]
-    public async Task<IActionResult> GetLogs([FromQuery] Guid? roomId)
-        => Ok(await utilityService.GetByLandlordAsync(LandlordId, roomId));
+    public async Task<IActionResult> GetLogs([FromQuery] Guid? roomId, [FromQuery] int? page, [FromQuery] int? pageSize)
+        => Ok(await utilityService.GetByLandlordAsync(LandlordId, roomId, page, pageSize));
 
     // Chốt chỉ số điện nước mới cho phòng (tự động tính tiền và tạo hóa đơn).
     [HttpPost]

@@ -9,13 +9,25 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Phòng trọ (thêm, sửa, xóa phòng, xem chi tiết phòng, lịch sử điện nước, hợp đồng và hóa đơn).
 public class RoomService(AppDbContext db)
 {
-    // Lấy danh sách các phòng trọ của Chủ trọ (có thể lọc theo ID khu trọ).
-    public async Task<IEnumerable<RoomDto>> GetByLandlordAsync(Guid landlordId, Guid? zoneId = null)
+    // Lấy danh sách các phòng trọ của Chủ trọ (hỗ trợ phân trang và lọc theo khu trọ).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, Guid? zoneId = null, int? page = null, int? pageSize = null)
     {
         var query = db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User)
             .Where(r => r.Zone.LandlordId == landlordId);
         if (zoneId.HasValue) query = query.Where(r => r.ZoneId == zoneId);
-        var rooms = await query.ToListAsync();
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderBy(r => r.RoomNumber)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(MapRoom);
+            return PagedResult<RoomDto>.Create(dtos, totalItems, p, ps);
+        }
+        var rooms = await query.OrderBy(r => r.RoomNumber).ToListAsync();
         return rooms.Select(MapRoom);
     }
 

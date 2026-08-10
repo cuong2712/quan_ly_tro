@@ -8,13 +8,25 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Danh mục Dịch vụ bổ sung của Chủ trọ (Wi-Fi, Rác, Gửi xe, Vệ sinh...).
 public class ServiceMgmtService(AppDbContext db)
 {
-    // Lấy danh sách dịch vụ của Chủ trọ (có thể lọc theo khu vực/ZoneId).
-    public async Task<IEnumerable<ServiceDto>> GetByLandlordAsync(Guid landlordId, Guid? zoneId = null)
+    // Lấy danh sách dịch vụ của Chủ trọ (hỗ trợ phân trang và lọc theo khu vực/ZoneId).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, Guid? zoneId = null, int? page = null, int? pageSize = null)
     {
         var query = db.Services.Include(s => s.Zone).Where(s => s.LandlordId == landlordId);
         if (zoneId.HasValue)
         {
             query = query.Where(s => s.ZoneId == zoneId || s.ZoneId == null);
+        }
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderByDescending(s => s.CreatedAt)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(MapSvc);
+            return PagedResult<ServiceDto>.Create(dtos, totalItems, p, ps);
         }
         var list = await query.OrderByDescending(s => s.CreatedAt).ToListAsync();
         return list.Select(MapSvc);

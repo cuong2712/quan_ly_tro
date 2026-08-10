@@ -9,16 +9,26 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Báo cáo Sự cố & Yêu cầu Bảo trì sửa chữa phòng trọ.
 public class MaintenanceService(AppDbContext db)
 {
-    // Lấy danh sách các yêu cầu bảo trì gửi tới Chủ trọ.
-    public async Task<IEnumerable<MaintenanceRequestDto>> GetByLandlordAsync(Guid landlordId)
+    // Lấy danh sách sự cố bảo trì dành cho Chủ trọ (hỗ trợ phân trang).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
-        var list = await db.MaintenanceRequests
+        var query = db.MaintenanceRequests
             .Include(m => m.Room).ThenInclude(r => r.Zone)
             .Include(m => m.TenantProfile).ThenInclude(t => t.User)
-            .Where(m => m.Room.Zone.LandlordId == landlordId || (m.TenantProfile != null && m.TenantProfile.Room != null && m.TenantProfile.Room.Zone.LandlordId == landlordId))
-            .OrderByDescending(m => m.CreatedAt)
-            .ToListAsync();
-
+            .Where(m => m.Room.Zone.LandlordId == landlordId || (m.TenantProfile != null && m.TenantProfile.Room != null && m.TenantProfile.Room.Zone.LandlordId == landlordId));
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderByDescending(m => m.CreatedAt)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(MapReq);
+            return PagedResult<MaintenanceRequestDto>.Create(dtos, totalItems, p, ps);
+        }
+        var list = await query.OrderByDescending(m => m.CreatedAt).ToListAsync();
         return list.Select(MapReq);
     }
 

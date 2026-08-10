@@ -17,10 +17,10 @@ public class PaymentsController(PaymentService paymentService) : ControllerBase
 
     // Lấy danh sách giao dịch thanh toán (Chủ trọ xem các khoản thu, Khách thuê xem lịch sử thanh toán của mình).
     [HttpGet]
-    public async Task<IActionResult> GetPayments()
+    public async Task<IActionResult> GetPayments([FromQuery] int? page, [FromQuery] int? pageSize)
     {
         if (CurrentRole == "Landlord")
-            return Ok(await paymentService.GetByLandlordAsync(CurrentUserId));
+            return Ok(await paymentService.GetByLandlordAsync(CurrentUserId, page, pageSize));
 
         return Ok(await paymentService.GetByTenantUserIdAsync(CurrentUserId));
     }

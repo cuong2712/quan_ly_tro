@@ -14,9 +14,10 @@ public class ZonesController(ZoneService zoneService) : ControllerBase
 {
     private Guid LandlordId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    // Lấy danh sách các khu trọ của Chủ trọ hiện tại.
+    // Lấy danh sách các khu trọ của Chủ trọ hiện tại (hỗ trợ phân trang).
     [HttpGet]
-    public async Task<IActionResult> GetZones() => Ok(await zoneService.GetByLandlordAsync(LandlordId));
+    public async Task<IActionResult> GetZones([FromQuery] int? page, [FromQuery] int? pageSize)
+        => Ok(await zoneService.GetByLandlordAsync(LandlordId, page, pageSize));
 
     // Tạo mới một Khu trọ / Tòa nhà.
     [HttpPost]

@@ -9,15 +9,27 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Hồ sơ Khách thuê (Tạo tài khoản khách thuê, chuyển phòng, cập nhật giấy tờ CCCD, xóa dữ liệu).
 public class TenantService(AppDbContext db)
 {
-    // Lấy danh sách tất cả người thuê thuộc quyền quản lý của Chủ trọ.
-    public async Task<IEnumerable<TenantDto>> GetByLandlordAsync(Guid landlordId)
+    // Lấy danh sách tất cả người thuê thuộc quyền quản lý của Chủ trọ (hỗ trợ phân trang).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
-        var tenants = await db.TenantProfiles
+        var query = db.TenantProfiles
             .Include(t => t.User)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .Include(t => t.Contracts)
-            .Where(t => (t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId))
-            .ToListAsync();
+            .Where(t => (t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId));
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderByDescending(t => t.MoveInDate)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(MapTenant);
+            return PagedResult<TenantDto>.Create(dtos, totalItems, p, ps);
+        }
+        var tenants = await query.OrderByDescending(t => t.MoveInDate).ToListAsync();
         return tenants.Select(MapTenant);
     }
 

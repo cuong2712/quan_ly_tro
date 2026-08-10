@@ -14,10 +14,10 @@ public class RoomsController(RoomService roomService) : ControllerBase
 {
     private Guid LandlordId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    // Lấy danh sách phòng trọ của Chủ trọ (có thể lọc theo khu trọ zoneId).
+    // Lấy danh sách phòng trọ của Chủ trọ (có thể lọc theo khu trọ zoneId và phân trang).
     [HttpGet]
-    public async Task<IActionResult> GetRooms([FromQuery] Guid? zoneId)
-        => Ok(await roomService.GetByLandlordAsync(LandlordId, zoneId));
+    public async Task<IActionResult> GetRooms([FromQuery] Guid? zoneId, [FromQuery] int? page, [FromQuery] int? pageSize)
+        => Ok(await roomService.GetByLandlordAsync(LandlordId, zoneId, page, pageSize));
 
     // Lấy thông tin cơ bản của một phòng trọ theo ID.
     [HttpGet("{id:guid}")]

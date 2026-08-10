@@ -9,11 +9,23 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Điện nước (Ghi chỉ số hàng tháng, cài đặt đơn giá điện nước và tự động tính/tạo Hóa đơn).
 public class UtilityService(AppDbContext db)
 {
-    // Lấy lịch sử chỉ số điện nước theo Chủ trọ (có thể lọc theo ID phòng cụ thể).
-    public async Task<IEnumerable<UtilityLogDto>> GetByLandlordAsync(Guid landlordId, Guid? roomId = null)
+    // Lấy nhật ký chỉ số điện nước (hỗ trợ phân trang và lọc theo phòng).
+    public async Task<object> GetByLandlordAsync(Guid landlordId, Guid? roomId = null, int? page = null, int? pageSize = null)
     {
         var query = db.UtilityLogs.Include(u => u.Room).ThenInclude(r => r.Zone).Where(u => u.Room.Zone.LandlordId == landlordId).AsQueryable();
         if (roomId.HasValue) query = query.Where(u => u.RoomId == roomId);
+        var totalItems = await query.CountAsync();
+        if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
+        {
+            var p = page.Value > 0 ? page.Value : 1;
+            var ps = pageSize.Value;
+            var items = await query.OrderByDescending(u => u.Month)
+                .Skip((p - 1) * ps)
+                .Take(ps)
+                .ToListAsync();
+            var dtos = items.Select(MapLog);
+            return PagedResult<UtilityLogDto>.Create(dtos, totalItems, p, ps);
+        }
         var logs = await query.OrderByDescending(u => u.Month).ToListAsync();
         return logs.Select(MapLog);
     }

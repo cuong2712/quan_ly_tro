@@ -17,10 +17,10 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
 
     // Lấy danh sách hóa đơn (Chủ trọ xem toàn bộ hóa đơn khu mình quản lý, Khách thuê xem hóa đơn phòng mình).
     [HttpGet]
-    public async Task<IActionResult> GetInvoices([FromQuery] string? status, [FromQuery] string? month)
+    public async Task<IActionResult> GetInvoices([FromQuery] string? status, [FromQuery] string? month, [FromQuery] int? page, [FromQuery] int? pageSize)
     {
         if (CurrentRole == "Landlord")
-            return Ok(await invoiceService.GetByLandlordAsync(CurrentUserId, status, month));
+            return Ok(await invoiceService.GetByLandlordAsync(CurrentUserId, status, month, page, pageSize));
 
         return Ok(await invoiceService.GetByTenantUserIdAsync(CurrentUserId));
     }

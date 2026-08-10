@@ -17,10 +17,10 @@ public class ContractsController(ContractService contractService) : ControllerBa
 
     // Lấy danh sách hợp đồng (tùy theo vai trò: Chủ trọ xem hợp đồng khu mình, Khách thuê xem hợp đồng của bản thân).
     [HttpGet]
-    public async Task<IActionResult> GetContracts()
+    public async Task<IActionResult> GetContracts([FromQuery] int? page, [FromQuery] int? pageSize)
     {
         if (CurrentRole == "Landlord")
-            return Ok(await contractService.GetByLandlordAsync(CurrentUserId));
+            return Ok(await contractService.GetByLandlordAsync(CurrentUserId, page, pageSize));
         var tenantSvc = HttpContext.RequestServices.GetRequiredService<TenantService>();
         var profile = await tenantSvc.GetByUserIdAsync(CurrentUserId);
         if (profile is null) return NotFound();
