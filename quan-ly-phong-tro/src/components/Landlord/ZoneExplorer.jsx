@@ -375,74 +375,134 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}><div className="tab-spinner" /></div>;
 
   return (
-    <div className="zone-detail-workspace">
+    <div className="zone-detail-workspace" style={{ width: '100%', maxWidth: '100%' }}>
       {/* 🔙 Nút Quay Lại Trang Trước & Breadcrumb */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <button
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary"
           onClick={onBack}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '8px 14px' }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            fontWeight: 700,
+            fontSize: '14px',
+            padding: '9px 16px',
+            borderRadius: '10px',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+          }}
         >
-          <ArrowLeft size={16} /> Quay lại danh sách khu trọ
+          <ArrowLeft size={18} /> Quay lại danh sách khu trọ
         </button>
-        <span style={{ color: 'var(--text-muted)' }}>/</span>
-        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{zone.name}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 16 }}>/</span>
+        <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)' }}>{zone.name}</span>
       </div>
 
       {/* 📊 Header Tổng Quan Của Khu Trọ Này */}
-      <div className="card" style={{ marginBottom: 20, padding: '20px', background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, var(--bg-card) 100%)', border: '1px solid rgba(99,102,241,0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+      <div className="card zone-detail-header-card" style={{
+        marginBottom: 24,
+        padding: '24px',
+        borderRadius: '18px',
+        border: '1px solid var(--border-color)',
+        background: 'var(--bg-card)',
+        boxShadow: 'var(--shadow-card)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Building2 size={24} color="#6366f1" /> {zone.name}
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'rgba(99,102,241,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Building2 size={24} color="#6366f1" />
+              </div>
+              {zone.name}
             </h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <MapPin size={13} /> {zone.address}
+            <p style={{ margin: '6px 0 0 56px', fontSize: 14, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+              <MapPin size={15} color="#6366f1" /> {zone.address}
             </p>
           </div>
-          <button className="btn btn-primary" onClick={openAdd}><Plus size={16} /> Thêm Phòng Mới</button>
+          <button className="btn btn-primary" onClick={openAdd} style={{ padding: '10px 20px', fontSize: 14, fontWeight: 700, borderRadius: 12 }}>
+            <Plus size={18} /> Thêm Phòng Mới
+          </button>
         </div>
 
         {/* Thẻ Thống Kê Tổng Quan Của Khu Trọ */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
-          <div style={{ padding: '12px', background: 'var(--bg-dark)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{roomList.length}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Tổng số phòng</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
+          <div className="stat-box" style={{
+            padding: '14px 16px',
+            borderRadius: 12,
+            textAlign: 'center',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-dark)'
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{roomList.length}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginTop: 4 }}>Tổng số phòng</div>
           </div>
-          <div style={{ padding: '12px', background: 'rgba(99,102,241,0.12)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#6366f1' }}>{statusCounts.Occupied}</div>
-            <div style={{ fontSize: 12, color: '#6366f1', fontWeight: 600, marginTop: 2 }}>🟣 Đang thuê</div>
+
+          <div className="stat-box stat-occupied" style={{
+            padding: '14px 16px',
+            borderRadius: 12,
+            textAlign: 'center',
+            border: '1px solid rgba(99,102,241,0.3)',
+            background: 'rgba(99,102,241,0.12)'
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#6366f1' }}>{statusCounts.Occupied}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#6366f1', marginTop: 4 }}>🟣 Đang thuê</div>
           </div>
-          <div style={{ padding: '12px', background: 'rgba(16,185,129,0.12)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#10b981' }}>{statusCounts.Vacant}</div>
-            <div style={{ fontSize: 12, color: '#10b981', fontWeight: 600, marginTop: 2 }}>🟢 Còn trống</div>
+
+          <div className="stat-box stat-vacant" style={{
+            padding: '14px 16px',
+            borderRadius: 12,
+            textAlign: 'center',
+            border: '1px solid rgba(16,185,129,0.3)',
+            background: 'rgba(16,185,129,0.12)'
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{statusCounts.Vacant}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981', marginTop: 4 }}>🟢 Còn trống</div>
           </div>
-          <div style={{ padding: '12px', background: 'rgba(245,158,11,0.12)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#f59e0b' }}>{statusCounts.Maintenance}</div>
-            <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600, marginTop: 2 }}>🟡 Bảo trì</div>
+
+          <div className="stat-box stat-maintenance" style={{
+            padding: '14px 16px',
+            borderRadius: 12,
+            textAlign: 'center',
+            border: '1px solid rgba(245,158,11,0.3)',
+            background: 'rgba(245,158,11,0.12)'
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{statusCounts.Maintenance}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', marginTop: 4 }}>🟡 Bảo trì</div>
           </div>
-          <div style={{ padding: '12px', background: 'var(--bg-dark)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: occupancyRate >= 80 ? '#10b981' : '#f59e0b' }}>{occupancyRate}%</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Tỷ lệ lấp đầy</div>
+
+          <div className="stat-box" style={{
+            padding: '14px 16px',
+            borderRadius: 12,
+            textAlign: 'center',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-dark)'
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: occupancyRate >= 80 ? '#10b981' : '#f59e0b' }}>{occupancyRate}%</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginTop: 4 }}>Tỷ lệ lấp đầy</div>
           </div>
         </div>
       </div>
 
       {/* 🧭 Sub-Tabs: Danh Sách Phòng vs Dịch Vụ Khu Trọ */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 22, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
         <button
           className={`btn ${activeTab === 'rooms' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('rooms')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700 }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: '15px', padding: '10px 20px', borderRadius: '12px' }}
         >
-          <Home size={16} /> Danh Sách Phòng ({roomList.length})
+          <Home size={18} /> Danh Sách Phòng ({roomList.length})
         </button>
         <button
           className={`btn ${activeTab === 'services' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('services')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700 }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: '15px', padding: '10px 20px', borderRadius: '12px' }}
         >
-          <Settings size={16} /> Dịch Vụ Khu Trọ ({serviceList.length})
+          <Settings size={18} /> Dịch Vụ Khu Trọ ({serviceList.length})
         </button>
       </div>
 
@@ -456,10 +516,10 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
         />
       ) : (
         <>
-          {/* Filter bar - Đã căn chỉnh cân đối chiều cao 38px, icon center & flex gap */}
-          <div className="zone-room-filters" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 220, display: 'flex', alignItems: 'center' }}>
-              <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--text-muted)', pointerEvents: 'none' }} />
+          {/* Filter bar - Đã căn chỉnh cân đối chiều cao 42px & full width */}
+          <div className="zone-room-filters" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap', width: '100%' }}>
+            <div style={{ position: 'relative', flex: '1 1 260px', minWidth: 240, display: 'flex', alignItems: 'center' }}>
+              <Search size={18} style={{ position: 'absolute', left: 14, color: 'var(--text-secondary)', pointerEvents: 'none' }} />
               <input
                 className="search-input"
                 placeholder="Tìm số phòng..."
@@ -469,10 +529,10 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                   background: 'var(--bg-card)',
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  padding: '0 14px 0 38px',
-                  height: '38px',
-                  fontSize: '13px',
+                  borderRadius: '12px',
+                  padding: '0 16px 0 42px',
+                  height: '42px',
+                  fontSize: '14px',
                   fontWeight: 500,
                   width: '100%',
                   outline: 'none',
@@ -486,11 +546,11 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                   key={s}
                   onClick={() => setStatusFilter(s)}
                   style={{
-                    height: '38px',
-                    padding: '0 14px',
-                    borderRadius: '10px',
-                    fontSize: '13px',
-                    fontWeight: 600,
+                    height: '42px',
+                    padding: '0 18px',
+                    borderRadius: '12px',
+                    fontSize: '14px',
+                    fontWeight: 700,
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -498,7 +558,8 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                     transition: 'all 0.2s ease',
                     border: statusFilter === s ? '1px solid #6366f1' : '1px solid var(--border-color)',
                     background: statusFilter === s ? '#6366f1' : 'var(--bg-card)',
-                    color: statusFilter === s ? '#ffffff' : 'var(--text-secondary)'
+                    color: statusFilter === s ? '#ffffff' : 'var(--text-secondary)',
+                    boxShadow: statusFilter === s ? '0 4px 14px rgba(99,102,241,0.3)' : '0 2px 4px rgba(0,0,0,0.02)'
                   }}
                 >
                   {s === 'all' ? `Tất cả (${statusCounts.all})` : `${STATUS_CONFIG[s]?.label} (${statusCounts[s] || 0})`}
@@ -510,12 +571,12 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
           {filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
               <Home size={48} style={{ opacity: 0.2, marginBottom: 12 }} />
-              <p>{roomList.length === 0 ? 'Chưa có phòng nào trong khu trọ này.' : 'Không tìm thấy phòng phù hợp'}</p>
+              <p style={{ fontSize: 15, fontWeight: 500 }}>{roomList.length === 0 ? 'Chưa có phòng nào trong khu trọ này.' : 'Không tìm thấy phòng phù hợp'}</p>
               {roomList.length === 0 && <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={openAdd}><Plus size={16} /> Thêm phòng mới</button>}
             </div>
           ) : (
             <>
-              <div className="zone-room-grid">
+              <div className="zone-room-grid" style={{ width: '100%' }}>
                 {paginatedRooms.map(r => {
                   const sc = STATUS_CONFIG[r.status] || STATUS_CONFIG.Vacant;
                   return (
@@ -526,38 +587,39 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                       style={{
                         cursor: 'pointer',
                         position: 'relative',
-                        padding: '16px',
-                        borderRadius: '14px',
+                        padding: '20px',
+                        borderRadius: '16px',
                         background: 'var(--bg-card)',
-                        border: `1px solid ${sc.color}33`,
+                        border: `1.5px solid ${sc.color}44`,
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
-                        gap: '12px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                        gap: '16px',
+                        boxShadow: 'var(--shadow-card)',
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                       }}
                     >
                       <div>
                         {/* Header: Icon + Số phòng & Trạng thái */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             <div style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 10,
+                              width: 44,
+                              height: 44,
+                              borderRadius: 12,
                               background: sc.bg,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               flexShrink: 0
                             }}>
-                              <Home size={18} color={sc.color} />
+                              <Home size={22} color={sc.color} />
                             </div>
                             <div>
-                              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>
                                 Phòng {r.roomNumber}
                               </div>
-                              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                              <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', fontWeight: 500, marginTop: 3 }}>
                                 Tầng {r.floor} • {r.area} m²
                               </div>
                             </div>
@@ -565,11 +627,11 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                           <span style={{
                             background: sc.bg,
                             color: sc.color,
-                            fontSize: 11.5,
+                            fontSize: 12.5,
                             fontWeight: 700,
-                            padding: '4px 10px',
+                            padding: '5px 12px',
                             borderRadius: 20,
-                            border: `1px solid ${sc.color}40`,
+                            border: `1px solid ${sc.color}50`,
                             flexShrink: 0
                           }}>
                             {sc.label}
@@ -577,42 +639,42 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                         </div>
 
                         {/* Giá Thuê */}
-                        <div style={{ fontSize: 17, fontWeight: 800, color: '#6366f1', marginBottom: 10 }}>
-                          {formatVND(r.price)}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>/tháng</span>
+                        <div style={{ fontSize: 21, fontWeight: 800, color: '#6366f1', marginBottom: 14 }}>
+                          {formatVND(r.price)}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', marginLeft: 3 }}>/tháng</span>
                         </div>
 
                         {/* Chỉ số Điện / Nước - Phân bổ 2 bên cân đối */}
-                        <div style={{
+                        <div className="meter-box" style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          fontSize: 12,
-                          color: 'var(--text-muted)',
-                          padding: '8px 12px',
-                          background: 'var(--bg-dark, rgba(0,0,0,0.15))',
-                          borderRadius: 8
+                          fontSize: 13.5,
+                          padding: '10px 14px',
+                          borderRadius: 10,
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-dark)'
                         }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                            <Zap size={14} color="#f59e0b" /> Điện: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.elecMeter} kWh</strong>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                            <Zap size={16} color="#f59e0b" style={{ flexShrink: 0 }} /> Điện: <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{r.elecMeter} kWh</strong>
                           </span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                            <Droplets size={14} color="#06b6d4" /> Nước: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.waterMeter} m³</strong>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                            <Droplets size={16} color="#06b6d4" style={{ flexShrink: 0 }} /> Nước: <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{r.waterMeter} m³</strong>
                           </span>
                         </div>
                       </div>
 
                       {/* Footer: Thao tác & Xem chi tiết */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--border-color)', marginTop: 'auto' }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-sm btn-secondary" onClick={e => openEdit(r, e)} title="Sửa thông tin phòng" style={{ padding: '5px 9px' }}>
-                            <Edit size={13} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTop: '1px solid var(--border-color)', marginTop: 'auto' }}>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button className="btn btn-sm btn-secondary" onClick={e => openEdit(r, e)} title="Sửa thông tin phòng" style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}>
+                            <Edit size={15} />
                           </button>
-                          <button className="btn btn-sm btn-danger" onClick={e => handleDelete(r, e)} title="Xóa phòng" style={{ padding: '5px 9px' }}>
-                            <Trash2 size={13} />
+                          <button className="btn btn-sm btn-danger" onClick={e => handleDelete(r, e)} title="Xóa phòng" style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}>
+                            <Trash2 size={15} />
                           </button>
                         </div>
-                        <span style={{ color: '#6366f1', fontSize: 12.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                          Chi tiết phòng <ChevronRight size={14} />
+                        <span style={{ color: '#6366f1', fontSize: 13.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          Chi tiết phòng <ChevronRight size={16} />
                         </span>
                       </div>
                     </div>
