@@ -42,16 +42,18 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
           <div style={{ lineHeight: '1.8', fontSize: '14px' }}>
             <div className="form-row" style={{ marginBottom: '16px' }}>
               <div style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px' }}>
-                <strong>Bên Cho Thuê (Chủ nhà):</strong> Nguyễn Văn Hải<br />
-                <strong>SĐT:</strong> 0908123456
+                <strong>Bên Cho Thuê (Chủ nhà):</strong> {myContract.landlordName || 'Chủ trọ'}<br />
+                <strong>SĐT:</strong> {myContract.landlordPhone || 'Chưa cập nhật'}<br />
+                {myContract.zoneName && <small style={{ color: 'var(--text-muted)' }}>Khu: {myContract.zoneName} {myContract.zoneAddress ? `(${myContract.zoneAddress})` : ''}</small>}
               </div>
               <div style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px' }}>
-                <strong>Bên Thuê (Khách):</strong> {activeTenant.fullName || activeTenant.name}<br />
-                <strong>CCCD:</strong> {activeTenant.cccd || 'Đã cập nhật'}
+                <strong>Bên Thuê (Khách):</strong> {myContract.tenantName || activeTenant?.fullName || activeTenant?.name || 'Khách thuê'}<br />
+                <strong>SĐT:</strong> {myContract.tenantPhone || activeTenant?.phone || 'Chưa cập nhật'}<br />
+                <strong>CCCD:</strong> {myContract.tenantCccd || activeTenant?.cccd || 'Đã cập nhật'}
               </div>
             </div>
 
-            <p><strong>Phòng Thuê:</strong> Phòng {roomNum}</p>
+            <p><strong>Phòng Thuê:</strong> Phòng {roomNum} {myContract.zoneName ? `(${myContract.zoneName})` : ''}</p>
             <p><strong>Thời Hạn Hợp Đồng:</strong> Từ <strong>{formatDate(myContract.startDate)}</strong> đến <strong>{formatDate(myContract.endDate)}</strong></p>
             <p><strong>Giá Thuê Phòng:</strong> <strong style={{ color: '#34d399' }}>{formatVND(myContract.rentAmount)} / tháng</strong></p>
             <p><strong>Tiền Đặt Cọc:</strong> {formatVND(myContract.deposit)}</p>

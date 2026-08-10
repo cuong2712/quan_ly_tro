@@ -606,22 +606,40 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Mã số: {viewingContract.contractCode}</p>
               </div>
 
-              <div style={{ lineHeight: '1.8', fontSize: '14px' }}>
-                <p><strong>BÊN CHO THUÊ (BÊN A):</strong> NGUYỄN VĂN HẢI - SĐT: 0908123456</p>
-                <p><strong>BÊN THUÊ PHÒNG (BÊN B):</strong> {tenants.find(t => t.id === viewingContract.tenantId)?.name || tenants.find(t => t.id === viewingContract.tenantId)?.fullName || 'Nguyễn Văn Minh'} - CCCD: {tenants.find(t => t.id === viewingContract.tenantId)?.cccd || '079201008899'}</p>
+              {(() => {
+                const room = rooms.find(r => r.id === viewingContract.roomId || r.id === viewingContract.RoomId);
+                const zone = zones.find(z => z.id === (room?.zoneId || room?.ZoneId || viewingContract.zoneId || viewingContract.ZoneId));
+                const tenant = tenants.find(t => t.id === viewingContract.tenantId || t.id === viewingContract.tenantProfileId || t.id === viewingContract.TenantProfileId);
                 
-                <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
-                <p>Bên A đồng ý cho Bên B thuê phòng số <strong>{rooms.find(r => r.id === viewingContract.roomId)?.roomNumber || viewingContract.roomId}</strong> thuộc Khu trọ SmartRent.</p>
-                <p>Thời hạn thuê: Từ ngày <strong>{formatDate(viewingContract.startDate)}</strong> đến ngày <strong>{formatDate(viewingContract.endDate)}</strong>.</p>
+                const landlordName = viewingContract.landlordName || viewingContract.LandlordName || zone?.landlordName || 'Chủ trọ';
+                const landlordPhone = viewingContract.landlordPhone || viewingContract.LandlordPhone || zone?.landlordPhone || '';
+                const landlordEmail = viewingContract.landlordEmail || viewingContract.LandlordEmail || '';
+                const zoneName = viewingContract.zoneName || viewingContract.ZoneName || zone?.name || 'Khu trọ';
+                const zoneAddress = viewingContract.zoneAddress || viewingContract.ZoneAddress || zone?.address || '';
+                
+                const tenantName = viewingContract.tenantName || viewingContract.TenantName || tenant?.fullName || tenant?.name || 'Khách thuê';
+                const tenantPhone = viewingContract.tenantPhone || viewingContract.TenantPhone || tenant?.phone || '';
+                const tenantCccd = viewingContract.tenantCccd || viewingContract.TenantCccd || tenant?.cccd || tenant?.CCCD || 'Đã xác minh';
+                
+                return (
+                  <div style={{ lineHeight: '1.8', fontSize: '14px' }}>
+                    <p><strong>BÊN CHO THUÊ (BÊN A):</strong> {landlordName} {landlordPhone ? `- SĐT: ${landlordPhone}` : ''} {landlordEmail ? `(${landlordEmail})` : ''}</p>
+                    <p><strong>BÊN THUÊ PHÒNG (BÊN B):</strong> {tenantName} {tenantPhone ? `- SĐT: ${tenantPhone}` : ''} - CCCD: {tenantCccd}</p>
+                    
+                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
+                    <p>Bên A đồng ý cho Bên B thuê phòng số <strong>{room?.roomNumber || viewingContract.roomNumber || viewingContract.roomId}</strong> thuộc {zoneName} {zoneAddress ? `(Địa chỉ: ${zoneAddress})` : ''}.</p>
+                    <p>Thời hạn thuê: Từ ngày <strong>{formatDate(viewingContract.startDate)}</strong> đến ngày <strong>{formatDate(viewingContract.endDate)}</strong>.</p>
 
-                <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 2: GIÁ THUÊ VÀ ĐẶT CỌC</h4>
-                <p>1. Giá tiền thuê phòng: <strong>{formatVND(viewingContract.rentAmount)} / tháng</strong>.</p>
-                <p>2. Số tiền đặt cọc giữ phòng: <strong>{formatVND(viewingContract.deposit)}</strong>.</p>
-                <p>3. Ngày thanh toán tiền nhà hàng tháng: Trước ngày <strong>05</strong> mỗi tháng.</p>
+                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 2: GIÁ THUÊ VÀ ĐẶT CỌC</h4>
+                    <p>1. Giá tiền thuê phòng: <strong>{formatVND(viewingContract.rentAmount)} / tháng</strong>.</p>
+                    <p>2. Số tiền đặt cọc giữ phòng: <strong>{formatVND(viewingContract.deposit)}</strong>.</p>
+                    <p>3. Ngày thanh toán tiền nhà hàng tháng: Trước ngày <strong>{viewingContract.paymentTermDay || 5}</strong> hàng tháng.</p>
 
-                <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 3: QUY ĐỊNH CHUNG</h4>
-                <p>{viewingContract.terms}</p>
-              </div>
+                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>ĐIỀU 3: QUY ĐỊNH CHUNG</h4>
+                    <p>{viewingContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}</p>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="modal-footer">
