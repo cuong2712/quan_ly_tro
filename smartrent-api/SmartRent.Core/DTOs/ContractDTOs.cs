@@ -3,7 +3,9 @@ namespace SmartRent.Core.DTOs;
 
 public record ContractDto(
     Guid Id, string ContractCode, Guid RoomId, string RoomNumber,
-    Guid TenantProfileId, string TenantName, string TenantPhone,
+    Guid ZoneId, string ZoneName, string ZoneAddress,
+    Guid LandlordId, string LandlordName, string LandlordPhone, string? LandlordEmail,
+    Guid TenantProfileId, string TenantName, string TenantPhone, string? TenantCccd,
     DateTime StartDate, DateTime EndDate,
     decimal RentAmount, decimal Deposit, string Status,
     int PaymentTermDay, string? Terms, string? FileUrl,
@@ -24,3 +26,4 @@ public record UpdateContractRequest(
 );
 
 public record RenewContractRequest(int ExtendMonths, decimal? NewRentAmount);
+

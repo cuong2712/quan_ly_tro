@@ -99,7 +99,7 @@ public class RoomService(AppDbContext db)
             .ToListAsync();
 
         var activeContract = await db.Contracts
-            .Include(c => c.Room)
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile!).ThenInclude(t => t.User)
             .FirstOrDefaultAsync(c => c.RoomId == roomId && c.Status == ContractStatus.Active);
 
@@ -130,8 +130,10 @@ public class RoomService(AppDbContext db)
         {
             var c = activeContract;
             activeContractDto = new ContractDto(
-                c.Id, c.ContractCode, c.RoomId, c.Room?.RoomNumber ?? "", c.TenantProfileId,
-                c.TenantProfile?.User?.FullName ?? "", c.TenantProfile?.User?.Phone ?? "",
+                c.Id, c.ContractCode, c.RoomId, c.Room?.RoomNumber ?? "",
+                c.Room?.ZoneId ?? Guid.Empty, c.Room?.Zone?.Name ?? "", c.Room?.Zone?.Address ?? "",
+                c.Room?.Zone?.LandlordId ?? Guid.Empty, c.Room?.Zone?.Landlord?.FullName ?? "", c.Room?.Zone?.Landlord?.Phone ?? "", c.Room?.Zone?.Landlord?.Email,
+                c.TenantProfileId, c.TenantProfile?.User?.FullName ?? "", c.TenantProfile?.User?.Phone ?? "", c.TenantProfile?.CCCD,
                 c.StartDate, c.EndDate, c.RentAmount, c.Deposit, c.Status.ToString(),
                 c.PaymentTermDay, c.Terms, c.FileUrl, c.CreatedAt
             );

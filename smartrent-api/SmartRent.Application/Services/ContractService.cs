@@ -12,7 +12,8 @@ public class ContractService(AppDbContext db)
     // Lấy danh sách hợp đồng thuê nhà thuộc các phòng của Chủ trọ (hỗ trợ phân trang).
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
-        var query = db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone)
+        var query = db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .Where(c => c.Room.Zone.LandlordId == landlordId);
         var totalItems = await query.CountAsync();
@@ -34,10 +35,21 @@ public class ContractService(AppDbContext db)
     // Lấy danh sách hợp đồng thuê của một Khách thuê theo ID hồ sơ (TenantProfileId).
     public async Task<IEnumerable<ContractDto>> GetByTenantAsync(Guid tenantProfileId)
     {
-        var contracts = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone)
+        var contracts = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .Where(c => c.TenantProfileId == tenantProfileId).ToListAsync();
         return contracts.Select(MapContract);
+    }
+
+    // Lấy chi tiết một Hợp đồng theo ID
+    public async Task<ContractDto?> GetByIdAsync(Guid id)
+    {
+        var contract = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(c => c.Id == id);
+        return contract is null ? null : MapContract(contract);
     }
 
     // Tạo mới Hợp đồng thuê nhà và tự động đổi trạng thái phòng thành Occupied (Đã ở).
@@ -60,14 +72,20 @@ public class ContractService(AppDbContext db)
         }
 
         await db.SaveChangesAsync();
-        var full = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone).Include(c => c.TenantProfile).ThenInclude(t => t.User).FirstAsync(c => c.Id == contract.Id);
+        var full = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .FirstAsync(c => c.Id == contract.Id);
         return MapContract(full);
     }
 
     // Cập nhật thông tin Hợp đồng thuê nhà.
     public async Task<ContractDto> UpdateAsync(Guid id, UpdateContractRequest req)
     {
-        var c = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone).Include(c => c.TenantProfile).ThenInclude(t => t.User).FirstOrDefaultAsync(c => c.Id == id) ?? throw new KeyNotFoundException();
+        var c = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(c => c.Id == id) ?? throw new KeyNotFoundException();
         c.StartDate = req.StartDate; c.EndDate = req.EndDate; c.RentAmount = req.RentAmount; c.PaymentTermDay = req.PaymentTermDay; c.Terms = req.Terms;
 
         if (req.RoomId.HasValue && c.RoomId != req.RoomId.Value)
@@ -128,5 +146,31 @@ public class ContractService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
-    private static ContractDto MapContract(Contract c) => new(c.Id, c.ContractCode, c.RoomId, c.Room?.RoomNumber ?? "", c.TenantProfileId, c.TenantProfile?.User?.FullName ?? "", c.TenantProfile?.User?.Phone ?? "", c.StartDate, c.EndDate, c.RentAmount, c.Deposit, c.Status.ToString(), c.PaymentTermDay, c.Terms, c.FileUrl, c.CreatedAt);
+    private static ContractDto MapContract(Contract c) => new(
+        c.Id,
+        c.ContractCode,
+        c.RoomId,
+        c.Room?.RoomNumber ?? "",
+        c.Room?.ZoneId ?? Guid.Empty,
+        c.Room?.Zone?.Name ?? "",
+        c.Room?.Zone?.Address ?? "",
+        c.Room?.Zone?.LandlordId ?? Guid.Empty,
+        c.Room?.Zone?.Landlord?.FullName ?? "",
+        c.Room?.Zone?.Landlord?.Phone ?? "",
+        c.Room?.Zone?.Landlord?.Email,
+        c.TenantProfileId,
+        c.TenantProfile?.User?.FullName ?? "",
+        c.TenantProfile?.User?.Phone ?? "",
+        c.TenantProfile?.CCCD,
+        c.StartDate,
+        c.EndDate,
+        c.RentAmount,
+        c.Deposit,
+        c.Status.ToString(),
+        c.PaymentTermDay,
+        c.Terms,
+        c.FileUrl,
+        c.CreatedAt
+    );
 }
+

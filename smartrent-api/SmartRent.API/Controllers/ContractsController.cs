@@ -27,6 +27,16 @@ public class ContractsController(ContractService contractService) : ControllerBa
         return Ok(await contractService.GetByTenantAsync(profile.Id));
     }
 
+    // Lấy chi tiết một Hợp đồng theo ID.
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetContractById(Guid id)
+    {
+        var contract = await contractService.GetByIdAsync(id);
+        if (contract is null) return NotFound();
+        return Ok(contract);
+    }
+
+
     // Tạo mới một Hợp đồng thuê nhà.
     [HttpPost]
     public async Task<IActionResult> CreateContract([FromBody] CreateContractRequest request)
