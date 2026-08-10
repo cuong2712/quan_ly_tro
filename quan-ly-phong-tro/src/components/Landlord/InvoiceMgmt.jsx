@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Receipt, Plus, Search, Edit, Trash2, Printer, Mail, CheckCircle, Clock, Zap, AlertCircle } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { invoiceService } from '../../services';
+import { Pagination } from '../Common/Pagination';
 
 export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], tenants = [], utilityLogs = [], services = [], onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +21,9 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], tenants = 
     status: 'Unpaid',
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   const filteredInvoices = invoices.filter(inv => {
     const code = (inv.invoiceCode || '').toLowerCase();
     const roomNum = (inv.roomNumber || inv.roomId || '').toLowerCase();
@@ -27,6 +31,9 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], tenants = 
     const matchesStatus = statusFilter === 'all' || (inv.status || '').toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
+
+  const totalPages = Math.ceil(filteredInvoices.length / pageSize);
+  const paginatedInvoices = filteredInvoices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleOpenEdit = (inv) => {
     setEditingInvoice(inv);
@@ -153,7 +160,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], tenants = 
                 </td>
               </tr>
             ) : (
-              filteredInvoices.map((inv) => (
+              paginatedInvoices.map((inv) => (
                 <tr key={inv.id}>
                   <td><strong>{inv.invoiceCode || inv.id}</strong></td>
                   <td>

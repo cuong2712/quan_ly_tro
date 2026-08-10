@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CreditCard, QrCode, CheckCircle, Clock, Eye, Search, Image as ImageIcon, X, Check, ShieldAlert } from 'lucide-react';
 import { formatVND, formatDate } from '../../utils/formatters';
 import { paymentService } from '../../services';
+import { Pagination } from '../Common/Pagination';
 
 export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvoices, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -9,11 +10,14 @@ export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvo
   const [processing, setProcessing] = useState(false);
   const [viewingProofPayment, setViewingProofPayment] = useState(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 7;
+
   const filteredPayments = payments.filter(p => {
     const code = (p.invoiceCode || p.invoiceId || p.id || '').toLowerCase();
     const note = (p.note || '').toLowerCase();
     const matchesSearch = code.includes(searchTerm.toLowerCase()) || note.includes(searchTerm.toLowerCase());
-    
+
     const statusLower = (p.status || '').toLowerCase();
     const isPending = statusLower === 'pendingapproval' || statusLower === 'pending_approval' || statusLower === 'pending';
     const isCompleted = statusLower === 'completed';
@@ -26,6 +30,9 @@ export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvo
 
     return matchesSearch && matchesStatus;
   });
+
+  const totalPages = Math.ceil(filteredPayments.length / pageSize);
+  const paginatedPayments = filteredPayments.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleConfirmPayment = async (paymentId, approve) => {
     const actionText = approve ? 'xác nhận duyệt tiền' : 'từ chối giao dịch';
@@ -167,7 +174,7 @@ export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvo
                 </td>
               </tr>
             ) : (
-              filteredPayments.map((p) => {
+              paginatedPayments.map((p) => {
                 const statusLower = (p.status || '').toLowerCase();
                 const isPending = statusLower === 'pendingapproval' || statusLower === 'pending_approval' || statusLower === 'pending';
                 const isCompleted = statusLower === 'completed';
@@ -293,7 +300,7 @@ export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvo
             {/* Modal Footer với nút Duyệt / Từ chối trực tiếp */}
             <div className="modal-footer" style={{ padding: '16px 20px', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <button className="btn btn-secondary" onClick={() => setViewingProofPayment(null)}>Đóng</button>
-              
+
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   className="btn btn-danger"

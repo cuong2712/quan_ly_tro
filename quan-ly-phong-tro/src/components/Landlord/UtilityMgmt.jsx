@@ -2,12 +2,18 @@ import React, { useState } from 'react';
 import { Zap, Droplet, Plus, Edit, Settings, History, Calculator } from 'lucide-react';
 import { formatVND, formatDate } from '../../utils/formatters';
 import { utilityService } from '../../services';
+import { Pagination } from '../Common/Pagination';
 
 export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], utilityLogs = [], setUtilityLogs, utilityRates = [], setUtilityRates, onRefresh }) => {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 7;
+
+  const totalPages = Math.ceil(utilityLogs.length / pageSize);
+  const paginatedLogs = utilityLogs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const currentRate = utilityRates[0] || { elecPrice: 3500, waterPrice: 18000 };
 
@@ -138,12 +144,12 @@ export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], utilityLogs = []
           <tbody>
             {utilityLogs.length === 0 ? (
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                  Chưa có lịch sử chốt số điện nước nào. Bấm "+ Nhập Chỉ Số Mới" để chốt số.
+                <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  Chưa có lịch sử chốt số điện nước nào. Vui lòng bấm <strong>"+ Chốt Số Điện Nước Mới"</strong>!
                 </td>
               </tr>
             ) : (
-              utilityLogs.map((log) => (
+              paginatedLogs.map((log) => (
                 <tr key={log.id}>
                   <td><strong>Tháng {log.month}</strong></td>
                   <td><span className="status-pill occupied">Phòng {log.roomNumber || log.roomId}</span></td>
@@ -158,6 +164,14 @@ export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], utilityLogs = []
             )}
           </tbody>
         </table>
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={utilityLogs.length}
+          pageSize={pageSize}
+        />
       </div>
 
       {/* Record Modal */}

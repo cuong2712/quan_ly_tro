@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { contractService } from '../../services';
+import { Pagination } from '../Common/Pagination';
 
 export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants = [], zones = [], onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,6 +78,9 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   });
 
   // ─── 2. Lọc Hợp Đồng Theo Tìm Kiếm, Khu Trọ & Trạng Thái ─────
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   const filteredContracts = contracts.filter(c => {
     const room = rooms.find(r => r.id === c.roomId || r.id === c.RoomId);
     const tenant = tenants.find(t => t.id === c.tenantId || t.id === c.TenantProfileId || t.id === c.tenantProfileId);
@@ -105,6 +109,9 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
     return matchesSearch && matchesZone && matchesStatus;
   });
+
+  const totalPages = Math.ceil(filteredContracts.length / pageSize);
+  const paginatedContracts = filteredContracts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // ─── 3. Handlers Tạo / Sửa / Xóa / Gia Hạn ──────────────────
   const handleTenantChange = (tenantId) => {
@@ -510,7 +517,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                   </td>
                 </tr>
               ) : (
-                filteredContracts.map((c) => {
+                paginatedContracts.map((c) => {
                   const room = rooms.find(r => r.id === c.roomId || r.id === c.RoomId);
                   const zone = zones.find(z => z.id === (room?.zoneId || room?.ZoneId));
                   const tenant = tenants.find(t => t.id === c.tenantId || t.id === c.TenantProfileId);
@@ -520,36 +527,48 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
                   return (
                     <tr key={c.id}>
-                      <td><strong>{c.contractCode}</strong></td>
+                      <td>
+                        <div style={{ fontWeight: '700', color: '#6366f1' }}>{c.contractCode}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tạo ngày: {formatDate(c.startDate)}</div>
+                      </td>
                       <td>
                         <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                          Phòng {room ? room.roomNumber : (c.roomNumber || c.roomId)}
+                          {room ? `Phòng ${room.roomNumber}` : 'Phòng N/A'}
                         </div>
                         {zone && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🏢 {zone.name}</div>}
                       </td>
                       <td>
-                        <div style={{ fontWeight: '600' }}>{tenantName}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tenantPhone}</div>
+                        <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{tenantName}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>SĐT: {tenantPhone}</div>
                       </td>
-                      <td>{formatDate(c.startDate)} - {formatDate(c.endDate)}</td>
                       <td>
-                        <div style={{ color: '#34d399', fontWeight: '700' }}>{formatVND(c.rentAmount)}/tháng</div>
+                        <div>{formatDate(c.startDate)} - {formatDate(c.endDate)}</div>
+                        {c.endDate && (
+                          <div style={{ fontSize: '11px', color: statusInfo.type === 'expired' ? '#ef4444' : 'var(--text-muted)' }}>
+                            {statusInfo.type === 'expired' ? '⚠️ Đã hết hạn' : `Hạn chót: ${formatDate(c.endDate)}`}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div>Thuê: <strong style={{ color: '#34d399' }}>{formatVND(c.rentAmount)}</strong></div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Cọc: {formatVND(c.deposit)}</div>
                       </td>
                       <td>
-                        <span className={`status-pill ${statusInfo.className}`}>
+                        <span className={`badge badge-${statusInfo.className}`} style={{ padding: '6px 10px', fontSize: '12px' }}>
                           {statusInfo.label}
                         </span>
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '6px' }}>
-                          <button className="btn btn-sm btn-secondary" title="Xem & In PDF" onClick={() => setViewingContract(c)}>
-                            <Printer size={14} color="#6366f1" />
+                          <button className="btn btn-sm btn-secondary" title="In / Xem Hợp Đồng PDF" onClick={() => setViewingContract(c)}>
+                            <Printer size={14} />
                           </button>
-                          <button className="btn btn-sm btn-secondary" title="Gia hạn hợp đồng" onClick={() => handleRenew(c)}>
-                            <Clock size={14} color="#f59e0b" />
-                          </button>
-                          <button className="btn btn-sm btn-secondary" title="Sửa" onClick={() => handleOpenEdit(c)}>
+                          {statusInfo.isActive && (
+                            <button className="btn btn-sm btn-secondary" title="Gia Hạn Hợp Đồng" onClick={() => handleRenew(c)} style={{ color: '#10b981' }}>
+                              <Clock size={14} />
+                            </button>
+                          )}
+                          <button className="btn btn-sm btn-secondary" title="Sửa điều khoản" onClick={() => handleOpenEdit(c)}>
                             <Edit size={14} />
                           </button>
                           {statusInfo.isActive && (

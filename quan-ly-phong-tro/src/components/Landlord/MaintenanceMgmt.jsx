@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Wrench, CheckCircle, Clock, XCircle, UserCheck, AlertTriangle, Eye } from 'lucide-react';
 import { maintenanceService } from '../../services';
+import { Pagination } from '../Common/Pagination';
 
 export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceRequests, rooms = [], onRefresh }) => {
   const [selectedReq, setSelectedReq] = useState(null);
@@ -9,6 +10,11 @@ export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceReques
   const [noteVal, setNoteVal] = useState('');
   const [saving, setSaving] = useState(false);
   const [viewingImage, setViewingImage] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 7;
+
+  const totalPages = Math.ceil(maintenanceRequests.length / pageSize);
+  const paginatedRequests = maintenanceRequests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleOpenAssignModal = (req) => {
     setSelectedReq(req);
@@ -67,15 +73,15 @@ export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceReques
           <tbody>
             {maintenanceRequests.length === 0 ? (
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  Không có yêu cầu bảo trì nào
+                <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                  Không có yêu cầu bảo trì hỏng hóc nào.
                 </td>
               </tr>
             ) : (
-              maintenanceRequests.map((r) => {
-                const img = r.imageUrl || r.ImageUrl;
+              paginatedRequests.map((r) => {
+                const img = r.imageUrl || r.image || r.ImageUrl;
                 const statusLower = (r.status || '').toLowerCase();
-                const isDone = statusLower === 'completed';
+                const isDone = statusLower === 'completed' || statusLower === 'resolved';
                 const isDoing = statusLower === 'in_progress' || statusLower === 'inprogress';
 
                 return (
@@ -127,6 +133,14 @@ export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceReques
             )}
           </tbody>
         </table>
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={maintenanceRequests.length}
+          pageSize={pageSize}
+        />
       </div>
 
       {/* Progress Modal */}

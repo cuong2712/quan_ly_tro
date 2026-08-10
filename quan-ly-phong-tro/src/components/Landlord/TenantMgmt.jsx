@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserCheck, Plus, Search, Edit, Trash2, ArrowRightLeft, FileText, Upload, Eye, CreditCard } from 'lucide-react';
 import { formatVND, formatDate } from '../../utils/formatters';
 import { tenantService } from '../../services';
+import { Pagination } from '../Common/Pagination';
 
 export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], contracts = [], setContracts, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +26,9 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
     cccdBackUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400',
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 7;
+
   const filteredTenants = tenants.filter(t => {
     const name = (t.fullName || t.name || '').toLowerCase();
     const phone = t.phone || '';
@@ -33,6 +37,9 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       phone.includes(searchTerm) ||
       cccd.includes(searchTerm);
   });
+
+  const totalPages = Math.ceil(filteredTenants.length / pageSize);
+  const paginatedTenants = filteredTenants.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleOpenAdd = () => {
     setEditingTenant(null);
@@ -217,7 +224,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             </tr>
           </thead>
           <tbody>
-            {filteredTenants.map((t) => {
+            {paginatedTenants.map((t) => {
               const room = rooms.find(r => r.id === (t.roomId || t.RoomId));
               const zoneName = t.zoneName || t.ZoneName || room?.zoneName || zones.find(z => z.id === (room?.zoneId || room?.ZoneId))?.name || '';
               const roomNumber = t.roomNumber || t.RoomNumber || room?.roomNumber || 'Chưa xếp';
@@ -279,6 +286,14 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             })}
           </tbody>
         </table>
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredTenants.length}
+          pageSize={pageSize}
+        />
       </div>
 
       {/* Profile Detail Modal */}

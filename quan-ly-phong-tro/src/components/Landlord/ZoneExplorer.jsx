@@ -12,11 +12,12 @@ import {
 import { formatVND } from '../../utils/formatters';
 import { ServiceMgmt } from './ServiceMgmt';
 import { ErrorBoundary } from '../Common/ErrorBoundary';
+import { Pagination } from '../Common/Pagination';
 
 // ─── Màu trạng thái phòng ────────────────────────────────────────
 const STATUS_CONFIG = {
-  Vacant:      { label: 'Còn trống', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-  Occupied:    { label: 'Đang thuê', color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
+  Vacant: { label: 'Còn trống', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  Occupied: { label: 'Đang thuê', color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
   Maintenance: { label: 'Bảo trì', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
 
@@ -28,6 +29,8 @@ const ZoneList = ({ onSelectZone, onRefresh }) => {
   const [editingZone, setEditingZone] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', address: '', description: '', totalRooms: 10 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 7;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +59,9 @@ const ZoneList = ({ onSelectZone, onRefresh }) => {
     finally { setSaving(false); }
   };
 
+  const totalPages = Math.ceil(zones.length / pageSize);
+  const paginatedZones = zones.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
       <div className="tab-spinner" />
@@ -80,126 +86,136 @@ const ZoneList = ({ onSelectZone, onRefresh }) => {
           <button className="btn btn-primary" onClick={openAdd}><Plus size={16} /> Thêm khu trọ</button>
         </div>
       ) : (
-        <div className="zone-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 20 }}>
-          {zones.map(z => (
-            <div
-              key={z.id}
-              className="card zone-overview-card"
-              onClick={() => onSelectZone(z)}
-              style={{
-                cursor: 'pointer',
-                padding: '20px',
-                borderRadius: '16px',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-color)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                gap: '14px',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    width: '46px',
-                    height: '46px',
-                    borderRadius: '12px',
-                    background: 'rgba(99,102,241,0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <Building2 size={22} color="#6366f1" />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{
-                      margin: 0,
-                      fontSize: '16px',
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      lineHeight: '1.3',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {z.name}
-                    </h3>
+        <>
+          <div className="zone-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 20 }}>
+            {paginatedZones.map(z => (
+              <div
+                key={z.id}
+                className="card zone-overview-card"
+                onClick={() => onSelectZone(z)}
+                style={{
+                  cursor: 'pointer',
+                  padding: '20px',
+                  borderRadius: '16px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '14px',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontSize: '12.5px',
-                      color: 'var(--text-muted)',
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '12px',
+                      background: 'rgba(99,102,241,0.12)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '5px',
-                      marginTop: '4px',
-                      lineHeight: '1.2'
+                      justifyContent: 'center',
+                      flexShrink: 0
                     }}>
-                      <MapPin size={13} style={{ flexShrink: 0, color: '#6366f1' }} />
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{z.address}</span>
+                      <Building2 size={22} color="#6366f1" />
                     </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{
+                        margin: 0,
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        color: 'var(--text-primary)',
+                        lineHeight: '1.3',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        {z.name}
+                      </h3>
+                      <div style={{
+                        fontSize: '12.5px',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        marginTop: '4px',
+                        lineHeight: '1.2'
+                      }}>
+                        <MapPin size={13} style={{ flexShrink: 0, color: '#6366f1' }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{z.address}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+                    <button className="btn btn-sm btn-secondary" onClick={e => openEdit(z, e)} title="Sửa khu trọ" style={{ padding: '6px 8px' }}>
+                      <Edit size={14} />
+                    </button>
+                    <button className="btn btn-sm btn-danger" onClick={e => handleDelete(z, e)} title="Xóa khu trọ" style={{ padding: '6px 8px' }}>
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
-                  <button className="btn btn-sm btn-secondary" onClick={e => openEdit(z, e)} title="Sửa khu trọ" style={{ padding: '6px 8px' }}>
-                    <Edit size={14} />
-                  </button>
-                  <button className="btn btn-sm btn-danger" onClick={e => handleDelete(z, e)} title="Xóa khu trọ" style={{ padding: '6px 8px' }}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
+                {z.description && (
+                  <p style={{
+                    fontSize: '13px',
+                    color: 'var(--text-secondary)',
+                    margin: 0,
+                    lineHeight: '1.45',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}>
+                    {z.description}
+                  </p>
+                )}
 
-              {z.description && (
-                <p style={{
-                  fontSize: '13px',
-                  color: 'var(--text-secondary)',
-                  margin: 0,
-                  lineHeight: '1.45',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden'
-                }}>
-                  {z.description}
-                </p>
-              )}
-
-              {/* Footer */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justify: 'space-between',
-                gap: '12px',
-                paddingTop: '12px',
-                borderTop: '1px solid var(--border-color)',
-                marginTop: 'auto'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500, flexShrink: 0, lineHeight: 1 }}>
-                  <Home size={14} color="#6366f1" />
-                  <span>Quy mô: <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{z.totalRooms} phòng</strong></span>
-                </div>
-
+                {/* Footer */}
                 <div style={{
-                  display: 'inline-flex',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  color: '#6366f1',
-                  flexShrink: 0,
-                  marginLeft: 'auto',
-                  lineHeight: 1
+                  justify: 'space-between',
+                  gap: '12px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--border-color)',
+                  marginTop: 'auto'
                 }}>
-                  <span>Xem danh sách phòng</span>
-                  <ChevronRight size={14} color="#6366f1" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500, flexShrink: 0, lineHeight: 1 }}>
+                    <Home size={14} color="#6366f1" />
+                    <span>Quy mô: <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{z.totalRooms} phòng</strong></span>
+                  </div>
+
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: '#6366f1',
+                    flexShrink: 0,
+                    marginLeft: 'auto',
+                    lineHeight: 1
+                  }}>
+                    <span>Xem danh sách phòng</span>
+                    <ChevronRight size={14} color="#6366f1" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={zones.length}
+            pageSize={pageSize}
+          />
+        </>
       )}
 
       {/* Zone Modal */}
@@ -296,6 +312,11 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     );
   }
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter]);
+
   const roomList = Array.isArray(rooms) ? rooms : [];
   const serviceList = Array.isArray(zoneServices) ? zoneServices : [];
 
@@ -306,6 +327,9 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     const matchStatus = statusFilter === 'all' || r.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginatedRooms = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const openAdd = () => {
     setEditingRoom(null);
@@ -490,173 +514,183 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
               {roomList.length === 0 && <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={openAdd}><Plus size={16} /> Thêm phòng mới</button>}
             </div>
           ) : (
-        <div className="zone-room-grid">
-          {filtered.map(r => {
-            const sc = STATUS_CONFIG[r.status] || STATUS_CONFIG.Vacant;
-            return (
-              <div
-                key={r.id}
-                className="card zone-room-card"
-                onClick={() => onSelectRoom(r)}
-                style={{
-                  cursor: 'pointer',
-                  position: 'relative',
-                  padding: '16px',
-                  borderRadius: '14px',
-                  background: 'var(--bg-card)',
-                  border: `1px solid ${sc.color}33`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
-                }}
-              >
-                <div>
-                  {/* Header: Icon + Số phòng & Trạng thái */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 10,
-                        background: sc.bg,
+            <>
+              <div className="zone-room-grid">
+                {paginatedRooms.map(r => {
+                  const sc = STATUS_CONFIG[r.status] || STATUS_CONFIG.Vacant;
+                  return (
+                    <div
+                      key={r.id}
+                      className="card zone-room-card"
+                      onClick={() => onSelectRoom(r)}
+                      style={{
+                        cursor: 'pointer',
+                        position: 'relative',
+                        padding: '16px',
+                        borderRadius: '14px',
+                        background: 'var(--bg-card)',
+                        border: `1px solid ${sc.color}33`,
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        <Home size={18} color={sc.color} />
-                      </div>
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                      }}
+                    >
                       <div>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                          Phòng {r.roomNumber}
+                        {/* Header: Icon + Số phòng & Trạng thái */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: 10,
+                              background: sc.bg,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              <Home size={18} color={sc.color} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                                Phòng {r.roomNumber}
+                              </div>
+                              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                                Tầng {r.floor} • {r.area} m²
+                              </div>
+                            </div>
+                          </div>
+                          <span style={{
+                            background: sc.bg,
+                            color: sc.color,
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            padding: '4px 10px',
+                            borderRadius: 20,
+                            border: `1px solid ${sc.color}40`,
+                            flexShrink: 0
+                          }}>
+                            {sc.label}
+                          </span>
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                          Tầng {r.floor} • {r.area} m²
+
+                        {/* Giá Thuê */}
+                        <div style={{ fontSize: 17, fontWeight: 800, color: '#6366f1', marginBottom: 10 }}>
+                          {formatVND(r.price)}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>/tháng</span>
                         </div>
+
+                        {/* Chỉ số Điện / Nước - Phân bổ 2 bên cân đối */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: 12,
+                          color: 'var(--text-muted)',
+                          padding: '8px 12px',
+                          background: 'var(--bg-dark, rgba(0,0,0,0.15))',
+                          borderRadius: 8
+                        }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                            <Zap size={14} color="#f59e0b" /> Điện: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.elecMeter} kWh</strong>
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                            <Droplets size={14} color="#06b6d4" /> Nước: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.waterMeter} m³</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Footer: Thao tác & Xem chi tiết */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--border-color)', marginTop: 'auto' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-sm btn-secondary" onClick={e => openEdit(r, e)} title="Sửa thông tin phòng" style={{ padding: '5px 9px' }}>
+                            <Edit size={13} />
+                          </button>
+                          <button className="btn btn-sm btn-danger" onClick={e => handleDelete(r, e)} title="Xóa phòng" style={{ padding: '5px 9px' }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                        <span style={{ color: '#6366f1', fontSize: 12.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          Chi tiết phòng <ChevronRight size={14} />
+                        </span>
                       </div>
                     </div>
-                    <span style={{
-                      background: sc.bg,
-                      color: sc.color,
-                      fontSize: 11.5,
-                      fontWeight: 700,
-                      padding: '4px 10px',
-                      borderRadius: 20,
-                      border: `1px solid ${sc.color}40`,
-                      flexShrink: 0
-                    }}>
-                      {sc.label}
-                    </span>
-                  </div>
-
-                  {/* Giá Thuê */}
-                  <div style={{ fontSize: 17, fontWeight: 800, color: '#6366f1', marginBottom: 10 }}>
-                    {formatVND(r.price)}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-muted)' }}>/tháng</span>
-                  </div>
-
-                  {/* Chỉ số Điện / Nước - Phân bổ 2 bên cân đối */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: 12,
-                    color: 'var(--text-muted)',
-                    padding: '8px 12px',
-                    background: 'var(--bg-dark, rgba(0,0,0,0.15))',
-                    borderRadius: 8
-                  }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      <Zap size={14} color="#f59e0b" /> Điện: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.elecMeter} kWh</strong>
-                    </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      <Droplets size={14} color="#06b6d4" /> Nước: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{r.waterMeter} m³</strong>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Footer: Thao tác & Xem chi tiết */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--border-color)', marginTop: 'auto' }}>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-sm btn-secondary" onClick={e => openEdit(r, e)} title="Sửa thông tin phòng" style={{ padding: '5px 9px' }}>
-                      <Edit size={13} />
-                    </button>
-                    <button className="btn btn-sm btn-danger" onClick={e => handleDelete(r, e)} title="Xóa phòng" style={{ padding: '5px 9px' }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                  <span style={{ color: '#6366f1', fontSize: 12.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    Chi tiết phòng <ChevronRight size={14} />
-                  </span>
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      )}
 
-      {/* Room Modal */}
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: 540 }}>
-            <div className="modal-header">
-              <h3 className="modal-title">{editingRoom ? `✏️ Sửa phòng ${editingRoom.roomNumber}` : '🏠 Thêm Phòng Mới'}</h3>
-              <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>✕</button>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filtered.length}
+                pageSize={pageSize}
+              />
+            </>
+          )}
+
+          {/* Room Modal */}
+          {isModalOpen && (
+            <div className="modal-overlay">
+              <div className="modal-content" style={{ maxWidth: 540 }}>
+                <div className="modal-header">
+                  <h3 className="modal-title">{editingRoom ? `✏️ Sửa phòng ${editingRoom.roomNumber}` : '🏠 Thêm Phòng Mới'}</h3>
+                  <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>✕</button>
+                </div>
+                <form onSubmit={handleSave}>
+                  <div className="modal-body">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                      <div className="form-group">
+                        <label className="form-label">Số phòng *</label>
+                        <input className="form-control" required placeholder="101, A1, ..." value={form.roomNumber} onChange={e => setForm({ ...form, roomNumber: e.target.value })} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Tầng *</label>
+                        <input type="number" className="form-control" required min="0" value={form.floor} onChange={e => setForm({ ...form, floor: e.target.value })} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Giá thuê (VNĐ/tháng) *</label>
+                        <input type="number" className="form-control" required min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Diện tích (m²) *</label>
+                        <input type="number" className="form-control" required min="1" value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Số người tối đa</label>
+                        <input type="number" className="form-control" min="1" value={form.maxTenants} onChange={e => setForm({ ...form, maxTenants: e.target.value })} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Trạng thái</label>
+                        <select className="form-control" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                          <option value="Vacant">Còn trống</option>
+                          <option value="Occupied">Đang thuê</option>
+                          <option value="Maintenance">Bảo trì</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Chỉ số điện (kWh)</label>
+                        <input type="number" className="form-control" min="0" value={form.elecMeter} onChange={e => setForm({ ...form, elecMeter: e.target.value })} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Chỉ số nước (m³)</label>
+                        <input type="number" className="form-control" min="0" value={form.waterMeter} onChange={e => setForm({ ...form, waterMeter: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Mô tả</label>
+                      <textarea className="form-control" rows="2" placeholder="Ghi chú về phòng..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
+                    <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+                  </div>
+                </form>
+              </div>
             </div>
-            <form onSubmit={handleSave}>
-              <div className="modal-body">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                  <div className="form-group">
-                    <label className="form-label">Số phòng *</label>
-                    <input className="form-control" required placeholder="101, A1, ..." value={form.roomNumber} onChange={e => setForm({ ...form, roomNumber: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Tầng *</label>
-                    <input type="number" className="form-control" required min="0" value={form.floor} onChange={e => setForm({ ...form, floor: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Giá thuê (VNĐ/tháng) *</label>
-                    <input type="number" className="form-control" required min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Diện tích (m²) *</label>
-                    <input type="number" className="form-control" required min="1" value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Số người tối đa</label>
-                    <input type="number" className="form-control" min="1" value={form.maxTenants} onChange={e => setForm({ ...form, maxTenants: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Trạng thái</label>
-                    <select className="form-control" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                      <option value="Vacant">Còn trống</option>
-                      <option value="Occupied">Đang thuê</option>
-                      <option value="Maintenance">Bảo trì</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Chỉ số điện (kWh)</label>
-                    <input type="number" className="form-control" min="0" value={form.elecMeter} onChange={e => setForm({ ...form, elecMeter: e.target.value })} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Chỉ số nước (m³)</label>
-                    <input type="number" className="form-control" min="0" value={form.waterMeter} onChange={e => setForm({ ...form, waterMeter: e.target.value })} />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Mô tả</label>
-                  <textarea className="form-control" rows="2" placeholder="Ghi chú về phòng..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          )}
         </>
       )}
     </div>
@@ -740,10 +774,10 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
       {/* GRID 2 CỘT GỌN GÀNG (HIỂN THỊ TOÀN BỘ TRONG 1-2 TRANG) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: 20 }}>
-        
+
         {/* CỘT 1: THÔNG TIN NGƯỜI THUÊ & HỢP ĐỒNG */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          
+
           {/* Card: Hồ Sơ Người Thuê (Hiển thị 1 - 4 người) */}
           <div className="card" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -840,7 +874,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
         {/* CỘT 2: ĐIỆN NƯỚC & LỊCH SỬ HÓA ĐƠN GẦN ĐÂY */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          
+
           {/* Card: Chỉ số Điện Nước hiện tại */}
           <div className="card" style={{ padding: '20px' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>

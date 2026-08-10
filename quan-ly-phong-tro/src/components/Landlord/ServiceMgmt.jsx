@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings, Plus, Edit, Trash2, Wifi, Bike, Trash, ShieldCheck, Loader2 } from 'lucide-react';
 import { formatVND } from '../../utils/formatters';
 import { serviceMgmtService } from '../../services';
+import { Pagination } from '../Common/Pagination';
 
 export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone = null, onRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -109,6 +110,9 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
     }
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 7;
+
   const serviceList = Array.isArray(services) ? services : [];
   const filteredServices = serviceList.filter((s) => {
     if (targetZone) {
@@ -117,6 +121,9 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
     if (selectedZoneFilter === 'all') return true;
     return !s.zoneId || s.zoneId === selectedZoneFilter;
   });
+
+  const totalPages = Math.ceil(filteredServices.length / pageSize);
+  const paginatedServices = filteredServices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div>
@@ -182,7 +189,7 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
                 </td>
               </tr>
             ) : (
-              filteredServices.map((s) => (
+              paginatedServices.map((s) => (
                 <tr key={s.id}>
                   <td>
                     <strong>

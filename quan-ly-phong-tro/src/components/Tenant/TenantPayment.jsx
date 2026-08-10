@@ -24,7 +24,7 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
 
   const amountToPay = selectedInvoice ? selectedInvoice.totalAmount : 0;
   const roomNum = selectedInvoice?.roomNumber || activeTenant?.roomNumber || '101';
-  
+
   const qrUrl = getVietQRUrl({
     bankId: 'BIDV',
     accountNo: '6531211114',
@@ -107,8 +107,8 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
           </div>
 
           <div style={{ textAlign: 'left', background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', fontSize: '13px' }}>
-            <div style={{ marginBottom: '4px' }}><strong>Ngân hàng:</strong> BIDV (TMCP Đầu tư & Phát triển Việt Nam)</div>
-            <div style={{ marginBottom: '4px' }}><strong>Số tài khoản:</strong> 6531211114</div>
+            <div style={{ marginBottom: '4px' }}><strong>Ngân hàng:</strong> BIDV (Nội địa)</div>
+            <div style={{ marginBottom: '4px' }}><strong>Số tài khoản:</strong> 0397181879</div>
             <div style={{ marginBottom: '4px' }}><strong>Chủ tài khoản:</strong> NGUYEN MANH CUONG</div>
             <div style={{ marginBottom: '4px' }}><strong>Hóa đơn chọn:</strong> <span style={{ color: '#6366f1', fontWeight: 700 }}>{selectedInvoice ? selectedInvoice.invoiceCode : 'Không có'}</span></div>
             <div><strong>Số tiền cần chuyển:</strong> <strong style={{ color: '#34d399', fontSize: '16px' }}>{formatVND(amountToPay)}</strong></div>
