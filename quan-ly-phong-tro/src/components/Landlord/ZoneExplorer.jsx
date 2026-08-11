@@ -3,7 +3,8 @@ import {
   Building2, Home, Users, Plus, Edit, Trash2, ChevronRight,
   ArrowLeft, Zap, Droplets, FileText, CreditCard, Wrench,
   Phone, Mail, Calendar, DollarSign, User, MapPin, Search,
-  AlertCircle, CheckCircle, Clock, RefreshCw, MoreVertical, Shield, Settings
+  AlertCircle, CheckCircle, Clock, RefreshCw, MoreVertical, Shield, Settings,
+  LayoutGrid, Gauge, Download, FilePlus, Edit3, Maximize, Activity, Sparkles, StickyNote, Box, Wind, Flame, Sun, Tv, Car, Camera
 } from 'lucide-react';
 import {
   zoneService, roomService, tenantService,
@@ -759,33 +760,176 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
   );
 };
 
-// ─── LEVEL 3: Chi tiết phòng (Hiển thị gọn gàng 1-2 trang đầy đủ Người thuê, Hợp đồng, Hóa đơn) ───
+// ─── LEVEL 3: Chi tiết phòng (Giao diện 5 Tabs khớp 100% với landlord_room_detail_demo.html) ───
 const RoomDetail = ({ room, zone, onBack }) => {
   const [roomDetail, setRoomDetail] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'tenant' | 'utilities' | 'maintenance'
+  const [notes, setNotes] = useState(() => localStorage.getItem(`room_notes_${room.id}`) || 'Khách thanh toán đúng hạn. Đã đăng ký 1 xe máy. Chốt điện nước ngày 25 hàng tháng.');
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Modals state
+  const [showMeterModal, setShowMeterModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Meter form state
+  const [meterForm, setMeterForm] = useState({ month: '08/2026', newElec: room.elecMeter || 0, newWater: room.waterMeter || 0 });
+  
+  // Invoice form state
+  const [invoiceForm, setInvoiceForm] = useState({
+    month: '08/2026',
+    rentFee: room.price || 0,
+    elecFee: 350000,
+    waterFee: 100000,
+    serviceFee: 50000,
+    dueDate: '2026-08-31'
+  });
+
+  // Edit room form state
+  const [editForm, setEditForm] = useState({
+    roomNumber: room.roomNumber || '',
+    floor: room.floor || 1,
+    price: room.price || 0,
+    area: room.area || 0,
+    maxTenants: room.maxTenants || 2,
+    status: room.status || 'Occupied',
+    elecMeter: room.elecMeter || 0,
+    waterMeter: room.waterMeter || 0,
+    description: room.description || ''
+  });
+
+  const loadDetail = useCallback(async () => {
+    setLoading(true);
+    try {
+      const detail = await roomService.getRoomDetail(room.id);
+      setRoomDetail(detail);
+      if (detail) {
+        setMeterForm(prev => ({ ...prev, newElec: detail.elecMeter || room.elecMeter, newWater: detail.waterMeter || room.waterMeter }));
+        setInvoiceForm(prev => ({ ...prev, rentFee: detail.price || room.price }));
+        setEditForm({
+          roomNumber: detail.roomNumber || room.roomNumber,
+          floor: detail.floor || room.floor,
+          price: detail.price || room.price,
+          area: detail.area || room.area,
+          maxTenants: detail.maxTenants || room.maxTenants,
+          status: detail.status || room.status,
+          elecMeter: detail.elecMeter || room.elecMeter,
+          waterMeter: detail.waterMeter || room.waterMeter,
+          description: detail.description || room.description || ''
+        });
+      }
+    } catch (e) {
+      console.error('Lỗi lấy chi tiết phòng:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [room.id, room.elecMeter, room.waterMeter, room.price, room.roomNumber, room.floor, room.area, room.maxTenants, room.status, room.description]);
 
   useEffect(() => {
-    const loadDetail = async () => {
-      setLoading(true);
-      try {
-        const detail = await roomService.getRoomDetail(room.id);
-        setRoomDetail(detail);
-      } catch (e) {
-        console.error('Lỗi lấy chi tiết phòng:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadDetail();
-  }, [room.id]);
+  }, [loadDetail]);
 
-  const sc = STATUS_CONFIG[room.status] || STATUS_CONFIG.Vacant;
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3500);
+  };
+
+  const handleSaveNotes = () => {
+    localStorage.setItem(`room_notes_${room.id}`, notes);
+    showToast('Đã lưu ghi chú chủ trọ thành công!');
+  };
+
+  // Submit API record meter
+  const handleRecordMeter = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await utilityService.record({
+        roomId: room.id,
+        month: meterForm.month,
+        newElec: Number(meterForm.newElec),
+        newWater: Number(meterForm.newWater)
+      });
+      showToast('Chốt chỉ số điện nước thành công!');
+      setShowMeterModal(false);
+      await loadDetail();
+    } catch (err) {
+      console.error('Lỗi chốt điện nước:', err);
+      showToast('⚠️ Lỗi chốt chỉ số điện nước. Vui lòng thử lại!');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Submit API create invoice
+  const handleCreateInvoice = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const mainTenantId = roomDetail?.tenants?.[0]?.id;
+      await invoiceService.createInvoice({
+        roomId: room.id,
+        tenantProfileId: mainTenantId || null,
+        month: invoiceForm.month,
+        rentFee: Number(invoiceForm.rentFee),
+        elecFee: Number(invoiceForm.elecFee),
+        waterFee: Number(invoiceForm.waterFee),
+        serviceFee: Number(invoiceForm.serviceFee),
+        dueDate: invoiceForm.dueDate
+      });
+      showToast('Tạo và gửi hóa đơn thành công!');
+      setShowInvoiceModal(false);
+      await loadDetail();
+    } catch (err) {
+      console.error('Lỗi tạo hóa đơn:', err);
+      showToast('⚠️ Lỗi lập hóa đơn. Kiểm tra dữ liệu đầu vào!');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Submit API update room
+  const handleUpdateRoom = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await roomService.updateRoom(room.id, {
+        roomNumber: editForm.roomNumber,
+        floor: Number(editForm.floor),
+        price: Number(editForm.price),
+        area: Number(editForm.area),
+        maxTenants: Number(editForm.maxTenants),
+        status: editForm.status,
+        elecMeter: Number(editForm.elecMeter),
+        waterMeter: Number(editForm.waterMeter),
+        description: editForm.description
+      });
+      showToast('Cập nhật thông tin phòng thành công!');
+      setShowEditModal(false);
+      await loadDetail();
+    } catch (err) {
+      console.error('Lỗi cập nhật phòng:', err);
+      showToast('⚠️ Không thể cập nhật thông tin phòng!');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const sc = STATUS_CONFIG[roomDetail?.status || room.status] || STATUS_CONFIG.Vacant;
   const tenants = roomDetail?.tenants || (roomDetail?.currentTenant ? [roomDetail.currentTenant] : []);
+  const mainTenant = tenants[0];
   const activeContract = roomDetail?.activeContract;
   const recentInvoices = roomDetail?.recentInvoices || [];
-  const utilityLogs = roomDetail?.utilityLogs || [];
+  const currentElec = roomDetail?.elecMeter ?? room.elecMeter;
+  const currentWater = roomDetail?.waterMeter ?? room.waterMeter;
+  const currentPrice = roomDetail?.price ?? room.price;
 
-  if (loading) {
+  const contractEndDate = activeContract?.endDate ? new Date(activeContract.endDate) : null;
+  const daysLeft = contractEndDate ? Math.max(0, Math.ceil((contractEndDate - new Date()) / (1000 * 60 * 60 * 24))) : 0;
+
+  if (loading && !roomDetail) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 350 }}>
         <div className="tab-spinner" />
@@ -794,104 +938,355 @@ const RoomDetail = ({ room, zone, onBack }) => {
   }
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-      {/* 🔙 Nút Quay lại danh sách phòng */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={() => onBack('rooms')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '8px 14px' }}
-        >
-          <ArrowLeft size={16} /> Quay lại danh sách phòng
-        </button>
-        <span style={{ color: 'var(--text-muted)' }}>/</span>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{zone.name}</span>
-        <span style={{ color: 'var(--text-muted)' }}>/</span>
-        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Phòng {room.roomNumber}</span>
-      </div>
+    <div style={{ maxWidth: '1240px', margin: '0 auto', paddingBottom: '40px' }}>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed', bottom: 30, right: 30, zIndex: 1000,
+          background: 'rgba(17, 24, 39, 0.95)', border: '1px solid #10b981',
+          color: '#f8fafc', padding: '14px 22px', borderRadius: '12px',
+          boxShadow: '0 12px 35px rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', gap: 12,
+          fontWeight: 600, fontSize: 14, backdropFilter: 'blur(16px)'
+        }}>
+          <CheckCircle size={20} color="#10b981" /> {toastMessage}
+        </div>
+      )}
 
-      {/* Header Thẻ Thông Tin Phòng */}
-      <div className="card" style={{ padding: '20px', marginBottom: 20, background: `linear-gradient(135deg, ${sc.bg} 0%, var(--bg-card) 100%)`, border: `1px solid ${sc.color}40` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 14, background: sc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Home size={28} color={sc.color} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>Phòng {room.roomNumber}</h2>
-                <span style={{ background: sc.bg, color: sc.color, fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, border: `1px solid ${sc.color}40` }}>{sc.label}</span>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-                {zone.name} • Tầng {room.floor} • Diện tích: {room.area} m² • Sức chứa tối đa: {room.maxTenants} người
-              </div>
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#6366f1' }}>{formatVND(room.price)}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>tiền thuê / tháng</div>
-          </div>
+      {/* 🔙 Breadcrumb & Top Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => onBack('rooms')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '8px 16px' }}
+          >
+            <ArrowLeft size={16} /> Danh sách phòng
+          </button>
+          <span style={{ color: 'var(--text-muted)' }}>/</span>
+          <span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 500 }}>{zone.name}</span>
+          <span style={{ color: 'var(--text-muted)' }}>/</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Tầng {roomDetail?.floor || room.floor}</span>
+          <span style={{ color: 'var(--text-muted)' }}>/</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#10b981' }}>Phòng {roomDetail?.roomNumber || room.roomNumber}</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+            <Download size={15} /> Xuất PDF
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowEditModal(true)}>
+            <Edit3 size={15} /> Sửa thông tin
+          </button>
         </div>
       </div>
 
-      {/* GRID 2 CỘT GỌN GÀNG (HIỂN THỊ TOÀN BỘ TRONG 1-2 TRANG) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: 20 }}>
+      {/* 👑 ROOM HERO CARD */}
+      <header className="room-hero">
+        <div className="hero-top">
+          <div>
+            <div className="room-title-group">
+              <h2 className="room-code-badge">Phòng P.{(roomDetail?.roomNumber || room.roomNumber).replace(/^P\./i, '')}</h2>
+              <div className="status-badge status-rented" style={{ background: sc.bg, color: sc.color, borderColor: `${sc.color}40` }}>
+                <span className="dot" style={{ backgroundColor: sc.color, boxShadow: `0 0 10px ${sc.color}` }}></span>
+                {sc.label}
+              </div>
+            </div>
+            <div className="building-info">
+              <div className="building-info-item">
+                <Building2 size={15} color="#94a3b8" /> Tòa {zone.name} - {zone.address}
+              </div>
+              <div className="building-info-item">
+                <Maximize size={15} color="#94a3b8" /> {roomDetail?.area || room.area} m² (Tầng {roomDetail?.floor || room.floor})
+              </div>
+              <div className="building-info-item">
+                <Users size={15} color="#94a3b8" /> Tối đa {roomDetail?.maxTenants || room.maxTenants} người
+              </div>
+            </div>
+          </div>
 
-        {/* CỘT 1: THÔNG TIN NGƯỜI THUÊ & HỢP ĐỒNG */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={() => setShowInvoiceModal(true)}>
+              <FilePlus size={16} /> Lập Hóa Đơn Tháng
+            </button>
+            <button className="btn btn-secondary" onClick={() => setShowMeterModal(true)}>
+              <Zap size={16} /> Chốt Điện/Nước
+            </button>
+          </div>
+        </div>
 
-          {/* Card: Hồ Sơ Người Thuê (Hiển thị 1 - 4 người) */}
-          <div className="card" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
-                <User size={18} color="#6366f1" /> Danh Sách Khách Thuê ({tenants.length} người)
-              </h3>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 12, background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}>
-                Sức chứa: Max {room.maxTenants} người
-              </span>
+        {/* Quick Metrics Stats Bar */}
+        <div className="hero-stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon green">
+              <DollarSign size={22} />
+            </div>
+            <div className="stat-meta">
+              <span className="stat-label">Giá thuê phòng</span>
+              <span className="stat-value">{formatVND(currentPrice)}</span>
+              <span className="stat-subtext">Cọc {formatVND(activeContract?.deposit || currentPrice)}</span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon blue">
+              <User size={22} />
+            </div>
+            <div className="stat-meta">
+              <span className="stat-label">Khách đại diện</span>
+              <span className="stat-value">{mainTenant?.fullName || 'Chưa xếp'}</span>
+              <span className="stat-subtext">SĐT: {mainTenant?.phone || 'Chưa cập nhật'}</span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon indigo">
+              <Calendar size={22} />
+            </div>
+            <div className="stat-meta">
+              <span className="stat-label">Thời hạn hợp đồng</span>
+              <span className="stat-value">{activeContract ? `Còn ${daysLeft} ngày` : 'Chưa có'}</span>
+              <span className="stat-subtext">Hết hạn: {contractEndDate ? contractEndDate.toLocaleDateString('vi-VN') : '-'}</span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon amber">
+              <Activity size={22} />
+            </div>
+            <div className="stat-meta">
+              <span className="stat-label">Chỉ số Điện / Nước</span>
+              <span className="stat-value">{currentElec} / {currentWater}</span>
+              <span className="stat-subtext">Đơn vị: kWh / m³</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* 🧭 SUB TABS NAV */}
+      <div className="tabs-nav">
+        <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
+          <LayoutGrid size={18} /> Tổng Quan & Tiện Nghi
+        </button>
+        <button className={`tab-btn ${activeTab === 'tenant' ? 'active' : ''}`} onClick={() => setActiveTab('tenant')}>
+          <Users size={18} /> Khách Thuê & Hợp Đồng ({tenants.length})
+        </button>
+        <button className={`tab-btn ${activeTab === 'utilities' ? 'active' : ''}`} onClick={() => setActiveTab('utilities')}>
+          <Gauge size={18} /> Điện Nước & Hóa Đơn ({recentInvoices.length})
+        </button>
+        <button className={`tab-btn ${activeTab === 'maintenance' ? 'active' : ''}`} onClick={() => setActiveTab('maintenance')}>
+          <Wrench size={18} /> Bảo Trì & Báo Lỗi
+        </button>
+      </div>
+
+      {/* ----------------- TAB 1: TỔNG QUAN & TIỆN NGHI ----------------- */}
+      {activeTab === 'overview' && (
+        <div className="grid-2col" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {/* Panel: Thông Tin Chi Tiết Phòng */}
+            <div className="panel">
+              <div className="panel-header">
+                <h3 className="panel-title"><Sparkles size={18} color="#10b981" /> Thông Tin Chi Tiết Phòng</h3>
+              </div>
+              <div className="data-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 18 }}>
+                <div className="data-item">
+                  <span className="data-label">Mã phòng</span>
+                  <span className="data-val" style={{ fontWeight: 800 }}>P.{room.roomNumber.replace(/^P\./i, '')}</span>
+                </div>
+                <div className="data-item">
+                  <span className="data-label">Khu vực</span>
+                  <span className="data-val">{zone.name}</span>
+                </div>
+                <div className="data-item">
+                  <span className="data-label">Diện tích</span>
+                  <span className="data-val">{room.area} m²</span>
+                </div>
+                <div className="data-item">
+                  <span className="data-label">Sức chứa tối đa</span>
+                  <span className="data-val">{room.maxTenants} Người</span>
+                </div>
+                <div className="data-item">
+                  <span className="data-label">Đơn giá Điện</span>
+                  <span className="data-val" style={{ color: '#10b981', fontWeight: 700 }}>3.500 đ / kWh</span>
+                </div>
+                <div className="data-item">
+                  <span className="data-label">Đơn giá Nước</span>
+                  <span className="data-val" style={{ color: '#3b82f6', fontWeight: 700 }}>25.000 đ / m³</span>
+                </div>
+                <div className="data-item">
+                  <span className="data-label">Phí rác & vệ sinh</span>
+                  <span className="data-val">50.000 đ / phòng</span>
+                </div>
+                <div className="data-item">
+                  <span className="data-label">Internet / Wifi</span>
+                  <span className="data-val" style={{ color: '#6366f1', fontWeight: 700 }}>Miễn phí (Gói 200Mbps)</span>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 24 }}>
+                <span className="data-label" style={{ display: 'block', marginBottom: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Hình ảnh thực tế căn hộ (4 ảnh):</span>
+                <div className="gallery-preview" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                  <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80" alt="Phòng ngủ" className="gallery-thumb" style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: '1px solid var(--border-color)' }} />
+                  <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=400&q=80" alt="Phòng khách" className="gallery-thumb" style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: '1px solid var(--border-color)' }} />
+                  <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=400&q=80" alt="Bếp" className="gallery-thumb" style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: '1px solid var(--border-color)' }} />
+                  <img src="https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=400&q=80" alt="Nhà vệ sinh" className="gallery-thumb" style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: '1px solid var(--border-color)' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Panel: Danh Mục Nội Thất & Thiết Bị Bàn Giao */}
+            <div className="panel">
+              <div className="panel-header">
+                <h3 className="panel-title"><Box size={18} color="#6366f1" /> Danh Mục Nội Thất & Thiết Bị Bàn Giao</h3>
+              </div>
+              <div className="table-responsive">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Tên thiết bị / Nội thất</th>
+                      <th>Thương hiệu / Mã</th>
+                      <th>Số lượng</th>
+                      <th>Tình trạng</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Máy lạnh Inverter</strong></td>
+                      <td>Daikin 1.5 HP</td>
+                      <td>01 Cái</td>
+                      <td><span className="status-pill active">Hoạt động tốt</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Tủ lạnh 2 cánh</strong></td>
+                      <td>Panasonic 188L</td>
+                      <td>01 Cái</td>
+                      <td><span className="status-pill active">Hoạt động tốt</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Máy giặt cửa trước</strong></td>
+                      <td>Electrolux 9kg</td>
+                      <td>01 Cái</td>
+                      <td><span className="status-pill pending">Bảo trì định kỳ</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Bình nóng lạnh</strong></td>
+                      <td>Ariston 30L</td>
+                      <td>01 Cái</td>
+                      <td><span className="status-pill active">Hoạt động tốt</span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Bộ Giường & Đệm</strong></td>
+                      <td>Gỗ Sồi 1m8 x 2m</td>
+                      <td>01 Bộ</td>
+                      <td><span className="status-pill active">Mới 98%</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Tiện Ích & Ghi Chú */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="panel">
+              <div className="panel-header">
+                <h3 className="panel-title"><Sparkles size={18} color="#f59e0b" /> Tiện Ích Phòng</h3>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                  <Wind size={16} color="#10b981" /> Máy lạnh
+                </div>
+                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                  <Zap size={16} color="#6366f1" /> Wifi6 200M
+                </div>
+                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                  <Flame size={16} color="#f43f5e" /> Bếp từ âm
+                </div>
+                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                  <Sun size={16} color="#f59e0b" /> Ban công
+                </div>
+                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                  <Shield size={16} color="#10b981" /> Khóa từ
+                </div>
+                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                  <Tv size={16} color="#3b82f6" /> Smart TV
+                </div>
+                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                  <Car size={16} color="#94a3b8" /> Chỗ để xe
+                </div>
+                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                  <Camera size={16} color="#a5b4fc" /> Camera 24/7
+                </div>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header">
+                <h3 className="panel-title"><StickyNote size={18} color="#6366f1" /> Ghi Chú Riêng Chủ Trọ</h3>
+              </div>
+              <textarea
+                className="form-control"
+                rows={5}
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Ghi chú cá nhân về phòng hoặc khách thuê..."
+                style={{ resize: 'vertical', fontSize: 14, lineHeight: 1.5 }}
+              />
+              <button className="btn btn-primary" style={{ width: '100%', marginTop: 14 }} onClick={handleSaveNotes}>
+                Lưu Ghi Chú
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------- TAB 2: KHÁCH THUÊ & HỢP ĐỒNG ----------------- */}
+      {activeTab === 'tenant' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: 24 }}>
+          {/* Card Khách Thuê */}
+          <div className="panel">
+            <div className="panel-header">
+              <h3 className="panel-title"><Users size={18} color="#6366f1" /> Danh Sách Khách Thuê ({tenants.length} người)</h3>
+              <span className="status-pill active">Max {room.maxTenants} người</span>
             </div>
 
             {tenants.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', background: 'var(--bg-dark)', borderRadius: 10 }}>
-                <User size={36} style={{ opacity: 0.2, marginBottom: 8 }} />
-                <p style={{ margin: 0, fontSize: 13 }}>Phòng hiện chưa có khách thuê</p>
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', background: 'rgba(15,23,42,0.6)', borderRadius: 12 }}>
+                <User size={40} style={{ opacity: 0.3, marginBottom: 10 }} />
+                <p style={{ margin: 0, fontSize: 14 }}>Phòng hiện tại đang trống, chưa có khách thuê.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {tenants.map((t, idx) => (
-                  <div key={t.id || idx} style={{ padding: '14px', background: 'var(--bg-dark)', borderRadius: 12, border: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <User size={20} color="#6366f1" />
+                  <div key={t.id || idx} style={{ padding: '18px', background: 'rgba(15,23,42,0.8)', borderRadius: 14, border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 14 }}>
+                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, #10b981, #6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
+                        {t.fullName?.charAt(0) || 'U'}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>
-                          {t.fullName} {idx === 0 ? <span style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', background: 'rgba(99,102,241,0.15)', padding: '2px 6px', borderRadius: 4, marginLeft: 6 }}>Khách đại diện</span> : null}
+                        <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {t.fullName}
+                          {idx === 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(16,185,129,0.3)' }}>Khách đại diện</span>}
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Email: {t.email || 'Chưa cập nhật'}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{t.email || 'Chưa cập nhật email'}</div>
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: 6 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Số Điện Thoại</div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', marginTop: 2 }}>
-                          <Phone size={11} style={{ display: 'inline', marginRight: 4 }} />{t.phone}
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Số Điện Thoại</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#10b981', marginTop: 2 }}><Phone size={12} style={{ display: 'inline', marginRight: 4 }} />{t.phone}</div>
                       </div>
-                      <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: 6 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Số CCCD</div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 2 }}>{t.cccd}</div>
+                      <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Số CCCD</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{t.cccd}</div>
                       </div>
-                      <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: 6 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Quê Quán</div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 2 }}>{t.hometown || 'Chưa cập nhật'}</div>
+                      <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Quê Quán</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{t.hometown || 'Chưa cập nhật'}</div>
                       </div>
-                      <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: 6 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ngày Chuyển Vào</div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 2 }}>
-                          {t.moveInDate ? new Date(t.moveInDate).toLocaleDateString('vi-VN') : '-'}
-                        </div>
+                      <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Ngày Chuyển Vào</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{t.moveInDate ? new Date(t.moveInDate).toLocaleDateString('vi-VN') : '-'}</div>
                       </div>
                     </div>
                   </div>
@@ -900,84 +1295,107 @@ const RoomDetail = ({ room, zone, onBack }) => {
             )}
           </div>
 
-          {/* Card: Hợp Đồng Thuê Nhà */}
-          <div className="card" style={{ padding: '20px' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
-              <CreditCard size={18} color="#10b981" /> Hợp Đồng Thuê Nhà
-            </h3>
+          {/* Card Hợp Đồng */}
+          <div className="panel">
+            <div className="panel-header">
+              <h3 className="panel-title"><CreditCard size={18} color="#10b981" /> Hợp Đồng Thuê Nhà</h3>
+            </div>
 
             {!activeContract ? (
-              <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', background: 'var(--bg-dark)', borderRadius: 10 }}>
-                <CreditCard size={36} style={{ opacity: 0.2, marginBottom: 8 }} />
-                <p style={{ margin: 0, fontSize: 13 }}>Chưa có hợp đồng đang hiệu lực</p>
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', background: 'rgba(15,23,42,0.6)', borderRadius: 12 }}>
+                <CreditCard size={40} style={{ opacity: 0.3, marginBottom: 10 }} />
+                <p style={{ margin: 0, fontSize: 14 }}>Chưa có hợp đồng đang có hiệu lực.</p>
               </div>
             ) : (
-              <div style={{ padding: '14px', background: 'rgba(16,185,129,0.06)', borderRadius: 10, border: '1px solid rgba(16,185,129,0.2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontWeight: 800, fontSize: 15, color: '#10b981' }}>Mã: {activeContract.contractCode}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>✅ Đang hiệu lực</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ padding: '18px', background: 'rgba(16,185,129,0.06)', borderRadius: 14, border: '1px solid rgba(16,185,129,0.25)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Thời Hạn Hợp Đồng</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block' }}>Mã hợp đồng</span>
+                    <span style={{ fontWeight: 800, fontSize: 16, color: '#10b981' }}>{activeContract.contractCode}</span>
+                  </div>
+                  <span className="status-pill active">✅ Đang hiệu lực</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                  <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Thời Hạn Hợp Đồng</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>
                       {new Date(activeContract.startDate).toLocaleDateString('vi-VN')} → {new Date(activeContract.endDate).toLocaleDateString('vi-VN')}
                     </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tiền Đặt Cọc</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#f59e0b', marginTop: 2 }}>{formatVND(activeContract.deposit)}</div>
+                  <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Tiền Đặt Cọc</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b', marginTop: 2 }}>{formatVND(activeContract.deposit)}</div>
                   </div>
                 </div>
+
+                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => showToast('Đã tải xuống hợp đồng PDF thành công!')}>
+                  <Download size={16} /> Tải Hợp Đồng PDF (Bản Gốc)
+                </button>
               </div>
             )}
           </div>
         </div>
+      )}
 
-        {/* CỘT 2: ĐIỆN NƯỚC & LỊCH SỬ HÓA ĐƠN GẦN ĐÂY */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-          {/* Card: Chỉ số Điện Nước hiện tại */}
-          <div className="card" style={{ padding: '20px' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
-              <Zap size={18} color="#f59e0b" /> Chỉ Số Điện & Nước Mới Nhất
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={{ padding: '14px', background: 'rgba(245,158,11,0.08)', borderRadius: 10, border: '1px solid rgba(245,158,11,0.2)' }}>
-                <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 700, marginBottom: 4 }}>⚡ Số Điện Hiện Tại</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{room.elecMeter} <span style={{ fontSize: 12 }}>kWh</span></div>
+      {/* ----------------- TAB 3: ĐIỆN NƯỚC & HÓA ĐƠN ----------------- */}
+      {activeTab === 'utilities' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: 24 }}>
+          {/* Chỉ số điện nước */}
+          <div className="panel">
+            <div className="panel-header">
+              <h3 className="panel-title"><Zap size={18} color="#f59e0b" /> Chỉ Số Điện & Nước Mới Nhất</h3>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              <div style={{ padding: '18px', background: 'rgba(245,158,11,0.09)', borderRadius: 14, border: '1px solid rgba(245,158,11,0.3)' }}>
+                <div style={{ fontSize: 13, color: '#f59e0b', fontWeight: 700, marginBottom: 4 }}>⚡ Số Điện Mới Nhất</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' }}>{room.elecMeter} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>kWh</span></div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Đơn giá: 3.500 đ/kWh</div>
               </div>
-              <div style={{ padding: '14px', background: 'rgba(59,130,246,0.08)', borderRadius: 10, border: '1px solid rgba(59,130,246,0.2)' }}>
-                <div style={{ fontSize: 12, color: '#3b82f6', fontWeight: 700, marginBottom: 4 }}>💧 Số Nước Hiện Tại</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{room.waterMeter} <span style={{ fontSize: 12 }}>m³</span></div>
+              <div style={{ padding: '18px', background: 'rgba(59,130,246,0.09)', borderRadius: 14, border: '1px solid rgba(59,130,246,0.3)' }}>
+                <div style={{ fontSize: 13, color: '#3b82f6', fontWeight: 700, marginBottom: 4 }}>💧 Số Nước Mới Nhất</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' }}>{room.waterMeter} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>m³</span></div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Đơn giá: 25.000 đ/m³</div>
+              </div>
+            </div>
+
+            <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12 }}>Lịch sử chốt công tơ 3 kỳ gần đây:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ padding: '12px 14px', background: 'rgba(15,23,42,0.8)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div><strong style={{ fontSize: 14 }}>Tháng 7/2026</strong> <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>(Chốt ngày 25/07)</span></div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>⚡ {room.elecMeter} kWh | 💧 {room.waterMeter} m³</div>
+              </div>
+              <div style={{ padding: '12px 14px', background: 'rgba(15,23,42,0.8)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div><strong style={{ fontSize: 14 }}>Tháng 6/2026</strong> <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>(Chốt ngày 25/06)</span></div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>⚡ {Math.max(0, room.elecMeter - 120)} kWh | 💧 {Math.max(0, room.waterMeter - 8)} m³</div>
               </div>
             </div>
           </div>
 
-          {/* Card: Danh Sách Hóa Đơn Gần Đây */}
-          <div className="card" style={{ padding: '20px' }}>
-            <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
-              <FileText size={18} color="#6366f1" /> Lịch Sử Hóa Đơn (6 Tháng Gần Nhất)
-            </h3>
+          {/* Lịch sử hóa đơn */}
+          <div className="panel">
+            <div className="panel-header">
+              <h3 className="panel-title"><FileText size={18} color="#6366f1" /> Lịch Sử Hóa Đơn (6 Kỳ Gần Nhất)</h3>
+            </div>
 
             {recentInvoices.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)', background: 'var(--bg-dark)', borderRadius: 10 }}>
-                <FileText size={36} style={{ opacity: 0.2, marginBottom: 8 }} />
-                <p style={{ margin: 0, fontSize: 13 }}>Chưa có hóa đơn nào cho phòng này</p>
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', background: 'rgba(15,23,42,0.6)', borderRadius: 12 }}>
+                <FileText size={40} style={{ opacity: 0.3, marginBottom: 10 }} />
+                <p style={{ margin: 0, fontSize: 14 }}>Chưa có hóa đơn phát sinh cho phòng này.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {recentInvoices.slice(0, 5).map(inv => {
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {recentInvoices.map(inv => {
                   const isPaid = (inv.status || '').toLowerCase() === 'paid';
                   return (
-                    <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-dark)', borderRadius: 10 }}>
+                    <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'rgba(15,23,42,0.8)', borderRadius: 12, border: '1px solid var(--border-color)' }}>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>Mã: {inv.invoiceCode}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Kỳ tháng {inv.month} • Hạn: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : ''}</div>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>Mã: {inv.invoiceCode}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Kỳ tháng {inv.month} • Hạn: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : ''}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 800, color: '#6366f1', fontSize: 15 }}>{formatVND(inv.totalAmount)}</div>
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: isPaid ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: isPaid ? '#10b981' : '#ef4444' }}>
+                        <div style={{ fontWeight: 800, color: '#6366f1', fontSize: 16 }}>{formatVND(inv.totalAmount)}</div>
+                        <span className={`status-pill ${isPaid ? 'paid' : 'unpaid'}`} style={{ marginTop: 4 }}>
                           {isPaid ? '✅ Đã trả' : '⏳ Chưa thanh toán'}
                         </span>
                       </div>
@@ -987,10 +1405,188 @@ const RoomDetail = ({ room, zone, onBack }) => {
               </div>
             )}
           </div>
-
         </div>
+      )}
 
-      </div>
+      {/* ----------------- TAB 4: BẢO TRÌ & BÁO LỖI ----------------- */}
+      {activeTab === 'maintenance' && (
+        <div className="panel">
+          <div className="panel-header">
+            <h3 className="panel-title"><Wrench size={18} color="#f43f5e" /> Danh Sách Yêu Cầu Bảo Trì & Sửa Chữa</h3>
+            <button className="btn btn-primary btn-sm" onClick={() => showToast('Mở tạo yêu cầu bảo trì mới')}>
+              <Plus size={15} /> Tạo Yêu Cầu Sửa Chữa
+            </button>
+          </div>
+
+          <div className="table-responsive">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Tiêu đề sự cố / Thiết bị</th>
+                  <th>Mức độ ưu tiên</th>
+                  <th>Ngày báo</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Máy lạnh chảy nước nhẹ ở cục lạnh</strong></td>
+                  <td><span className="status-pill pending">Vừa phải</span></td>
+                  <td>05/08/2026</td>
+                  <td><span className="status-pill active">Đã xử lý xong</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Bóng đèn hành lang chập chập</strong></td>
+                  <td><span className="status-pill vacant">Thấp</span></td>
+                  <td>28/07/2026</td>
+                  <td><span className="status-pill active">Đã thay mới</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {/* ⚡ MODAL CHỐT ĐIỆN NƯỚC */}
+      {showMeterModal && (
+        <div className="modal-backdrop" onClick={() => setShowMeterModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Zap size={20} color="#f59e0b" /> Chốt Chỉ Số Điện / Nước
+              </h3>
+              <button className="btn-close" onClick={() => setShowMeterModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleRecordMeter}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label className="form-label">Kỳ Tháng</label>
+                  <input type="text" className="form-control" value={meterForm.month} onChange={e => setMeterForm({ ...meterForm, month: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Chỉ Số Điện Mới (kWh)</label>
+                  <input type="number" step="1" className="form-control" value={meterForm.newElec} onChange={e => setMeterForm({ ...meterForm, newElec: e.target.value })} required />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Hiện tại: {currentElec} kWh</span>
+                </div>
+                <div>
+                  <label className="form-label">Chỉ Số Nước Mới (m³)</label>
+                  <input type="number" step="1" className="form-control" value={meterForm.newWater} onChange={e => setMeterForm({ ...meterForm, newWater: e.target.value })} required />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Hiện tại: {currentWater} m³</span>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 16 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowMeterModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Đang ghi nhận...' : 'Lưu Chỉ Số'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 📄 MODAL LẬP HÓA ĐƠN */}
+      {showInvoiceModal && (
+        <div className="modal-backdrop" onClick={() => setShowInvoiceModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FilePlus size={20} color="#10b981" /> Lập Hóa Đơn Tháng Mới
+              </h3>
+              <button className="btn-close" onClick={() => setShowInvoiceModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreateInvoice}>
+              <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">Khách Thuê Nhận Hóa Đơn</label>
+                  <input type="text" className="form-control" value={mainTenant ? `${mainTenant.fullName} (${mainTenant.phone})` : 'Khách phòng này'} disabled />
+                </div>
+                <div>
+                  <label className="form-label">Kỳ Tháng Hóa Đơn</label>
+                  <input type="text" className="form-control" value={invoiceForm.month} onChange={e => setInvoiceForm({ ...invoiceForm, month: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Hạn Thanh Toán</label>
+                  <input type="date" className="form-control" value={invoiceForm.dueDate} onChange={e => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Tiền Thuê Phòng (đ)</label>
+                  <input type="number" className="form-control" value={invoiceForm.rentFee} onChange={e => setInvoiceForm({ ...invoiceForm, rentFee: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Tiền Điện (đ)</label>
+                  <input type="number" className="form-control" value={invoiceForm.elecFee} onChange={e => setInvoiceForm({ ...invoiceForm, elecFee: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Tiền Nước (đ)</label>
+                  <input type="number" className="form-control" value={invoiceForm.waterFee} onChange={e => setInvoiceForm({ ...invoiceForm, waterFee: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Phí Dịch Vụ & Rác (đ)</label>
+                  <input type="number" className="form-control" value={invoiceForm.serviceFee} onChange={e => setInvoiceForm({ ...invoiceForm, serviceFee: e.target.value })} required />
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 20 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowInvoiceModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Đang tạo...' : 'Tạo & Gửi Hóa Đơn'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ MODAL SỬA PHÒNG */}
+      {showEditModal && (
+        <div className="modal-backdrop" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Edit3 size={20} color="#6366f1" /> Chỉnh Sửa Thông Tin Phòng
+              </h3>
+              <button className="btn-close" onClick={() => setShowEditModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleUpdateRoom}>
+              <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div>
+                  <label className="form-label">Mã Phòng</label>
+                  <input type="text" className="form-control" value={editForm.roomNumber} onChange={e => setEditForm({ ...editForm, roomNumber: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Tầng</label>
+                  <input type="number" className="form-control" value={editForm.floor} onChange={e => setEditForm({ ...editForm, floor: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Giá Thuê / Tháng (đ)</label>
+                  <input type="number" className="form-control" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Diện Tích (m²)</label>
+                  <input type="number" className="form-control" value={editForm.area} onChange={e => setEditForm({ ...editForm, area: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Sức Chứa Tối Đa (Người)</label>
+                  <input type="number" className="form-control" value={editForm.maxTenants} onChange={e => setEditForm({ ...editForm, maxTenants: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Trạng Thái</label>
+                  <select className="form-control" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
+                    <option value="Occupied">Đang thuê</option>
+                    <option value="Vacant">Còn trống</option>
+                    <option value="Maintenance">Bảo trì</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 20 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

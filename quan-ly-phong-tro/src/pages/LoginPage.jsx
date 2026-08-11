@@ -47,13 +47,7 @@ export default function LoginPage() {
       const data = await login(account.email, account.password);
       navigate(ROLE_PATHS[data.role] || '/', { replace: true });
     } catch (err) {
-      setError(err.message || 'Đang sử dụng dữ liệu demo (backend chưa kết nối)');
-      // Fallback demo login khi backend chưa kết nối
-      setTimeout(() => {
-        localStorage.setItem('accessToken', 'demo-token');
-        localStorage.setItem('user', JSON.stringify({ id: '1', role: account.role, fullName: account.label + ' Demo', email: account.email }));
-        window.location.href = ROLE_PATHS[account.role];
-      }, 1000);
+      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra kết nối API Backend.');
     } finally {
       setIsLoading(false);
     }

@@ -32,6 +32,10 @@ const LandlordProfile   = lazy(() => import('../components/Landlord/LandlordProf
 const TAB_FETCHERS = {
   ll_dashboard: {
     dashboard: dashboardService.getLandlordDashboard,
+    rooms: roomService.getRooms,
+    zones: zoneService.getZones,
+    invoices: invoiceService.getInvoices,
+    tenants: tenantService.getTenants,
   },
   ll_tenants: {
     tenants: tenantService.getTenants,
@@ -146,7 +150,7 @@ export default function LandlordPage() {
       case 'll_dashboard':
         return (
           <Suspense fallback={<TabLoader />}>
-            <LandlordDashboard data={{ dashboard: d.dashboard, rooms: [], invoices: [], tenants: [], zones: [] }} />
+            <LandlordDashboard data={{ dashboard: d.dashboard, rooms: d.rooms || [], invoices: d.invoices || [], tenants: d.tenants || [], zones: d.zones || [] }} />
           </Suspense>
         );
       case 'll_zones':
