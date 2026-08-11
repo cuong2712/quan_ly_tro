@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chi Tiết Phòng 302 - SmartRent Landlord Dashboard</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons (Vanilla SVG script) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --bg-main: #090D16;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --bg-card-hover: rgba(24, 34, 53, 0.85);
+      --bg-glass: rgba(30, 41, 59, 0.4);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(16, 185, 129, 0.3);
+      
+      --accent-emerald: #10B981;
+      --accent-emerald-glow: rgba(16, 185, 129, 0.15);
+      --accent-teal: #14B8A6;
+      --accent-indigo: #6366F1;
+      --accent-amber: #F59E0B;
+      --accent-rose: #F43F5E;
+      --accent-blue: #3B82F6;
+
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-sub: #64748B;
+
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+
+      --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 70%, rgba(99, 102, 241, 0.07) 0%, transparent 45%);
+      background-attachment: fixed;
+      padding-bottom: 60px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.2);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.4);
+    }
+
+    /* Container */
+    .app-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 20px;
+    }
+
+    /* Top Navigation Header */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(16px);
+      margin-bottom: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent-emerald), var(--accent-teal));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #000;
+      font-weight: 800;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #fff, #94A3B8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .breadcrumbs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    .breadcrumbs span.active {
+      color: var(--accent-emerald);
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      border: 1px solid transparent;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-emerald), #059669);
+      color: #042F2E;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+      filter: brightness(1.08);
+    }
+
+    .btn-secondary {
+      background: rgba(30, 41, 59, 0.6);
+      color: var(--text-main);
+      border-color: var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(51, 65, 85, 0.8);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.12);
+      color: var(--accent-rose);
+      border-color: rgba(244, 63, 94, 0.3);
+    }
+
+    .btn-danger:hover {
+      background: rgba(244, 63, 94, 0.2);
+    }
+
+    /* Room Header Hero Card */
+    .room-hero {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      backdrop-filter: blur(16px);
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .room-hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(to right, var(--accent-emerald), var(--accent-indigo), var(--accent-teal));
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+
+    .room-title-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .room-code-badge {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-main);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-rented {
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .status-rented .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    .building-info {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .building-info-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Key Stats Bar */
+    .hero-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+      padding: 16px 20px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: var(--transition);
+    }
+
+    .stat-card:hover {
+      background: rgba(30, 41, 59, 0.7);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stat-icon.green { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+    .stat-icon.blue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .stat-icon.indigo { background: rgba(99, 102, 241, 0.15); color: var(--accent-indigo); }
+    .stat-icon.amber { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+
+    .stat-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .stat-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 2px;
+    }
+
+    .stat-subtext {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+
+    /* Navigation Tabs */
+    .tabs-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 24px;
+      padding-bottom: 2px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-emerald);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -3px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--accent-emerald);
+      border-radius: 3px 3px 0 0;
+      box-shadow: 0 0 12px var(--accent-emerald);
+    }
+
+    /* Tab Content Layout */
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Grid Layouts */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+    }
+
+    .grid-3col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-2col, .grid-3col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Panels & Cards */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      margin-bottom: 24px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-main);
+    }
+
+    .panel-title i {
+      color: var(--accent-emerald);
+    }
+
+    /* Feature Data List */
+    .data-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .data-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .data-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .data-val {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    /* Tenant Info Card */
+    .tenant-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+    }
+
+    .avatar-lg {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3B82F6, #6366F1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: #fff;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .avatar-sm {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #10B981, #14B8A6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #000;
+    }
+
+    .tenant-details {
+      flex: 1;
+    }
+
+    .tenant-name {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text-main);
+    }
+
+    .tenant-sub {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      display: flex;
+      gap: 12px;
+    }
+
+    /* Amenities Grid */
+    .amenities-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .amenity-chip {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-color);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+
+    .amenity-chip i {
+      color: var(--accent-emerald);
+      width: 18px;
+    }
+
+    /* Asset Table */
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    .custom-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+
+    .custom-table th {
+      padding: 12px 16px;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .custom-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    .custom-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+    .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+    .badge-info { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+
+    /* Utility Input Card & History */
+    .utility-calculator {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(99, 102, 241, 0.05));
+      border: 1px solid var(--border-accent);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .input-group label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .input-field {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: var(--transition);
+      width: 100%;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+    }
+
+    /* Visual Bar Chart simulation */
+    .chart-container {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      height: 160px;
+      padding-top: 20px;
+      margin-top: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .chart-bar-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .chart-bars {
+      display: flex;
+      gap: 6px;
+      align-items: flex-end;
+      width: 100%;
+      height: 100%;
+      justify-content: center;
+    }
+
+    .bar {
+      width: 16px;
+      border-radius: 4px 4px 0 0;
+      transition: height 0.5s ease;
+      position: relative;
+    }
+
+    .bar-elec { background: linear-gradient(to top, #059669, var(--accent-emerald)); }
+    .bar-water { background: linear-gradient(to top, #2563EB, var(--accent-blue)); }
+
+    .chart-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      visibility: hidden;
+      transition: var(--transition);
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-card {
+      background: #0F172A;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 540px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      transform: translateY(20px);
+      transition: var(--transition);
+    }
+
+    .modal-overlay.active .modal-card {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+    }
+    .close-btn:hover { color: #fff; }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--accent-emerald);
+      color: var(--text-main);
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast i {
+      color: var(--accent-emerald);
+    }
+
+    /* Photo Gallery Thumbnails */
+    .gallery-preview {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .gallery-thumb {
+      height: 70px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      width: 100%;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      transition: var(--transition);
+    }
+
+    .gallery-thumb:hover {
+      border-color: var(--accent-emerald);
+      transform: scale(1.03);
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Header / Navigation -->
+    <nav class="top-nav">
+      <div class="brand">
+        <div class="brand-logo">SR</div>
+        <div>
+          <h1 class="brand-title">SmartRent Manager</h1>
+          <div class="breadcrumbs">
+            <span>Tòa nhà Green House</span>
+            <i data-lucide="chevron-right" size="14"></i>
+            <span>Tầng 3</span>
+            <i data-lucide="chevron-right" size="14"></i>
+            <span class="active">Phòng 302</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="exportReport()">
+          <i data-lucide="download" size="16"></i>
+          Xuất báo cáo PDF
+        </button>
+        <button class="btn btn-primary" onclick="openModal('editRoomModal')">
+          <i data-lucide="edit-3" size="16"></i>
+          Sửa thông tin
+        </button>
+      </div>
+    </nav>
+
+    <!-- Room Hero Header Card -->
+    <header class="room-hero">
+      <div class="hero-top">
+        <div>
+          <div class="room-title-group">
+            <h2 class="room-code-badge">Phòng P.302</h2>
+            <div class="status-badge status-rented">
+              <span class="dot"></span>
+              Đang Cho Thụê
+            </div>
+          </div>
+          <div class="building-info">
+            <div class="building-info-item">
+              <i data-lucide="building" size="15"></i> Tòa Green House - 128 Nguyễn Trãi, Q.7, TP.HCM
+            </div>
+            <div class="building-info-item">
+              <i data-lucide="maximize" size="15"></i> 28 m² (Tầng 3)
+            </div>
+            <div class="building-info-item">
+              <i data-lucide="users" size="15"></i> Tối đa 3 người
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-primary" onclick="openModal('createInvoiceModal')">
+            <i data-lucide="file-plus" size="16"></i>
+            Lập Hóa Đơn Tháng 8
+          </button>
+          <button class="btn btn-secondary" onclick="openModal('meterModal')">
+            <i data-lucide="zap" size="16"></i>
+            Chốt Điện/Nước
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Bar -->
+      <div class="hero-stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <i data-lucide="dollar-sign" size="22"></i>
+          </div>
+          <div class="stat-meta">
+            <span class="stat-label">Giá thuê phòng</span>
+            <span class="stat-value">4.500.000 đ</span>
+            <span class="stat-subtext">Cọc 4.500.000 đ (1 tháng)</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon blue">
+            <i data-lucide="user-check" size="22"></i>
+          </div>
+          <div class="stat-meta">
+            <span class="stat-label">Khách thuê đại diện</span>
+            <span class="stat-value">Nguyễn Văn An</span>
+            <span class="stat-subtext">SĐT: 0987.654.321</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon indigo">
+            <i data-lucide="calendar" size="22"></i>
+          </div>
+          <div class="stat-meta">
+            <span class="stat-label">Thời hạn hợp đồng</span>
+            <span class="stat-value">Còn 126 ngày</span>
+            <span class="stat-subtext">Hết hạn: 15/12/2026</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon amber">
+            <i data-lucide="activity" size="22"></i>
+          </div>
+          <div class="stat-meta">
+            <span class="stat-label">Chỉ số Điện / Nước mới</span>
+            <span class="stat-value">1.420 / 148</span>
+            <span class="stat-subtext">Chốt gần nhất: 25/07/2026</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <div class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('tab-overview', this)">
+        <i data-lucide="layout-grid" size="18"></i>
+        Tổng Quan & Tiện Nghi
+      </button>
+      <button class="tab-btn" onclick="switchTab('tab-tenant', this)">
+        <i data-lucide="users" size="18"></i>
+        Khách Thuê & Hợp Đồng
+      </button>
+      <button class="tab-btn" onclick="switchTab('tab-utilities', this)">
+        <i data-lucide="gauge" size="18"></i>
+        Điện Nước & Hóa Đơn
+      </button>
+      <button class="tab-btn" onclick="switchTab('tab-maintenance', this)">
+        <i data-lucide="wrench" size="18"></i>
+        Bảo Trì & Báo Lỗi <span class="badge badge-warning" style="margin-left:4px;">1</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: TỔNG QUAN & TIỆN NGHI -->
+    <div id="tab-overview" class="tab-content active">
+      <div class="grid-2col">
+        
+        <div>
+          <!-- Thông tin cơ bản -->
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title"><i data-lucide="info"></i> Thông Tin Chi Tiết Phòng</h3>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
+                <i data-lucide="edit" size="14"></i> Cập nhật
+              </button>
+            </div>
+            
+            <div class="data-list" style="margin-bottom: 20px;">
+              <div class="data-item">
+                <span class="data-label">Mã phòng</span>
+                <span class="data-val">P302</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Loại phòng</span>
+                <span class="data-val">Căn hộ Studio có Ban Công</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Diện tích</span>
+                <span class="data-val">28 m²</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Sức chứa tối đa</span>
+                <span class="data-val">3 Người (1 Xe máy)</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Đơn giá Điện</span>
+                <span class="data-val" style="color:var(--accent-emerald);">3.500 đ / kWh</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Đơn giá Nước</span>
+                <span class="data-val" style="color:var(--accent-blue);">25.000 đ / m³</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Phí dịch vụ & rác</span>
+                <span class="data-val">100.000 đ / tháng</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Internet / Wifi</span>
+                <span class="data-val">Miễn phí (Gói 200Mbps)</span>
+              </div>
+            </div>
+
+            <div style="margin-top: 16px;">
+              <span class="data-label" style="display:block; margin-bottom: 8px;">Hình ảnh thực tế phòng (4 ảnh):</span>
+              <div class="gallery-preview">
+                <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80" alt="Phòng ngủ" class="gallery-thumb" onclick="viewPhoto(this.src)">
+                <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=400&q=80" alt="Phòng khách" class="gallery-thumb" onclick="viewPhoto(this.src)">
+                <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=400&q=80" alt="Bếp" class="gallery-thumb" onclick="viewPhoto(this.src)">
+                <img src="https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=400&q=80" alt="Nhà vệ sinh" class="gallery-thumb" onclick="viewPhoto(this.src)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Danh mục tài sản / thiết bị bàn giao -->
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title"><i data-lucide="box"></i> Danh Mục Nội Thất & Thiết Bị Bàn Giao</h3>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="showToast('Đã mở trang kiểm kê tài sản')">
+                <i data-lucide="plus" size="14"></i> Thêm tài sản
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Tên thiết bị / Nội thất</th>
+                    <th>Mã số / Thương hiệu</th>
+                    <th>Số lượng</th>
+                    <th>Tình trạng</th>
+                    <th>Bảo hành đến</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Máy lạnh Inverter</strong></td>
+                    <td>Daikin 1.5 HP (DK-302-01)</td>
+                    <td>01 Cái</td>
+                    <td><span class="badge badge-success">Hoạt động tốt</span></td>
+                    <td>10/2027</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Tủ lạnh 2 cánh</strong></td>
+                    <td>Panasonic 188 Lit</td>
+                    <td>01 Cái</td>
+                    <td><span class="badge badge-success">Hoạt động tốt</span></td>
+                    <td>05/2026</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Máy giặt cửa trước</strong></td>
+                    <td>Electrolux 9kg</td>
+                    <td>01 Cái</td>
+                    <td><span class="badge badge-warning">Cần vệ sinh</span></td>
+                    <td>Hết hạn</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bình nóng lạnh</strong></td>
+                    <td>Ariston 30 Lit</td>
+                    <td>01 Cái</td>
+                    <td><span class="badge badge-success">Hoạt động tốt</span></td>
+                    <td>12/2026</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Bộ Giường & Đệm Cao Su</strong></td>
+                    <td>Gỗ Sồi 1m8 x 2m</td>
+                    <td>01 Bộ</td>
+                    <td><span class="badge badge-success">Mới 98%</span></td>
+                    <td>-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Sidebar bên phải -->
+        <div>
+          <!-- Tiện ích sẵn có -->
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title"><i data-lucide="sparkles"></i> Tiện Ích Phòng</h3>
+            </div>
+            <div class="amenities-grid">
+              <div class="amenity-chip"><i data-lucide="wind"></i> Máy lạnh</div>
+              <div class="amenity-chip"><i data-lucide="wifi"></i> Wifi Wifi6</div>
+              <div class="amenity-chip"><i data-lucide="flame"></i> Bếp từ âm</div>
+              <div class="amenity-chip"><i data-lucide="sun"></i> Ban công</div>
+              <div class="amenity-chip"><i data-lucide="shield-check"></i> Khóa từ</div>
+              <div class="amenity-chip"><i data-lucide="tv"></i> Smart TV</div>
+              <div class="amenity-chip"><i data-lucide="car"></i> Chỗ để xe</div>
+              <div class="amenity-chip"><i data-lucide="camera"></i> Camera an ninh</div>
+            </div>
+          </div>
+
+          <!-- Ghi chú riêng của chủ trọ -->
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title"><i data-lucide="sticky-note"></i> Ghi Chú Riêng Chủ Trọ</h3>
+            </div>
+            <textarea class="input-field" rows="5" placeholder="Viết ghi chú cá nhân về khách hoặc phòng ở đây..." style="resize: vertical;">Khách thanh toán sòng phẳng đúng hạn. Có nuôi 1 bé mèo Anh lông ngắn (đã đồng ý điều khoản giữ vệ sinh). Chốt điện nước ngày 25 hàng tháng.</textarea>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 12px; justify-content: center;" onclick="showToast('Đã lưu ghi chú chủ trọ!')">
+              Lưu Ghi Chú
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: KHÁCH THUÊ & HỢP ĐỒNG -->
+    <div id="tab-tenant" class="tab-content">
+      <div class="grid-2col">
+        <div>
+          <!-- Đại diện hợp đồng -->
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title"><i data-lucide="user"></i> Chủ Hợp Đồng (Đại Diện)</h3>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="showToast('Đã gửi tin nhắn thông báo đến khách')">
+                <i data-lucide="message-square" size="14"></i> Gửi Tin Nhắn
+              </button>
+            </div>
+
+            <div class="tenant-card" style="background: rgba(16, 185, 129, 0.05); border-color: var(--border-accent);">
+              <div class="avatar-lg">AN</div>
+              <div class="tenant-details">
+                <div class="tenant-name">Nguyễn Văn An <span class="badge badge-success">Chủ Hợp Đồng</span></div>
+                <div class="tenant-sub">
+                  <span><i data-lucide="phone" size="13"></i> 0987.654.321</span>
+                  <span><i data-lucide="mail" size="13"></i> an.nguyen@gmail.com</span>
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">
+                  CCCD: <strong>079095001234</strong> (Cấp ngày 12/04/2021 tại Cục CSQLHC)
+                </div>
+              </div>
+            </div>
+
+            <div class="data-list" style="margin-top: 16px;">
+              <div class="data-item">
+                <span class="data-label">Quê quán</span>
+                <span class="data-val">Bảo Lộc, Lâm Đồng</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Ngày sinh</span>
+                <span class="data-val">15/08/1998</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Nghề nghiệp</span>
+                <span class="data-val">Kỹ sư Phần mềm (FPT Software)</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Đăng ký tạm trú</span>
+                <span class="data-val" style="color:var(--accent-emerald);"><i data-lucide="check-circle2" size="14"></i> Đã hoàn thành (Cơ quan Công An Q.7)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thành viên ở cùng -->
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title"><i data-lucide="users"></i> Thành Viên Ở Cùng (02 Người)</h3>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openModal('addTenantModal')">
+                <i data-lucide="user-plus" size="14"></i> Thêm người ở
+              </button>
+            </div>
+
+            <div class="tenant-card">
+              <div class="avatar-sm">TB</div>
+              <div class="tenant-details">
+                <div class="tenant-name">Trần Thị Bình</div>
+                <div class="tenant-sub">
+                  <span>SĐT: 0912.345.678</span>
+                  <span>CCCD: 079198005678</span>
+                  <span>Quan hệ: Bạn cùng phòng</span>
+                </div>
+              </div>
+              <span class="badge badge-info">Tạm trú OK</span>
+            </div>
+
+            <div class="tenant-card">
+              <div class="avatar-sm" style="background:linear-gradient(135deg, #F59E0B, #EF4444); color:#fff;">LC</div>
+              <div class="tenant-details">
+                <div class="tenant-name">Lê Văn Cường</div>
+                <div class="tenant-sub">
+                  <span>SĐT: 0938.112.233</span>
+                  <span>CCCD: 036099004321</span>
+                  <span>Quan hệ: Em trai</span>
+                </div>
+              </div>
+              <span class="badge badge-info">Tạm trú OK</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chi tiết hợp đồng bên phải -->
+        <div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3 class="panel-title"><i data-lucide="file-text"></i> Hợp Đồng Thuê Nhà</h3>
+              <span class="badge badge-success">Hiệu Lực</span>
+            </div>
+
+            <div class="data-list" style="grid-template-columns: 1fr; gap: 14px;">
+              <div class="data-item">
+                <span class="data-label">Mã hợp đồng</span>
+                <span class="data-val">HD-2025-GH302</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Thời hạn thuê</span>
+                <span class="data-val">12 Tháng (15/12/2025 - 15/12/2026)</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Tiền đặt cọc</span>
+                <span class="data-val" style="color:var(--accent-emerald); font-size: 1.1rem;">4.500.000 đ</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Ngày thanh toán hàng tháng</span>
+                <span class="data-val">Từ ngày 01 đến ngày 05 hàng tháng</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Kỳ hạn chốt điện nước</span>
+                <span class="data-val">Ngày 25 hàng tháng</span>
+              </div>
+            </div>
+
+            <hr style="border:none; border-top:1px solid var(--border-color); margin: 20px 0;">
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <button class="btn btn-secondary" style="width: 100%; justify-content: center;" onclick="showToast('Đang tải file Hợp Đồng PDF...')">
+                <i data-lucide="file-text" size="16"></i> Xem File Hợp Đồng PDF
+              </button>
+              <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="showToast('Mở giao diện gia hạn hợp đồng')">
+                <i data-lucide="refresh-cw" size="16"></i> Gia Hạn Hợp Đồng
+              </button>
+              <button class="btn btn-danger" style="width: 100%; justify-content: center;" onclick="openModal('checkoutModal')">
+                <i data-lucide="log-out" size="16"></i> Thanh Lý / Trả Phòng
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: ĐIỆN NƯỚC & HÓA ĐƠN -->
+    <div id="tab-utilities" class="tab-content">
+      <!-- Bộ chốt điện nước nhanh -->
+      <div class="utility-calculator">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <h3 style="font-size: 1.1rem; font-weight:700;"><i data-lucide="zap" style="color:var(--accent-amber);"></i> Công Cụ Tính & Chốt Điện Nước Trực Tiếp</h3>
+            <p style="font-size: 0.85rem; color:var(--text-muted);">Nhập chỉ số điện nước mới nhất để xem preview hóa đơn dự kiến</p>
+          </div>
+          <span class="badge badge-info">Chỉ số cũ: Điện 1.320 | Nước 138</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+          <div class="input-group">
+            <label>Chỉ số Điện Mới (kWh)</label>
+            <input type="number" id="calcElec" class="input-field" value="1420" oninput="calculateBillPreview()">
+          </div>
+          <div class="input-group">
+            <label>Chỉ số Nước Mới (m³)</label>
+            <input type="number" id="calcWater" class="input-field" value="148" oninput="calculateBillPreview()">
+          </div>
+          <div class="input-group">
+            <label>Tiền Điện Dự Kiến</label>
+            <input type="text" id="previewElecCost" class="input-field" value="350.000 đ" readonly style="color:var(--accent-emerald); font-weight:700;">
+          </div>
+          <div class="input-group">
+            <label>Tiền Nước Dự Kiến</label>
+            <input type="text" id="previewWaterCost" class="input-field" value="250.000 đ" readonly style="color:var(--accent-blue); font-weight:700;">
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-color);">
+          <div>
+            <span style="font-size:0.9rem; color:var(--text-muted);">Tổng hóa đơn dự kiến tháng này: </span>
+            <span id="previewTotalCost" style="font-size:1.25rem; font-weight:800; color:var(--accent-emerald); margin-left: 8px;">5.200.000 đ</span>
+          </div>
+          <button class="btn btn-primary" onclick="saveMeterReading()">
+            <i data-lucide="check-circle" size="16"></i> Lưu Chỉ Số & Phát Hành Hóa Đơn
+          </button>
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- Biểu đồ & Lịch sử sử dụng -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title"><i data-lucide="bar-chart-3"></i> Biểu Đồ Tiêu Thụ Điện / Nước (6 Tháng)</h3>
+            <div style="display:flex; gap:12px; font-size:0.8rem;">
+              <span style="color:var(--accent-emerald);">■ Điện (kWh)</span>
+              <span style="color:var(--accent-blue);">■ Nước (m³)</span>
+            </div>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-bar-group">
+              <div class="chart-bars">
+                <div class="bar bar-elec" style="height: 60%;" title="Điện: 85 kWh"></div>
+                <div class="bar bar-water" style="height: 40%;" title="Nước: 8 m3"></div>
+              </div>
+              <span class="chart-label">Thg 3</span>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bars">
+                <div class="bar bar-elec" style="height: 75%;" title="Điện: 95 kWh"></div>
+                <div class="bar bar-water" style="height: 50%;" title="Nước: 9 m3"></div>
+              </div>
+              <span class="chart-label">Thg 4</span>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bars">
+                <div class="bar bar-elec" style="height: 90%;" title="Điện: 110 kWh"></div>
+                <div class="bar bar-water" style="height: 55%;" title="Nước: 10 m3"></div>
+              </div>
+              <span class="chart-label">Thg 5</span>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bars">
+                <div class="bar bar-elec" style="height: 100%;" title="Điện: 125 kWh"></div>
+                <div class="bar bar-water" style="height: 65%;" title="Nước: 12 m3"></div>
+              </div>
+              <span class="chart-label">Thg 6</span>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bars">
+                <div class="bar bar-elec" style="height: 80%;" title="Điện: 100 kWh"></div>
+                <div class="bar bar-water" style="height: 50%;" title="Nước: 10 m3"></div>
+              </div>
+              <span class="chart-label">Thg 7</span>
+            </div>
+            <div class="chart-bar-group">
+              <div class="chart-bars">
+                <div class="bar bar-elec" style="height: 85%;" title="Điện: 100 kWh"></div>
+                <div class="bar bar-water" style="height: 50%;" title="Nước: 10 m3"></div>
+              </div>
+              <span class="chart-label">Thg 8</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng hóa đơn gần đây -->
+        <div class="panel">
+          <div class="panel-header">
+            <h3 class="panel-title"><i data-lucide="receipt"></i> Lịch Sử Hóa Đơn</h3>
+          </div>
+
+          <div class="table-responsive">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Tháng</th>
+                  <th>Tổng tiền</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Tháng 08/2026</strong></td>
+                  <td>5.200.000 đ</td>
+                  <td><span class="badge badge-warning">Chờ thanh toán</span></td>
+                  <td><button class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="showToast('Xem chi tiết hóa đơn T8')">Chi tiết</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Tháng 07/2026</strong></td>
+                  <td>5.050.000 đ</td>
+                  <td><span class="badge badge-success">Đã thanh toán</span></td>
+                  <td><button class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="showToast('Xem chi tiết hóa đơn T7')">Chi tiết</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Tháng 06/2026</strong></td>
+                  <td>5.320.000 đ</td>
+                  <td><span class="badge badge-success">Đã thanh toán</span></td>
+                  <td><button class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="showToast('Xem chi tiết hóa đơn T6')">Chi tiết</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: BẢO TRÌ & BÁO LỖI -->
+    <div id="tab-maintenance" class="tab-content">
+      <div class="panel">
+        <div class="panel-header">
+          <h3 class="panel-title"><i data-lucide="wrench"></i> Danh Sách Báo Sự Cố & Bảo Trì</h3>
+          <button class="btn btn-primary" style="padding:6px 14px; font-size:0.85rem;" onclick="openModal('addIssueModal')">
+            <i data-lucide="plus" size="14"></i> Ghi nhận sự cố mới
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Mã YC</th>
+                <th>Sự cố báo cáo</th>
+                <th>Người gửi</th>
+                <th>Mức độ</th>
+                <th>Ngày báo</th>
+                <th>Trạng thái</th>
+                <th>Chi phí</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>#SC-089</td>
+                <td><strong>Máy lạnh chảy nước ở cục lạnh</strong></td>
+                <td>Nguyễn Văn An</td>
+                <td><span class="badge badge-warning">Trung bình</span></td>
+                <td>08/08/2026</td>
+                <td><span class="badge badge-info">Đang xử lý (Hẹn thợ 14h)</span></td>
+                <td>Dự kiến: 200k</td>
+                <td>
+                  <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="showToast('Cập nhật tiến độ thợ máy lạnh')">Cập nhật</button>
+                </td>
+              </tr>
+              <tr>
+                <td>#SC-042</td>
+                <td><strong>Thay thợ sửa vòi xịt WC bị rò nước</strong></td>
+                <td>Trần Thị Bình</td>
+                <td><span class="badge badge-warning">Bình thường</span></td>
+                <td>12/06/2026</td>
+                <td><span class="badge badge-success">Hoàn thành</span></td>
+                <td>80.000 đ</td>
+                <td>
+                  <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="showToast('Xem nhật ký nghiệm thu')">Xem lại</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- End Container -->
+
+  <!-- MODAL: Chốt Điện Nước -->
+  <div id="meterModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title"><i data-lucide="zap" style="color:var(--accent-amber);"></i> Chốt Chỉ Số Điện & Nước</h3>
+        <button class="close-btn" onclick="closeModal('meterModal')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="input-group">
+        <label>Chỉ số Điện Mới (kWh)</label>
+        <input type="number" class="input-field" value="1420">
+      </div>
+      <div class="input-group">
+        <label>Chỉ số Nước Mới (m³)</label>
+        <input type="number" class="input-field" value="148">
+      </div>
+      <div class="input-group">
+        <label>Hình ảnh đồng hồ điện/nước xác thực (nếu có)</label>
+        <input type="file" class="input-field">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <button class="btn btn-secondary" onclick="closeModal('meterModal')">Hủy</button>
+        <button class="btn btn-primary" onclick="closeModal('meterModal'); showToast('Đã lưu chỉ số điện nước thành công!')">Xác nhận chốt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Tạo Hóa Đơn -->
+  <div id="createInvoiceModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title"><i data-lucide="file-plus" style="color:var(--accent-emerald);"></i> Lập Hóa Đơn Tiền Nhà Tháng 8/2026</h3>
+        <button class="close-btn" onclick="closeModal('createInvoiceModal')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="data-list" style="grid-template-columns: 1fr; gap:10px; margin-bottom:16px;">
+        <div class="data-item"><span class="data-label">Tiền phòng:</span> <span class="data-val">4.500.000 đ</span></div>
+        <div class="data-item"><span class="data-label">Tiền điện (100 kWh x 3.500đ):</span> <span class="data-val">350.000 đ</span></div>
+        <div class="data-item"><span class="data-label">Tiền nước (10 m³ x 25.000đ):</span> <span class="data-val">250.000 đ</span></div>
+        <div class="data-item"><span class="data-label">Phí dịch vụ & rác:</span> <span class="data-val">100.000 đ</span></div>
+      </div>
+      <hr style="border:none; border-top:1px solid var(--border-color); margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <span style="font-weight:700;">TỔNG THU:</span>
+        <span style="font-size:1.3rem; font-weight:800; color:var(--accent-emerald);">5.200.000 đ</span>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn btn-secondary" onclick="closeModal('createInvoiceModal')">Đóng</button>
+        <button class="btn btn-primary" onclick="closeModal('createInvoiceModal'); showToast('Hóa đơn đã được tự động gửi qua Zalo / SMS cho khách!')">Gửi Hóa Đơn Cho Khách</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="toast">
+    <i data-lucide="check-circle-2"></i>
+    <span id="toastMsg">Thao tác thành công!</span>
+  </div>
+
+  <!-- JAVASCRIPT INTERACTION LOGIC -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Tab Switching Logic
+    function switchTab(tabId, element) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      element.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    // Modal Handlers
+    function openModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) modal.classList.add('active');
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) modal.classList.remove('active');
+    }
+
+    // Toast Notification Handler
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      toastMsg.innerText = message;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Live Utility Calculator Preview
+    function calculateBillPreview() {
+      const elecNew = parseFloat(document.getElementById('calcElec').value) || 1320;
+      const waterNew = parseFloat(document.getElementById('calcWater').value) || 138;
+
+      const elecOld = 1320;
+      const waterOld = 138;
+
+      const elecUsed = Math.max(0, elecNew - elecOld);
+      const waterUsed = Math.max(0, waterNew - waterOld);
+
+      const elecCost = elecUsed * 3500;
+      const waterCost = waterUsed * 25000;
+      const roomRent = 4500000;
+      const serviceFee = 100000;
+
+      const total = roomRent + elecCost + waterCost + serviceFee;
+
+      document.getElementById('previewElecCost').value = elecCost.toLocaleString('vi-VN') + ' đ (' + elecUsed + ' kWh)';
+      document.getElementById('previewWaterCost').value = waterCost.toLocaleString('vi-VN') + ' đ (' + waterUsed + ' m³)';
+      document.getElementById('previewTotalCost').innerText = total.toLocaleString('vi-VN') + ' đ';
+    }
+
+    function saveMeterReading() {
+      showToast('Đã lưu chỉ số mới & cập nhật hóa đơn dự kiến!');
+    }
+
+    function exportReport() {
+      showToast('Đang tạo báo cáo chi tiết phòng P.302 (PDF)...');
+    }
+
+    function viewPhoto(src) {
+      showToast('Xem ảnh phóng to: ' + src.split('/').pop().split('?')[0]);
+    }
+  </script>
+</body>
+</html>
