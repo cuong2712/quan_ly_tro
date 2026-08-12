@@ -22,11 +22,12 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
     elecMeter: 0,
     waterMeter: 0,
     description: '',
+    amenities: '',
   });
 
   const filteredRooms = rooms.filter(r => {
     const matchesSearch = r.roomNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          r.description.toLowerCase().includes(searchTerm.toLowerCase());
+                          (r.description && r.description.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesZone = zoneFilter === 'all' || r.zoneId === zoneFilter;
     const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
     return matchesSearch && matchesZone && matchesStatus;
@@ -45,13 +46,17 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
       elecMeter: 0,
       waterMeter: 0,
       description: '',
+      amenities: '["Máy lạnh", "Tủ lạnh", "Giường nệm", "Tủ quần áo"]',
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (r) => {
     setEditingRoom(r);
-    setFormData({ ...r });
+    setFormData({
+      ...r,
+      amenities: r.amenities || ''
+    });
     setIsModalOpen(true);
   };
 
@@ -92,6 +97,7 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
         elecMeter: Number(formData.elecMeter || 0),
         waterMeter: Number(formData.waterMeter || 0),
         description: formData.description,
+        amenities: formData.amenities,
       };
       if (editingRoom) {
         const updated = await roomService.updateRoom(editingRoom.id, payload);
@@ -343,13 +349,24 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Mô Tả Trang Thiết Bị / Nội Thất</label>
+                  <label className="form-label">Mô Tả Phòng</label>
                   <textarea
                     className="form-control"
-                    rows="3"
-                    placeholder="Mô tả máy lạnh, tủ lạnh, bếp, giường..."
+                    rows="2"
+                    placeholder="Mô tả thông tin chung của phòng..."
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Danh Sách Tiện Ích Nội Thất (Dạng JSON hoặc Thẻ phân cách)</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder='["Máy lạnh", "Tủ lạnh", "Giường nệm", "Tủ quần áo"]'
+                    value={formData.amenities || ''}
+                    onChange={(e) => setFormData({ ...formData, amenities: e.target.value })}
                   />
                 </div>
               </div>

@@ -985,7 +985,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
         <div className="hero-top">
           <div>
             <div className="room-title-group">
-              <h2 className="room-code-badge">Phòng P.{(roomDetail?.roomNumber || room.roomNumber).replace(/^P\./i, '')}</h2>
+              <h2 className="room-code-badge">Phòng P.{String(roomDetail?.roomNumber || room?.roomNumber || '').replace(/^P\./i, '')}</h2>
               <div className="status-badge status-rented" style={{ background: sc.bg, color: sc.color, borderColor: `${sc.color}40` }}>
                 <span className="dot" style={{ backgroundColor: sc.color, boxShadow: `0 0 10px ${sc.color}` }}></span>
                 {sc.label}
@@ -1090,7 +1090,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
               <div className="data-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 18 }}>
                 <div className="data-item">
                   <span className="data-label">Mã phòng</span>
-                  <span className="data-val" style={{ fontWeight: 800 }}>P.{room.roomNumber.replace(/^P\./i, '')}</span>
+                  <span className="data-val" style={{ fontWeight: 800 }}>P.{String(roomDetail?.roomNumber || room?.roomNumber || '').replace(/^P\./i, '')}</span>
                 </div>
                 <div className="data-item">
                   <span className="data-label">Khu vực</span>
@@ -1149,36 +1149,53 @@ const RoomDetail = ({ room, zone, onBack }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td><strong>Máy lạnh Inverter</strong></td>
-                      <td>Daikin 1.5 HP</td>
-                      <td>01 Cái</td>
-                      <td><span className="status-pill active">Hoạt động tốt</span></td>
-                    </tr>
-                    <tr>
-                      <td><strong>Tủ lạnh 2 cánh</strong></td>
-                      <td>Panasonic 188L</td>
-                      <td>01 Cái</td>
-                      <td><span className="status-pill active">Hoạt động tốt</span></td>
-                    </tr>
-                    <tr>
-                      <td><strong>Máy giặt cửa trước</strong></td>
-                      <td>Electrolux 9kg</td>
-                      <td>01 Cái</td>
-                      <td><span className="status-pill pending">Bảo trì định kỳ</span></td>
-                    </tr>
-                    <tr>
-                      <td><strong>Bình nóng lạnh</strong></td>
-                      <td>Ariston 30L</td>
-                      <td>01 Cái</td>
-                      <td><span className="status-pill active">Hoạt động tốt</span></td>
-                    </tr>
-                    <tr>
-                      <td><strong>Bộ Giường & Đệm</strong></td>
-                      <td>Gỗ Sồi 1m8 x 2m</td>
-                      <td>01 Bộ</td>
-                      <td><span className="status-pill active">Mới 98%</span></td>
-                    </tr>
+                    {(roomDetail?.equipments || room?.equipments) && (roomDetail?.equipments || room?.equipments).length > 0 ? (
+                      (roomDetail?.equipments || room?.equipments).map(eq => (
+                        <tr key={eq.id}>
+                          <td><strong>{eq.name}</strong></td>
+                          <td>{eq.brand || '---'}</td>
+                          <td>{eq.quantity < 10 ? `0${eq.quantity}` : eq.quantity} Cái</td>
+                          <td>
+                            <span className={`status-pill ${eq.condition?.includes('tốt') || eq.condition?.includes('Mới') ? 'active' : 'pending'}`}>
+                              {eq.condition}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <>
+                        <tr>
+                          <td><strong>Máy lạnh Inverter</strong></td>
+                          <td>Daikin 1.5 HP</td>
+                          <td>01 Cái</td>
+                          <td><span className="status-pill active">Hoạt động tốt</span></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Tủ lạnh 2 cánh</strong></td>
+                          <td>Panasonic 188L</td>
+                          <td>01 Cái</td>
+                          <td><span className="status-pill active">Hoạt động tốt</span></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Máy giặt cửa trước</strong></td>
+                          <td>Electrolux 9kg</td>
+                          <td>01 Cái</td>
+                          <td><span className="status-pill pending">Bảo trì định kỳ</span></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Bình nóng lạnh</strong></td>
+                          <td>Ariston 30L</td>
+                          <td>01 Cái</td>
+                          <td><span className="status-pill active">Hoạt động tốt</span></td>
+                        </tr>
+                        <tr>
+                          <td><strong>Bộ Giường & Đệm</strong></td>
+                          <td>Gỗ Sồi 1m8 x 2m</td>
+                          <td>01 Bộ</td>
+                          <td><span className="status-pill active">Mới 98%</span></td>
+                        </tr>
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1192,30 +1209,23 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 <h3 className="panel-title"><Sparkles size={18} color="#f59e0b" /> Tiện Ích Phòng</h3>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
-                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-                  <Wind size={16} color="#10b981" /> Máy lạnh
-                </div>
-                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-                  <Zap size={16} color="#6366f1" /> Wifi6 200M
-                </div>
-                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-                  <Flame size={16} color="#f43f5e" /> Bếp từ âm
-                </div>
-                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-                  <Sun size={16} color="#f59e0b" /> Ban công
-                </div>
-                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-                  <Shield size={16} color="#10b981" /> Khóa từ
-                </div>
-                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-                  <Tv size={16} color="#3b82f6" /> Smart TV
-                </div>
-                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-                  <Car size={16} color="#94a3b8" /> Chỗ để xe
-                </div>
-                <div className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
-                  <Camera size={16} color="#a5b4fc" /> Camera 24/7
-                </div>
+                {(() => {
+                  let items = ["Máy lạnh", "Wifi6 200M", "Bếp từ", "Ban công", "Khóa từ", "Smart TV", "Chỗ để xe", "Camera 24/7"];
+                  const amenitiesStr = roomDetail?.amenities || room?.amenities;
+                  if (amenitiesStr) {
+                    try {
+                      const parsed = JSON.parse(amenitiesStr);
+                      if (Array.isArray(parsed) && parsed.length > 0) items = parsed;
+                    } catch {
+                      items = amenitiesStr.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+                  }
+                  return items.map((item, idx) => (
+                    <div key={idx} className="amenity-chip" style={{ padding: '10px 12px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                      <Sparkles size={16} color="#10b981" /> {item}
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
 
@@ -1349,12 +1359,12 @@ const RoomDetail = ({ room, zone, onBack }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
               <div style={{ padding: '18px', background: 'rgba(245,158,11,0.09)', borderRadius: 14, border: '1px solid rgba(245,158,11,0.3)' }}>
                 <div style={{ fontSize: 13, color: '#f59e0b', fontWeight: 700, marginBottom: 4 }}>⚡ Số Điện Mới Nhất</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' }}>{room.elecMeter} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>kWh</span></div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' }}>{currentElec} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>kWh</span></div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Đơn giá: 3.500 đ/kWh</div>
               </div>
               <div style={{ padding: '18px', background: 'rgba(59,130,246,0.09)', borderRadius: 14, border: '1px solid rgba(59,130,246,0.3)' }}>
                 <div style={{ fontSize: 13, color: '#3b82f6', fontWeight: 700, marginBottom: 4 }}>💧 Số Nước Mới Nhất</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' }}>{room.waterMeter} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>m³</span></div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)' }}>{currentWater} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>m³</span></div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Đơn giá: 25.000 đ/m³</div>
               </div>
             </div>
