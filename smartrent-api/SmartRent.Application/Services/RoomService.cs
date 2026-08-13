@@ -12,7 +12,7 @@ public class RoomService(AppDbContext db)
     // Lấy danh sách các phòng trọ của Chủ trọ (hỗ trợ phân trang và lọc theo khu trọ).
     public async Task<object> GetByLandlordAsync(Guid landlordId, Guid? zoneId = null, int? page = null, int? pageSize = null)
     {
-        var query = db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User)
+        var query = db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).AsSplitQuery()
             .Where(r => r.Zone.LandlordId == landlordId);
         if (zoneId.HasValue) query = query.Where(r => r.ZoneId == zoneId);
         var totalItems = await query.CountAsync();
@@ -34,7 +34,7 @@ public class RoomService(AppDbContext db)
     // Lấy thông tin cơ bản của phòng trọ theo ID.
     public async Task<RoomDto?> GetByIdAsync(Guid id)
     {
-        var r = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).FirstOrDefaultAsync(r => r.Id == id);
+        var r = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).AsSplitQuery().FirstOrDefaultAsync(r => r.Id == id);
         return r is null ? null : MapRoom(r);
     }
 
@@ -43,7 +43,22 @@ public class RoomService(AppDbContext db)
     {
         var zone = await db.Zones.FirstOrDefaultAsync(z => z.Id == req.ZoneId && z.LandlordId == landlordId) ?? throw new KeyNotFoundException("Zone không tồn tại");
         var status = Enum.Parse<RoomStatus>(req.Status, ignoreCase: true);
-        var room = new Room { ZoneId = req.ZoneId, RoomNumber = req.RoomNumber, Floor = req.Floor, Price = req.Price, Area = req.Area, MaxTenants = req.MaxTenants, Status = status, ElecMeter = req.ElecMeter, WaterMeter = req.WaterMeter, Description = req.Description };
+        var room = new Room { ZoneId = req.ZoneId, RoomNumber = req.RoomNumber, Floor = req.Floor, Price = req.Price, Area = req.Area, MaxTenants = req.MaxTenants, Status = status, ElecMeter = req.ElecMeter, WaterMeter = req.WaterMeter, Description = req.Description, Amenities = req.Amenities };
+        
+        if (req.Equipments != null && req.Equipments.Any())
+        {
+            foreach (var eq in req.Equipments)
+            {
+                room.Equipments.Add(new RoomEquipment
+                {
+                    Name = eq.Name,
+                    Brand = eq.Brand,
+                    Quantity = eq.Quantity,
+                    Condition = eq.Condition
+                });
+            }
+        }
+
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
         room.Zone = zone;
@@ -53,10 +68,11 @@ public class RoomService(AppDbContext db)
     // Cập nhật thông tin phòng trọ.
     public async Task<RoomDto> UpdateAsync(Guid id, UpdateRoomRequest req)
     {
-        var room = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).FirstOrDefaultAsync(r => r.Id == id) ?? throw new KeyNotFoundException();
+        var room = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).FirstOrDefaultAsync(r => r.Id == id) ?? throw new KeyNotFoundException();
         room.RoomNumber = req.RoomNumber; room.Floor = req.Floor; room.Price = req.Price; room.Area = req.Area;
         room.MaxTenants = req.MaxTenants; room.Status = Enum.Parse<RoomStatus>(req.Status, ignoreCase: true);
         room.ElecMeter = req.ElecMeter; room.WaterMeter = req.WaterMeter; room.Description = req.Description;
+        room.Amenities = req.Amenities;
         await db.SaveChangesAsync();
         return MapRoom(room);
     }
@@ -71,13 +87,15 @@ public class RoomService(AppDbContext db)
         return true;
     }
 
-    // Lấy chi tiết toàn bộ thông tin phòng bao gồm: Khách thuê hiện tại, Hóa đơn 6 tháng gần nhất, Nhật ký điện nước và Hợp đồng active.
+    // Lấy chi tiết toàn bộ thông tin phòng bao gồm: Khách thuê hiện tại, Hóa đơn 6 tháng gần nhất, Nhật ký điện nước, Hợp đồng active và Thiết bị bàn giao.
     public async Task<RoomDetailDto?> GetRoomDetailAsync(Guid roomId)
     {
         var r = await db.Rooms
             .Include(r => r.Zone)
             .Include(r => r.Tenants).ThenInclude(t => t.User)
             .Include(r => r.Tenants).ThenInclude(t => t.Contracts)
+            .Include(r => r.Equipments)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == roomId);
 
         if (r is null) return null;
@@ -139,14 +157,61 @@ public class RoomService(AppDbContext db)
             );
         }
 
+        var equipmentDtos = r.Equipments.Select(e => new RoomEquipmentDto(
+            e.Id, e.RoomId, e.Name, e.Brand, e.Quantity, e.Condition
+        )).ToList();
+
         return new RoomDetailDto(
             r.Id, r.ZoneId, r.Zone?.Name ?? "", r.RoomNumber,
             r.Floor, r.Price, r.Area, r.MaxTenants,
             r.Status.ToString(), r.ElecMeter, r.WaterMeter,
-            r.Description, r.CreatedAt,
-            tenantDtos, invoiceDtos, utilityDtos, activeContractDto
+            r.Description, r.Amenities, r.CreatedAt,
+            tenantDtos, invoiceDtos, utilityDtos, activeContractDto,
+            equipmentDtos
         );
     }
 
-    private static RoomDto MapRoom(Room r) => new(r.Id, r.ZoneId, r.Zone?.Name ?? "", r.RoomNumber, r.Floor, r.Price, r.Area, r.MaxTenants, r.Status.ToString(), r.ElecMeter, r.WaterMeter, r.Description, r.CreatedAt, r.Tenants.FirstOrDefault()?.User?.FullName);
+    // Quản lý Trang thiết bị / Nội thất phòng
+    public async Task<RoomEquipmentDto> AddEquipmentAsync(Guid roomId, CreateEquipmentRequest req)
+    {
+        var room = await db.Rooms.FindAsync(roomId) ?? throw new KeyNotFoundException("Phòng không tồn tại");
+        var eq = new RoomEquipment
+        {
+            RoomId = roomId,
+            Name = req.Name,
+            Brand = req.Brand,
+            Quantity = req.Quantity,
+            Condition = req.Condition
+        };
+        db.RoomEquipments.Add(eq);
+        await db.SaveChangesAsync();
+        return new RoomEquipmentDto(eq.Id, eq.RoomId, eq.Name, eq.Brand, eq.Quantity, eq.Condition);
+    }
+
+    public async Task<RoomEquipmentDto> UpdateEquipmentAsync(Guid equipmentId, CreateEquipmentRequest req)
+    {
+        var eq = await db.RoomEquipments.FindAsync(equipmentId) ?? throw new KeyNotFoundException("Thiết bị không tồn tại");
+        eq.Name = req.Name;
+        eq.Brand = req.Brand;
+        eq.Quantity = req.Quantity;
+        eq.Condition = req.Condition;
+        await db.SaveChangesAsync();
+        return new RoomEquipmentDto(eq.Id, eq.RoomId, eq.Name, eq.Brand, eq.Quantity, eq.Condition);
+    }
+
+    public async Task<bool> DeleteEquipmentAsync(Guid equipmentId)
+    {
+        var eq = await db.RoomEquipments.FindAsync(equipmentId);
+        if (eq is null) return false;
+        db.RoomEquipments.Remove(eq);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    private static RoomDto MapRoom(Room r) => new(
+        r.Id, r.ZoneId, r.Zone?.Name ?? "", r.RoomNumber, r.Floor, r.Price, r.Area, r.MaxTenants,
+        r.Status.ToString(), r.ElecMeter, r.WaterMeter, r.Description, r.Amenities, r.CreatedAt,
+        r.Tenants.FirstOrDefault()?.User?.FullName,
+        r.Equipments?.Select(e => new RoomEquipmentDto(e.Id, e.RoomId, e.Name, e.Brand, e.Quantity, e.Condition)).ToList()
+    );
 }

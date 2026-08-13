@@ -12,7 +12,7 @@ namespace SmartRent.API.Controllers;
 [Authorize(Roles = "Landlord")]
 public class RoomsController(RoomService roomService) : ControllerBase
 {
-    private Guid LandlordId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private Guid LandlordId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : Guid.Empty;
 
     // Lấy danh sách phòng trọ của Chủ trọ (có thể lọc theo khu trọ zoneId và phân trang).
     [HttpGet]
@@ -55,4 +55,25 @@ public class RoomsController(RoomService roomService) : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteRoom(Guid id)
         => await roomService.DeleteAsync(id) ? NoContent() : NotFound();
+
+    // Thêm mới thiết bị bàn giao cho phòng trọ.
+    [HttpPost("{id:guid}/equipments")]
+    public async Task<IActionResult> AddEquipment(Guid id, [FromBody] CreateEquipmentRequest request)
+    {
+        try { return Ok(await roomService.AddEquipmentAsync(id, request)); }
+        catch (KeyNotFoundException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Cập nhật thông tin/tình trạng thiết bị bàn giao.
+    [HttpPut("equipments/{equipmentId:guid}")]
+    public async Task<IActionResult> UpdateEquipment(Guid equipmentId, [FromBody] CreateEquipmentRequest request)
+    {
+        try { return Ok(await roomService.UpdateEquipmentAsync(equipmentId, request)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    // Xóa thiết bị bàn giao khỏi phòng.
+    [HttpDelete("equipments/{equipmentId:guid}")]
+    public async Task<IActionResult> DeleteEquipment(Guid equipmentId)
+        => await roomService.DeleteEquipmentAsync(equipmentId) ? NoContent() : NotFound();
 }

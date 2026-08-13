@@ -12,7 +12,7 @@ namespace SmartRent.API.Controllers;
 [Authorize(Roles = "Landlord")]
 public class ZonesController(ZoneService zoneService) : ControllerBase
 {
-    private Guid LandlordId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private Guid LandlordId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : Guid.Empty;
 
     // Lấy danh sách các khu trọ của Chủ trọ hiện tại (hỗ trợ phân trang).
     [HttpGet]

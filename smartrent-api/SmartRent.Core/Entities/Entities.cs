@@ -53,6 +53,7 @@ public class Room
     public decimal ElecMeter { get; set; }
     public decimal WaterMeter { get; set; }
     public string? Description { get; set; }
+    public string? Amenities { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation
@@ -62,6 +63,21 @@ public class Room
     public ICollection<UtilityLog> UtilityLogs { get; set; } = [];
     public ICollection<Invoice> Invoices { get; set; } = [];
     public ICollection<MaintenanceRequest> MaintenanceRequests { get; set; } = [];
+    public ICollection<RoomEquipment> Equipments { get; set; } = [];
+}
+
+public class RoomEquipment
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid RoomId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Brand { get; set; }
+    public int Quantity { get; set; } = 1;
+    public string Condition { get; set; } = "Hoạt động tốt";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Navigation
+    public Room Room { get; set; } = null!;
 }
 
 public class TenantProfile

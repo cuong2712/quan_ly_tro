@@ -13,7 +13,7 @@ namespace SmartRent.API.Controllers;
 [Authorize]
 public class DashboardController(AppDbContext db) : ControllerBase
 {
-    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private Guid CurrentUserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : Guid.Empty;
 
     // Lấy chỉ số tổng quan Dashboard dành cho Chủ trọ (tổng số phòng, phòng trống, doanh thu, hóa đơn chưa thu...).
     [HttpGet("landlord")]
