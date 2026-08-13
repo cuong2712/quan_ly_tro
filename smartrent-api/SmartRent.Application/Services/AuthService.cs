@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +13,7 @@ using BCrypt.Net;
 
 namespace SmartRent.Application.Services;
 
-// Dịch vụ Xác thực & Phân quyền (Đăng nhập, cấp phát JWT AccessToken & RefreshToken, Đăng xuất).
+// Dịch vụ Xác thực & Phân quyền (Đăng nhập, làm mới Token với Token Rotation, Đăng xuất & Thu hồi Token).
 public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
 {
     private readonly string _jwtKey = config["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");
@@ -32,27 +33,89 @@ public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
             throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng");
 
         user.LastLoginAt = DateTime.UtcNow;
+
+        // Tạo JWT Access Token
+        var accessToken = GenerateAccessToken(user);
+        
+        // Tạo và lưu trữ Refresh Token mới vào Database
+        var refreshTokenString = GenerateSecureRandomToken();
+        var refreshTokenEntity = new RefreshToken
+        {
+            UserId = user.Id,
+            Token = refreshTokenString,
+            ExpiryDate = DateTime.UtcNow.AddDays(30),
+            IsRevoked = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.RefreshTokens.Add(refreshTokenEntity);
         await db.SaveChangesAsync();
 
-        var (accessToken, refreshToken) = GenerateTokens(user);
-        return new LoginResponse(accessToken, refreshToken, user.Role.ToString(), user.FullName, user.Email, user.AvatarUrl, user.Id);
+        return new LoginResponse(accessToken, refreshTokenString, user.Role.ToString(), user.FullName, user.Email, user.AvatarUrl, user.Id);
     }
 
-    // Làm mới AccessToken bằng RefreshToken còn hạn.
+    // Làm mới AccessToken bằng RefreshToken còn hạn (Áp dụng Token Rotation & Revocation)
     public async Task<LoginResponse> RefreshTokenAsync(string refreshToken)
     {
-        var principal = ValidateToken(refreshToken);
-        var userId = Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var user = await db.Users.FindAsync(userId)
-            ?? throw new UnauthorizedAccessException("Người dùng không tồn tại");
+        // Tra cứu Refresh Token trong Database
+        var tokenEntity = await db.RefreshTokens
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.Token == refreshToken)
+            ?? throw new UnauthorizedAccessException("Refresh token không tồn tại");
 
-        var (newAccess, newRefresh) = GenerateTokens(user);
-        return new LoginResponse(newAccess, newRefresh, user.Role.ToString(), user.FullName, user.Email, user.AvatarUrl, user.Id);
+        // Kiểm tra xem Refresh Token đã bị thu hồi hoặc hết hạn hay chưa
+        if (tokenEntity.IsRevoked)
+            throw new UnauthorizedAccessException("Refresh token đã bị thu hồi");
+
+        if (tokenEntity.ExpiryDate <= DateTime.UtcNow)
+            throw new UnauthorizedAccessException("Refresh token đã hết hạn");
+
+        if (!tokenEntity.User.IsActive)
+            throw new UnauthorizedAccessException("Tài khoản đã bị khóa");
+
+        // Vô hiệu hóa Refresh Token cũ (Token Rotation)
+        tokenEntity.IsRevoked = true;
+        tokenEntity.RevokedAt = DateTime.UtcNow;
+
+        // Tạo Access Token mới và Refresh Token mới
+        var newAccessToken = GenerateAccessToken(tokenEntity.User);
+        var newRefreshTokenString = GenerateSecureRandomToken();
+
+        tokenEntity.ReplacedByToken = newRefreshTokenString;
+
+        var newRefreshTokenEntity = new RefreshToken
+        {
+            UserId = tokenEntity.UserId,
+            Token = newRefreshTokenString,
+            ExpiryDate = DateTime.UtcNow.AddDays(30),
+            IsRevoked = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.RefreshTokens.Add(newRefreshTokenEntity);
+        await db.SaveChangesAsync();
+
+        return new LoginResponse(newAccessToken, newRefreshTokenString, tokenEntity.User.Role.ToString(), tokenEntity.User.FullName, tokenEntity.User.Email, tokenEntity.User.AvatarUrl, tokenEntity.UserId);
     }
 
-    public Task LogoutAsync(Guid userId) => Task.CompletedTask;
+    // Đăng xuất khỏi hệ thống: Thu hồi toàn bộ Refresh Token của User
+    public async Task LogoutAsync(Guid userId)
+    {
+        var activeTokens = await db.RefreshTokens
+            .Where(r => r.UserId == userId && !r.IsRevoked)
+            .ToListAsync();
 
-    private (string AccessToken, string RefreshToken) GenerateTokens(User user)
+        foreach (var token in activeTokens)
+        {
+            token.IsRevoked = true;
+            token.RevokedAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    // Tạo JWT Access Token chứa thông tin Claims và thời hạn
+    private string GenerateAccessToken(User user)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -70,28 +133,15 @@ public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
             expires: DateTime.UtcNow.AddMinutes(_jwtExpireMinutes),
             signingCredentials: creds);
 
-        var refreshToken = new JwtSecurityToken(
-            _jwtIssuer, _jwtIssuer, claims,
-            expires: DateTime.UtcNow.AddDays(30),
-            signingCredentials: creds);
-
-        return (new JwtSecurityTokenHandler().WriteToken(accessToken),
-                new JwtSecurityTokenHandler().WriteToken(refreshToken));
+        return new JwtSecurityTokenHandler().WriteToken(accessToken);
     }
 
-    private ClaimsPrincipal ValidateToken(string token)
+    // Tạo chuỗi ngẫu nhiên mã hóa an toàn làm Refresh Token
+    private static string GenerateSecureRandomToken()
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtKey));
-        var handler = new JwtSecurityTokenHandler();
-        return handler.ValidateToken(token, new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = key,
-            ValidateIssuer = true,
-            ValidIssuer = _jwtIssuer,
-            ValidateAudience = true,
-            ValidAudience = _jwtIssuer,
-            ValidateLifetime = true
-        }, out _);
+        var randomNumber = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 }

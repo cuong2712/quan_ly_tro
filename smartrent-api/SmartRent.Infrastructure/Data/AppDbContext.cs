@@ -24,6 +24,8 @@ public class AppDbContext : DbContext
     public DbSet<Complaint> Complaints => Set<Complaint>();
     public DbSet<UtilityRate> UtilityRates => Set<UtilityRate>();
     public DbSet<RoomEquipment> RoomEquipments => Set<RoomEquipment>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -178,5 +180,14 @@ public class AppDbContext : DbContext
             e.Property(x => x.ElecPrice).HasColumnType("decimal(10,2)");
             e.Property(x => x.WaterPrice).HasColumnType("decimal(10,2)");
         });
+
+        // RefreshToken
+        modelBuilder.Entity<RefreshToken>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }
+

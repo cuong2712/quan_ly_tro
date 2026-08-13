@@ -117,6 +117,7 @@ builder.Services.AddScoped<MaintenanceService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ComplaintService>();
 builder.Services.AddScoped<ProfileService>();
+builder.Services.AddScoped<FileService>();
 
 // Auth Interface
 builder.Services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
@@ -140,6 +141,7 @@ var app = builder.Build();
 
 // ===== Middleware Pipeline =====
 app.UseAllSecurityMiddlewares();
+app.UseStaticFiles();
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>

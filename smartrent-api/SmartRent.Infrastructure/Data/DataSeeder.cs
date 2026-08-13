@@ -33,6 +33,25 @@ public static class DataSeeder
         try { await context.Database.ExecuteSqlRawAsync("DROP INDEX IF EXISTS \"IX_TenantProfiles_RoomId\"; CREATE INDEX IF NOT EXISTS \"IX_TenantProfiles_RoomId\" ON \"TenantProfiles\"(\"RoomId\");"); }
         catch (Exception ex) { Console.WriteLine("Index fix warning: " + ex.Message); }
 
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""RefreshTokens"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""UserId"" uuid NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                    ""Token"" text NOT NULL,
+                    ""ExpiryDate"" timestamp with time zone NOT NULL,
+                    ""IsRevoked"" boolean NOT NULL DEFAULT false,
+                    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT NOW(),
+                    ""RevokedAt"" timestamp with time zone NULL,
+                    ""ReplacedByToken"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_RefreshTokens_Token"" ON ""RefreshTokens""(""Token"");
+            ");
+        }
+        catch (Exception ex) { Console.WriteLine("Create RefreshTokens error: " + ex.Message); }
+
+
         if (await context.Users.AnyAsync())
         {
             await EnsureRoomEquipmentsSeededAsync(context);
@@ -495,6 +514,27 @@ public static class DataSeeder
 
     private static async Task EnsureRoomEquipmentsSeededAsync(AppDbContext context)
     {
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""RefreshTokens"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""UserId"" uuid NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                    ""Token"" text NOT NULL,
+                    ""ExpiryDate"" timestamp with time zone NOT NULL,
+                    ""IsRevoked"" boolean NOT NULL DEFAULT false,
+                    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT NOW(),
+                    ""RevokedAt"" timestamp with time zone NULL,
+                    ""ReplacedByToken"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_RefreshTokens_Token"" ON ""RefreshTokens""(""Token"");
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Create RefreshTokens error: " + ex.Message);
+        }
+
         try
         {
             await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text;");
