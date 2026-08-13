@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using SmartRent.API.Middlewares;
 using SmartRent.Application.Services;
 using SmartRent.Core.Interfaces;
 using SmartRent.Infrastructure.Data;
@@ -11,6 +12,10 @@ using System.Text;
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ===== Security Services =====
+builder.Services.AddSecurityServices();
+
 
 // ===== Database =====
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -134,6 +139,8 @@ builder.Services.AddScoped<IComplaintRepository, ComplaintRepository>();
 var app = builder.Build();
 
 // ===== Middleware Pipeline =====
+app.UseAllSecurityMiddlewares();
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
