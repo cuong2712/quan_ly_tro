@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<NotificationRead> NotificationReads => Set<NotificationRead>();
     public DbSet<Complaint> Complaints => Set<Complaint>();
     public DbSet<UtilityRate> UtilityRates => Set<UtilityRate>();
+    public DbSet<RoomEquipment> RoomEquipments => Set<RoomEquipment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -56,6 +57,13 @@ public class AppDbContext : DbContext
             e.Property(x => x.Area).HasColumnType("decimal(10,2)");
             e.Property(x => x.ElecMeter).HasColumnType("decimal(10,2)");
             e.Property(x => x.WaterMeter).HasColumnType("decimal(10,2)");
+        });
+
+        // RoomEquipment
+        modelBuilder.Entity<RoomEquipment>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasOne(x => x.Room).WithMany(r => r.Equipments).HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // TenantProfile

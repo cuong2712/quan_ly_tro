@@ -9,18 +9,35 @@ public static class DataSeeder
 {
     public static async Task SeedAsync(AppDbContext context)
     {
-        await context.Database.MigrateAsync();
+        try { await context.Database.MigrateAsync(); } catch (Exception ex) { Console.WriteLine("Migrate warning: " + ex.Message); }
+
+        try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text;"); }
+        catch (Exception ex) { Console.WriteLine("Add Amenities col error: " + ex.Message); }
 
         try
         {
-            await context.Database.ExecuteSqlRawAsync("DROP INDEX IF EXISTS \"IX_TenantProfiles_RoomId\"; CREATE INDEX IF NOT EXISTS \"IX_TenantProfiles_RoomId\" ON \"TenantProfiles\"(\"RoomId\");");
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""RoomEquipments"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""RoomId"" uuid NOT NULL REFERENCES ""Rooms""(""Id"") ON DELETE CASCADE,
+                    ""Name"" text NOT NULL,
+                    ""Brand"" text NULL,
+                    ""Quantity"" integer NOT NULL DEFAULT 1,
+                    ""Condition"" text NOT NULL DEFAULT 'Hoạt động tốt',
+                    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT NOW()
+                );
+            ");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Index fix warning: " + ex.Message);
-        }
+        catch (Exception ex) { Console.WriteLine("Create RoomEquipments error: " + ex.Message); }
 
-        if (await context.Users.AnyAsync()) return;
+        try { await context.Database.ExecuteSqlRawAsync("DROP INDEX IF EXISTS \"IX_TenantProfiles_RoomId\"; CREATE INDEX IF NOT EXISTS \"IX_TenantProfiles_RoomId\" ON \"TenantProfiles\"(\"RoomId\");"); }
+        catch (Exception ex) { Console.WriteLine("Index fix warning: " + ex.Message); }
+
+        if (await context.Users.AnyAsync())
+        {
+            await EnsureRoomEquipmentsSeededAsync(context);
+            return;
+        }
 
         // ============ USERS ============
         var superAdmin = new User
@@ -145,7 +162,8 @@ public static class DataSeeder
             Status = RoomStatus.Occupied,
             ElecMeter = 1240,
             WaterMeter = 310,
-            Description = "Phòng tầng 1, máy lạnh Inverter, tủ lạnh, bếp từ"
+            Description = "Phòng tầng 1, máy lạnh Inverter, tủ lạnh, bếp từ",
+            Amenities = "[\"Máy lạnh\", \"Tủ lạnh\", \"Giường nệm\", \"Tủ quần áo\", \"Máy giặt\", \"Bếp từ\"]"
         };
         var room102 = new Room
         {
@@ -159,7 +177,8 @@ public static class DataSeeder
             Status = RoomStatus.Occupied,
             ElecMeter = 980,
             WaterMeter = 245,
-            Description = "Phòng studio rộng, gác lửng cao, tủ quần áo âm tường"
+            Description = "Phòng studio rộng, gác lửng cao, tủ quần áo âm tường",
+            Amenities = "[\"Máy lạnh\", \"Tủ lạnh\", \"Gác lửng\", \"Tủ quần áo\", \"Nóng lạnh\"]"
         };
         var room103 = new Room
         {
@@ -173,7 +192,8 @@ public static class DataSeeder
             Status = RoomStatus.Vacant,
             ElecMeter = 450,
             WaterMeter = 110,
-            Description = "Phòng thoáng, cửa sổ lớn hướng Nam"
+            Description = "Phòng thoáng, cửa sổ lớn hướng Nam",
+            Amenities = "[\"Máy lạnh\", \"Giường nệm\", \"Tủ quần áo\"]"
         };
         var room201 = new Room
         {
@@ -187,7 +207,8 @@ public static class DataSeeder
             Status = RoomStatus.Maintenance,
             ElecMeter = 1560,
             WaterMeter = 410,
-            Description = "Phòng VIP ban công rộng, view phố"
+            Description = "Phòng VIP ban công rộng, view phố",
+            Amenities = "[\"Máy lạnh\", \"Tủ lạnh\", \"Giường nệm\", \"Tủ quần áo\", \"Ban công\", \"Máy giặt\"]"
         };
         var roomBT1 = new Room
         {
@@ -201,7 +222,8 @@ public static class DataSeeder
             Status = RoomStatus.Occupied,
             ElecMeter = 820,
             WaterMeter = 195,
-            Description = "Phòng Bình Thạnh thoáng tĩnh lặng"
+            Description = "Phòng Bình Thạnh thoáng tĩnh lặng",
+            Amenities = "[\"Máy lạnh\", \"Tủ lạnh\", \"Giường nệm\"]"
         };
         var roomBT2 = new Room
         {
@@ -215,10 +237,34 @@ public static class DataSeeder
             Status = RoomStatus.Vacant,
             ElecMeter = 310,
             WaterMeter = 85,
-            Description = "Phòng mới sơn sửa cực đẹp"
+            Description = "Phòng mới sơn sửa cực đẹp",
+            Amenities = "[\"Máy lạnh\", \"Tủ lạnh\", \"Giường nệm\", \"Ban công\"]"
         };
 
         await context.Rooms.AddRangeAsync(room101, room102, room103, room201, roomBT1, roomBT2);
+        await context.SaveChangesAsync();
+
+        // ============ ROOM EQUIPMENTS ============
+        var equipments = new List<RoomEquipment>
+        {
+            new() { RoomId = room101.Id, Name = "Máy lạnh Inverter", Brand = "Daikin 1.5 HP", Quantity = 1, Condition = "Hoạt động tốt" },
+            new() { RoomId = room101.Id, Name = "Tủ lạnh 2 cánh", Brand = "Panasonic 188L", Quantity = 1, Condition = "Hoạt động tốt" },
+            new() { RoomId = room101.Id, Name = "Máy giặt cửa trước", Brand = "Electrolux 9kg", Quantity = 1, Condition = "Hoạt động tốt" },
+            new() { RoomId = room101.Id, Name = "Giường ngủ gỗ sồi", Brand = "Hoàng Anh Gia Lai (1m6x2m)", Quantity = 1, Condition = "Hoạt động tốt" },
+            new() { RoomId = room101.Id, Name = "Tủ quần áo 2 cánh", Brand = "Gỗ công nghiệp MDF", Quantity = 1, Condition = "Hoạt động tốt" },
+            new() { RoomId = room101.Id, Name = "Bếp từ đôi", Brand = "Sunhouse SHB9101", Quantity = 1, Condition = "Hoạt động tốt" },
+
+            new() { RoomId = room102.Id, Name = "Máy lạnh Inverter", Brand = "Toshiba 1.0 HP", Quantity = 1, Condition = "Hoạt động tốt" },
+            new() { RoomId = room102.Id, Name = "Tủ lạnh", Brand = "Aqua 130L", Quantity = 1, Condition = "Hoạt động tốt" },
+            new() { RoomId = room102.Id, Name = "Bình nóng lạnh", Brand = "Ariston 20L", Quantity = 1, Condition = "Hoạt động tốt" },
+
+            new() { RoomId = room103.Id, Name = "Máy lạnh", Brand = "LG 1.0 HP", Quantity = 1, Condition = "Hoạt động tốt" },
+            new() { RoomId = room103.Id, Name = "Giường ngủ", Brand = "Gỗ thông 1m4x2m", Quantity = 1, Condition = "Mới" },
+
+            new() { RoomId = room201.Id, Name = "Máy lạnh Inverter", Brand = "Panasonic 1.5 HP", Quantity = 1, Condition = "Cần bảo trì" },
+            new() { RoomId = room201.Id, Name = "Tủ lạnh 2 cánh", Brand = "Samsung 208L", Quantity = 1, Condition = "Hoạt động tốt" }
+        };
+        await context.RoomEquipments.AddRangeAsync(equipments);
         await context.SaveChangesAsync();
 
         // ============ TENANT PROFILES ============
@@ -444,5 +490,67 @@ public static class DataSeeder
         await context.Complaints.AddRangeAsync(cmp1, cmp2);
 
         await context.SaveChangesAsync();
+        await EnsureRoomEquipmentsSeededAsync(context);
+    }
+
+    private static async Task EnsureRoomEquipmentsSeededAsync(AppDbContext context)
+    {
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text;");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Add Amenities col error: " + ex.Message);
+        }
+
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""RoomEquipments"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""RoomId"" uuid NOT NULL REFERENCES ""Rooms""(""Id"") ON DELETE CASCADE,
+                    ""Name"" text NOT NULL,
+                    ""Brand"" text NULL,
+                    ""Quantity"" integer NOT NULL DEFAULT 1,
+                    ""Condition"" text NOT NULL DEFAULT 'Hoạt động tốt',
+                    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT NOW()
+                );
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Create RoomEquipments error: " + ex.Message);
+        }
+
+        try
+        {
+            if (await context.RoomEquipments.AnyAsync()) return;
+
+            var rooms = await context.Rooms.ToListAsync();
+            if (!rooms.Any()) return;
+
+            var equipments = new List<RoomEquipment>();
+            foreach (var r in rooms)
+            {
+                if (string.IsNullOrEmpty(r.Amenities))
+                {
+                    r.Amenities = "[\"Máy lạnh\", \"Tủ lạnh\", \"Giường nệm\", \"Tủ quần áo\", \"Máy giặt\"]";
+                }
+
+                equipments.Add(new RoomEquipment { RoomId = r.Id, Name = "Máy lạnh Inverter", Brand = "Daikin 1.5 HP", Quantity = 1, Condition = "Hoạt động tốt" });
+                equipments.Add(new RoomEquipment { RoomId = r.Id, Name = "Tủ lạnh 2 cánh", Brand = "Panasonic 188L", Quantity = 1, Condition = "Hoạt động tốt" });
+                equipments.Add(new RoomEquipment { RoomId = r.Id, Name = "Máy giặt cửa trước", Brand = "Electrolux 9kg", Quantity = 1, Condition = "Hoạt động tốt" });
+                equipments.Add(new RoomEquipment { RoomId = r.Id, Name = "Giường ngủ gỗ sồi", Brand = "Hoàng Anh Gia Lai", Quantity = 1, Condition = "Hoạt động tốt" });
+                equipments.Add(new RoomEquipment { RoomId = r.Id, Name = "Tủ quần áo 2 cánh", Brand = "Gỗ MDF", Quantity = 1, Condition = "Hoạt động tốt" });
+            }
+
+            await context.RoomEquipments.AddRangeAsync(equipments);
+            await context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("EnsureRoomEquipmentsSeeded error: " + ex.Message);
+        }
     }
 }
