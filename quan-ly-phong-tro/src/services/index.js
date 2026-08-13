@@ -50,6 +50,9 @@ export const roomService = {
   createRoom: (data) => apiClient.post('/rooms', data).then(r => r.data),
   updateRoom: (id, data) => apiClient.put(`/rooms/${id}`, data).then(r => r.data),
   deleteRoom: (id) => apiClient.delete(`/rooms/${id}`).then(r => r.data),
+  addEquipment: (roomId, data) => apiClient.post(`/rooms/${roomId}/equipments`, data).then(r => r.data),
+  updateEquipment: (equipmentId, data) => apiClient.put(`/rooms/equipments/${equipmentId}`, data).then(r => r.data),
+  deleteEquipment: (equipmentId) => apiClient.delete(`/rooms/equipments/${equipmentId}`).then(r => r.data),
 };
 
 export const tenantService = {

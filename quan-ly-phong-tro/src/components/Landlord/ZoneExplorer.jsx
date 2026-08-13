@@ -800,6 +800,12 @@ const RoomDetail = ({ room, zone, onBack }) => {
     description: room.description || ''
   });
 
+  const [maintenanceLogs, setMaintenanceLogs] = useState([]);
+  const [showEquipmentModal, setShowEquipmentModal] = useState(false);
+  const [eqForm, setEqForm] = useState({ name: '', brand: '', quantity: 1, condition: 'Mới 100%' });
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [maintForm, setMaintForm] = useState({ title: '', description: '', priority: 'Medium' });
+
   const loadDetail = useCallback(async () => {
     setLoading(true);
     try {
@@ -822,6 +828,15 @@ const RoomDetail = ({ room, zone, onBack }) => {
       }
     } catch (e) {
       console.error('Lỗi lấy chi tiết phòng:', e);
+    }
+
+    try {
+      const mRes = await maintenanceService.getRequests();
+      if (Array.isArray(mRes)) {
+        setMaintenanceLogs(mRes.filter(m => m.roomId === room.id));
+      }
+    } catch (err) {
+      console.error('Lỗi lấy bảo trì:', err);
     } finally {
       setLoading(false);
     }
@@ -885,6 +900,61 @@ const RoomDetail = ({ room, zone, onBack }) => {
     } catch (err) {
       console.error('Lỗi tạo hóa đơn:', err);
       showToast('⚠️ Lỗi lập hóa đơn. Kiểm tra dữ liệu đầu vào!');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAddEquipment = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await roomService.addEquipment(room.id, {
+        name: eqForm.name,
+        brand: eqForm.brand,
+        quantity: Number(eqForm.quantity),
+        condition: eqForm.condition
+      });
+      showToast('Thêm thiết bị bàn giao thành công!');
+      setShowEquipmentModal(false);
+      setEqForm({ name: '', brand: '', quantity: 1, condition: 'Mới 100%' });
+      await loadDetail();
+    } catch (err) {
+      console.error(err);
+      showToast('⚠️ Không thể thêm thiết bị bàn giao!');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteEquipment = async (eqId) => {
+    if (!confirm('Xóa thiết bị này khỏi phòng?')) return;
+    try {
+      await roomService.deleteEquipment(eqId);
+      showToast('Đã xóa thiết bị thành công!');
+      await loadDetail();
+    } catch (err) {
+      showToast('⚠️ Không thể xóa thiết bị!');
+    }
+  };
+
+  const handleCreateMaintenance = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await maintenanceService.create({
+        roomId: room.id,
+        title: maintForm.title,
+        description: maintForm.description,
+        priority: maintForm.priority
+      });
+      showToast('Tạo yêu cầu bảo trì thành công!');
+      setShowMaintenanceModal(false);
+      setMaintForm({ title: '', description: '', priority: 'Medium' });
+      await loadDetail();
+    } catch (err) {
+      console.error(err);
+      showToast('⚠️ Lỗi tạo yêu cầu bảo trì!');
     } finally {
       setSubmitting(false);
     }
@@ -1135,8 +1205,11 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
             {/* Panel: Danh Mục Nội Thất & Thiết Bị Bàn Giao */}
             <div className="panel">
-              <div className="panel-header">
+              <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 className="panel-title"><Box size={18} color="#6366f1" /> Danh Mục Nội Thất & Thiết Bị Bàn Giao</h3>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowEquipmentModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Plus size={14} /> Thêm Thiết Bị
+                </button>
               </div>
               <div className="table-responsive">
                 <table className="custom-table">
@@ -1146,6 +1219,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
                       <th>Thương hiệu / Mã</th>
                       <th>Số lượng</th>
                       <th>Tình trạng</th>
+                      <th style={{ width: 80, textAlign: 'center' }}>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1160,41 +1234,19 @@ const RoomDetail = ({ room, zone, onBack }) => {
                               {eq.condition}
                             </span>
                           </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleDeleteEquipment(eq.id)} title="Xóa thiết bị" style={{ width: 30, height: 30, padding: 0, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
-                      <>
-                        <tr>
-                          <td><strong>Máy lạnh Inverter</strong></td>
-                          <td>Daikin 1.5 HP</td>
-                          <td>01 Cái</td>
-                          <td><span className="status-pill active">Hoạt động tốt</span></td>
-                        </tr>
-                        <tr>
-                          <td><strong>Tủ lạnh 2 cánh</strong></td>
-                          <td>Panasonic 188L</td>
-                          <td>01 Cái</td>
-                          <td><span className="status-pill active">Hoạt động tốt</span></td>
-                        </tr>
-                        <tr>
-                          <td><strong>Máy giặt cửa trước</strong></td>
-                          <td>Electrolux 9kg</td>
-                          <td>01 Cái</td>
-                          <td><span className="status-pill pending">Bảo trì định kỳ</span></td>
-                        </tr>
-                        <tr>
-                          <td><strong>Bình nóng lạnh</strong></td>
-                          <td>Ariston 30L</td>
-                          <td>01 Cái</td>
-                          <td><span className="status-pill active">Hoạt động tốt</span></td>
-                        </tr>
-                        <tr>
-                          <td><strong>Bộ Giường & Đệm</strong></td>
-                          <td>Gỗ Sồi 1m8 x 2m</td>
-                          <td>01 Bộ</td>
-                          <td><span className="status-pill active">Mới 98%</span></td>
-                        </tr>
-                      </>
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                          Chưa có thiết bị nào được ghi nhận cho phòng này. Bấm "Thêm Thiết Bị" để bổ sung.
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -1339,8 +1391,14 @@ const RoomDetail = ({ room, zone, onBack }) => {
                   </div>
                 </div>
 
-                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => showToast('Đã tải xuống hợp đồng PDF thành công!')}>
-                  <Download size={16} /> Tải Hợp Đồng PDF (Bản Gốc)
+                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => {
+                  if (activeContract.fileUrl) {
+                    window.open(activeContract.fileUrl, '_blank');
+                  } else {
+                    window.print();
+                  }
+                }}>
+                  <Download size={16} /> {activeContract.fileUrl ? 'Tải Hợp Đồng PDF (Bản Gốc)' : 'In / Xuất Hợp Đồng (PDF)'}
                 </button>
               </div>
             )}
@@ -1369,17 +1427,28 @@ const RoomDetail = ({ room, zone, onBack }) => {
               </div>
             </div>
 
-            <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12 }}>Lịch sử chốt công tơ 3 kỳ gần đây:</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ padding: '12px 14px', background: 'rgba(15,23,42,0.8)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div><strong style={{ fontSize: 14 }}>Tháng 7/2026</strong> <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>(Chốt ngày 25/07)</span></div>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>⚡ {room.elecMeter} kWh | 💧 {room.waterMeter} m³</div>
+            <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 12 }}>Lịch sử chốt công tơ các kỳ gần đây:</h4>
+            {(!roomDetail?.utilityLogs || roomDetail.utilityLogs.length === 0) ? (
+              <div style={{ padding: '16px', background: 'rgba(15,23,42,0.6)', borderRadius: 10, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                Chưa có lịch sử chốt công tơ điện nước cho phòng này.
               </div>
-              <div style={{ padding: '12px 14px', background: 'rgba(15,23,42,0.8)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div><strong style={{ fontSize: 14 }}>Tháng 6/2026</strong> <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>(Chốt ngày 25/06)</span></div>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>⚡ {Math.max(0, room.elecMeter - 120)} kWh | 💧 {Math.max(0, room.waterMeter - 8)} m³</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {roomDetail.utilityLogs.map(log => (
+                  <div key={log.id} style={{ padding: '12px 14px', background: 'rgba(15,23,42,0.8)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ fontSize: 14 }}>Kỳ tháng {log.month}</strong>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>
+                        ({log.recordedAt ? new Date(log.recordedAt).toLocaleDateString('vi-VN') : ''})
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>
+                      ⚡ {log.newElec} kWh (+{log.elecUsed}) | 💧 {log.newWater} m³ (+{log.waterUsed})
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Lịch sử hóa đơn */}
@@ -1421,39 +1490,50 @@ const RoomDetail = ({ room, zone, onBack }) => {
       {/* ----------------- TAB 4: BẢO TRÌ & BÁO LỖI ----------------- */}
       {activeTab === 'maintenance' && (
         <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title"><Wrench size={18} color="#f43f5e" /> Danh Sách Yêu Cầu Bảo Trì & Sửa Chữa</h3>
-            <button className="btn btn-primary btn-sm" onClick={() => showToast('Mở tạo yêu cầu bảo trì mới')}>
+          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 className="panel-title"><Wrench size={18} color="#f43f5e" /> Yêu Cầu Bảo Trì & Sửa Chữa ({maintenanceLogs.length})</h3>
+            <button className="btn btn-primary btn-sm" onClick={() => setShowMaintenanceModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Plus size={15} /> Tạo Yêu Cầu Sửa Chữa
             </button>
           </div>
 
-          <div className="table-responsive">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Tiêu đề sự cố / Thiết bị</th>
-                  <th>Mức độ ưu tiên</th>
-                  <th>Ngày báo</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Máy lạnh chảy nước nhẹ ở cục lạnh</strong></td>
-                  <td><span className="status-pill pending">Vừa phải</span></td>
-                  <td>05/08/2026</td>
-                  <td><span className="status-pill active">Đã xử lý xong</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Bóng đèn hành lang chập chập</strong></td>
-                  <td><span className="status-pill vacant">Thấp</span></td>
-                  <td>28/07/2026</td>
-                  <td><span className="status-pill active">Đã thay mới</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {maintenanceLogs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', background: 'rgba(15,23,42,0.6)', borderRadius: 12 }}>
+              <Wrench size={40} style={{ opacity: 0.3, marginBottom: 10 }} />
+              <p style={{ margin: 0, fontSize: 14 }}>Chưa có yêu cầu bảo trì / sửa chữa nào cho phòng này.</p>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>Tiêu đề sự cố / Mô tả</th>
+                    <th>Mức độ ưu tiên</th>
+                    <th>Ngày tạo</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {maintenanceLogs.map(m => (
+                    <tr key={m.id}>
+                      <td><strong>{m.title || m.description || 'Sửa chữa'}</strong></td>
+                      <td>
+                        <span className={`status-pill ${m.priority === 'High' ? 'danger' : 'pending'}`}>
+                          {m.priority === 'High' ? '🔴 Cao' : m.priority === 'Low' ? '🟢 Thấp' : '🟡 Vừa phải'}
+                        </span>
+                      </td>
+                      <td>{m.createdAt ? new Date(m.createdAt).toLocaleDateString('vi-VN') : '-'}</td>
+                      <td>
+                        <span className={`status-pill ${m.status === 'Completed' || m.status === 'Resolved' ? 'active' : 'pending'}`}>
+                          {m.status === 'Completed' || m.status === 'Resolved' ? 'Đã xử lý xong' : m.status || 'Đang xử lý'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
       {/* ⚡ MODAL CHỐT ĐIỆN NƯỚC */}
@@ -1591,6 +1671,92 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 <button type="button" className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
                   {submitting ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 📦 MODAL THÊM THIẾT BỊ BÀN GIAO */}
+      {showEquipmentModal && (
+        <div className="modal-backdrop" onClick={() => setShowEquipmentModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Box size={20} color="#6366f1" /> Thêm Thiết Bị Bàn Giao
+              </h3>
+              <button className="btn-close" onClick={() => setShowEquipmentModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleAddEquipment}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label className="form-label">Tên thiết bị *</label>
+                  <input type="text" className="form-control" placeholder="VD: Máy lạnh Daikin, Tủ lạnh..." value={eqForm.name} onChange={e => setEqForm({ ...eqForm, name: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Thương hiệu / Mã sản phẩm</label>
+                  <input type="text" className="form-control" placeholder="VD: Daikin 1.5HP, Electrolux..." value={eqForm.brand} onChange={e => setEqForm({ ...eqForm, brand: e.target.value })} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label className="form-label">Số lượng *</label>
+                    <input type="number" min="1" className="form-control" value={eqForm.quantity} onChange={e => setEqForm({ ...eqForm, quantity: e.target.value })} required />
+                  </div>
+                  <div>
+                    <label className="form-label">Tình trạng</label>
+                    <select className="form-control" value={eqForm.condition} onChange={e => setEqForm({ ...eqForm, condition: e.target.value })}>
+                      <option value="Mới 100%">Mới 100%</option>
+                      <option value="Hoạt động tốt">Hoạt động tốt</option>
+                      <option value="Cần bảo trì">Cần bảo trì</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 16 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowEquipmentModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Đang thêm...' : 'Lưu Thiết Bị'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🛠️ MODAL TẠO BÁO LỖI / BẢO TRÌ */}
+      {showMaintenanceModal && (
+        <div className="modal-backdrop" onClick={() => setShowMaintenanceModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Wrench size={20} color="#f43f5e" /> Tạo Yêu Cầu Bảo Trì Mới
+              </h3>
+              <button className="btn-close" onClick={() => setShowMaintenanceModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreateMaintenance}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <label className="form-label">Tiêu đề sự cố / Thiết bị *</label>
+                  <input type="text" className="form-control" placeholder="VD: Máy lạnh chảy nước, Chập điện..." value={maintForm.title} onChange={e => setMaintForm({ ...maintForm, title: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="form-label">Mô tả chi tiết</label>
+                  <textarea className="form-control" rows={3} placeholder="Mô tả cụ thể sự cố cần hỗ trợ..." value={maintForm.description} onChange={e => setMaintForm({ ...maintForm, description: e.target.value })} />
+                </div>
+                <div>
+                  <label className="form-label">Mức độ ưu tiên</label>
+                  <select className="form-control" value={maintForm.priority} onChange={e => setMaintForm({ ...maintForm, priority: e.target.value })}>
+                    <option value="Low">🟢 Thấp</option>
+                    <option value="Medium">🟡 Vừa phải</option>
+                    <option value="High">🔴 Cao (Khẩn cấp)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 16 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowMaintenanceModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Đang gửi...' : 'Gửi Yêu Cầu'}
                 </button>
               </div>
             </form>
