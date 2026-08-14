@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SmartRent.API.Middlewares;
@@ -38,12 +39,60 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
+
+        // Bắt lỗi 401 Unauthorized và 403 Forbidden để luôn trả về HTTP 200 kèm Envelope ApiResponse
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse(); // Bỏ qua response 401 mặc định của framework
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.ContentType = "application/json; charset=utf-8";
+
+                var response = SmartRent.Core.DTOs.ApiResponse.Unauthorized("Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.");
+                var jsonOptions = new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(response, jsonOptions));
+            },
+            OnForbidden = async context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.ContentType = "application/json; charset=utf-8";
+
+                var response = SmartRent.Core.DTOs.ApiResponse.Forbidden("Bạn không có quyền truy cập chức năng này.");
+                var jsonOptions = new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(response, jsonOptions));
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
 
-// ===== Controllers =====
-builder.Services.AddControllers();
+// ===== Controllers & Model Validation =====
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Khi Model validation thất bại (Dữ liệu gửi lên sai định dạng), luôn trả về HTTP 200 OK kèm mã code 400
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(e => e.Value?.Errors.Count > 0)
+                .SelectMany(e => e.Value!.Errors.Select(x => string.IsNullOrWhiteSpace(x.ErrorMessage) ? "Dữ liệu không hợp lệ" : x.ErrorMessage))
+                .ToList();
+
+            var message = errors.Count > 0 ? string.Join("; ", errors) : "Dữ liệu gửi lên không hợp lệ.";
+            var envelope = SmartRent.Core.DTOs.ApiResponse.Fail(message, StatusCodes.Status400BadRequest);
+            return new OkObjectResult(envelope);
+        };
+    });
+
 
 // ===== CORS =====
 builder.Services.AddCors(options =>

@@ -146,6 +146,105 @@ public class ContractService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
+    // Quyết toán hợp đồng & hoàn trả tiền cọc cho khách thuê
+    public async Task<ContractSettlementDto> SettleContractAsync(Guid id, SettleContractRequest req)
+    {
+        var c = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(c => c.Id == id) ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng");
+
+        var unpaidInvoices = await db.Invoices
+            .Where(i => i.TenantProfileId == c.TenantProfileId && i.Status != InvoiceStatus.Paid)
+            .SumAsync(i => (decimal?)i.TotalAmount) ?? 0m;
+
+        var totalDeductions = unpaidInvoices + req.DamageDeductionAmount + req.OtherDeductionAmount;
+        var refundAmount = Math.Max(0, c.Deposit - totalDeductions);
+
+        c.Status = ContractStatus.Liquidated;
+        if (c.Room != null)
+        {
+            var activeContracts = await db.Contracts.CountAsync(other => other.RoomId == c.RoomId && other.Id != c.Id && other.Status == ContractStatus.Active);
+            if (activeContracts == 0)
+            {
+                c.Room.Status = RoomStatus.Vacant;
+            }
+        }
+
+        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == c.TenantProfileId);
+        if (tenant != null) { tenant.RoomId = null; }
+
+        var settlement = new ContractSettlement
+        {
+            ContractId = c.Id,
+            LandlordId = c.Room?.Zone?.LandlordId ?? Guid.Empty,
+            TenantProfileId = c.TenantProfileId,
+            RoomId = c.RoomId,
+            DepositAmount = c.Deposit,
+            UnpaidInvoicesAmount = unpaidInvoices,
+            DamageDeductionAmount = req.DamageDeductionAmount,
+            OtherDeductionAmount = req.OtherDeductionAmount,
+            RefundAmount = refundAmount,
+            SettlementNotes = req.SettlementNotes,
+            SettleDate = DateTime.UtcNow
+        };
+
+        db.ContractSettlements.Add(settlement);
+        await db.SaveChangesAsync();
+
+        return new ContractSettlementDto(
+            settlement.Id,
+            settlement.ContractId,
+            settlement.LandlordId,
+            settlement.TenantProfileId,
+            c.TenantProfile?.User?.FullName ?? "",
+            settlement.RoomId,
+            c.Room?.RoomNumber ?? "",
+            settlement.DepositAmount,
+            settlement.UnpaidInvoicesAmount,
+            settlement.DamageDeductionAmount,
+            settlement.OtherDeductionAmount,
+            settlement.RefundAmount,
+            settlement.SettlementNotes,
+            settlement.SettleDate
+        );
+    }
+
+    // Tự động quét và phát hành thông báo hợp đồng sắp hết hạn trong 30 ngày
+    public async Task<int> CheckAndNotifyExpiringContractsAsync(Guid landlordId)
+    {
+        var threshold = DateTime.UtcNow.AddDays(30);
+        var expiringContracts = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .Where(c => c.Room.Zone.LandlordId == landlordId && c.Status == ContractStatus.Active && c.EndDate <= threshold)
+            .ToListAsync();
+
+        int count = 0;
+        foreach (var contract in expiringContracts)
+        {
+            var daysRemaining = (contract.EndDate.Date - DateTime.UtcNow.Date).Days;
+            var notif = new Notification
+            {
+                SenderId = landlordId,
+                Title = $"Hợp đồng phòng {contract.Room?.RoomNumber} sắp hết hạn",
+                Content = $"Hợp đồng {contract.ContractCode} của khách {contract.TenantProfile?.User?.FullName} sẽ hết hạn vào ngày {contract.EndDate:dd/MM/yyyy} (còn {Math.Max(0, daysRemaining)} ngày).",
+                Target = NotificationTarget.User,
+                TargetId = contract.TenantProfile?.UserId ?? landlordId,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Notifications.Add(notif);
+            count++;
+        }
+
+        if (count > 0)
+        {
+            await db.SaveChangesAsync();
+        }
+        return count;
+    }
+
+
     private static ContractDto MapContract(Contract c) => new(
         c.Id,
         c.ContractCode,

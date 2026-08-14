@@ -55,19 +55,17 @@ namespace SmartRent.API.Middlewares
             {
                 _logger.LogWarning("Vượt quá giới hạn request cho IP: {IP} tại đường dẫn: {Path}. Số lượt: {Count}", ip, path, requestCount);
 
-                context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
-                context.Response.ContentType = "application/json";
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.ContentType = "application/json; charset=utf-8";
                 context.Response.Headers["Retry-After"] = "60";
 
-                var errorResponse = new
-                {
-                    status = 429,
-                    message = "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút.",
-                    retryAfterSeconds = 60,
-                    timestamp = DateTime.UtcNow
-                };
+                var errorResponse = SmartRent.Core.DTOs.ApiResponse.Fail("Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút.", StatusCodes.Status429TooManyRequests);
 
-                var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
                 await context.Response.WriteAsync(JsonSerializer.Serialize(errorResponse, jsonOptions));
                 return;
             }
