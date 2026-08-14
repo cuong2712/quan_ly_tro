@@ -72,21 +72,39 @@ public class InvoiceService(AppDbContext db)
         return i is null ? null : MapInvoice(i);
     }
 
-    // Tạo mới một hóa đơn thủ công.
+    // Tạo mới một hóa đơn thủ công (Kiểm tra chống trùng hóa đơn cùng 1 phòng trong 1 tháng).
     public async Task<InvoiceDto> CreateAsync(Guid landlordId, CreateInvoiceRequest req)
     {
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId) ?? throw new KeyNotFoundException("Phòng không tồn tại");
         var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.RoomId == req.RoomId) ?? throw new KeyNotFoundException("Không có khách thuê trong phòng này");
+
+        // Kiểm tra xem phòng này trong tháng đã có hóa đơn chưa (ngăn trùng lặp hóa đơn 2 lần trong 1 tháng)
+        var existingInvoice = await db.Invoices.FirstOrDefaultAsync(i => i.RoomId == req.RoomId && i.Month == req.Month);
+        if (existingInvoice != null)
+        {
+            throw new InvalidOperationException($"Phòng {room.RoomNumber} đã có hóa đơn tiền nhà cho tháng {req.Month} (Mã hóa đơn: {existingInvoice.InvoiceCode}). Mỗi phòng chỉ được tạo 1 hóa đơn trong 1 tháng. Vui lòng cập nhật hóa đơn hiện tại nếu cần sửa đổi thông tin.");
+        }
 
         var activeServices = await db.Services
             .Include(s => s.Zone)
             .Where(s => s.LandlordId == landlordId && s.IsActive && (s.ZoneId == room.ZoneId || s.ZoneId == null))
             .ToListAsync();
 
+        // Lấy danh sách tất cả người thuê trong phòng để tổng hợp số lượng xe
+        var roomTenants = await db.TenantProfiles.Where(t => t.RoomId == req.RoomId).ToListAsync();
+        int totalRoomVehicles = roomTenants.Sum(t => t.VehicleCount);
+
         decimal serviceFee = req.ServiceFee;
+        var parkingService = activeServices.FirstOrDefault(s => s.Name.Contains("xe", StringComparison.OrdinalIgnoreCase));
+
         if (serviceFee == 0 && activeServices.Count > 0)
         {
             serviceFee = activeServices.Sum(s => s.Price);
+            // Nếu có xe đăng ký và có dịch vụ xe, tự động nhân số lượng xe với đơn giá xe
+            if (totalRoomVehicles > 0 && parkingService != null)
+            {
+                serviceFee = (serviceFee - parkingService.Price) + (totalRoomVehicles * parkingService.Price);
+            }
         }
 
         var totalAmount = req.RentFee + req.ElecFee + req.WaterFee + serviceFee;
@@ -104,13 +122,22 @@ public class InvoiceService(AppDbContext db)
             foreach (var svc in activeServices)
             {
                 var zoneTag = svc.Zone != null ? $" ({svc.Zone.Name})" : "";
-                itemsList.Add(new InvoiceItem { Name = $"{svc.Name}{zoneTag}", Amount = svc.Price });
+                if (svc.Id == parkingService?.Id && totalRoomVehicles > 0)
+                {
+                    itemsList.Add(new InvoiceItem { Name = $"{svc.Name} ({totalRoomVehicles} xe){zoneTag}", Amount = totalRoomVehicles * svc.Price });
+                }
+                else
+                {
+                    itemsList.Add(new InvoiceItem { Name = $"{svc.Name}{zoneTag}", Amount = svc.Price });
+                }
             }
         }
         else
         {
-            itemsList.Add(new InvoiceItem { Name = "Phí dịch vụ", Amount = serviceFee });
+            var vehicleNote = totalRoomVehicles > 0 ? $" ({totalRoomVehicles} xe)" : "";
+            itemsList.Add(new InvoiceItem { Name = $"Phí dịch vụ{vehicleNote}", Amount = serviceFee });
         }
+
 
         var inv = new Invoice
         {
@@ -127,12 +154,29 @@ public class InvoiceService(AppDbContext db)
             Items = itemsList
         };
         db.Invoices.Add(inv);
+        
+        // Tự động tạo thông báo gửi đến app cho khách thuê khi hóa đơn tiền nhà được phát hành
+        var notif = new Notification
+        {
+            SenderId = landlordId,
+            Title = $"Thông báo hóa đơn tiền nhà tháng {req.Month}",
+            Content = $"Phòng {room.RoomNumber}: Hóa đơn mã {code} với tổng số tiền {totalAmount:N0} VNĐ đã được phát hành. Hạn đóng: {req.DueDate:dd/MM/yyyy}.",
+            Target = NotificationTarget.User,
+            TargetId = tenant.UserId,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Notifications.Add(notif);
+
         await db.SaveChangesAsync();
         inv.Room = room; inv.TenantProfile = tenant;
         return MapInvoice(inv);
     }
 
+<<<<<<< Updated upstream
     // Cập nhật thông tin chi tiết hóa đơn (Chỉnh sửa số tiền điện/nước/phòng khi điền sai).
+=======
+    // Cập nhật thông tin chi tiết hóa đơn (Chủ trọ sửa lại số tiền điện/nước/phòng khi điền sai).
+>>>>>>> Stashed changes
     public async Task<InvoiceDto> UpdateAsync(Guid id, Guid landlordId, UpdateInvoiceRequest req)
     {
         var inv = await db.Invoices
@@ -140,7 +184,11 @@ public class InvoiceService(AppDbContext db)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
             .FirstOrDefaultAsync(i => i.Id == id && i.Room.Zone.LandlordId == landlordId)
+<<<<<<< Updated upstream
             ?? throw new KeyNotFoundException("Không tìm thấy hóa đơn");
+=======
+            ?? throw new KeyNotFoundException("Hóa đơn không tồn tại hoặc bạn không có quyền chỉnh sửa");
+>>>>>>> Stashed changes
 
         inv.RentFee = req.RentFee;
         inv.ElecFee = req.ElecFee;
@@ -148,15 +196,24 @@ public class InvoiceService(AppDbContext db)
         inv.ServiceFee = req.ServiceFee;
         inv.TotalAmount = req.RentFee + req.ElecFee + req.WaterFee + req.ServiceFee;
         inv.DueDate = req.DueDate;
+<<<<<<< Updated upstream
         if (Enum.TryParse<InvoiceStatus>(req.Status, true, out var parsedStatus))
         {
             inv.Status = parsedStatus;
             if (inv.Status == InvoiceStatus.Paid && inv.PaidDate == null)
+=======
+
+        if (!string.IsNullOrEmpty(req.Status))
+        {
+            inv.Status = Enum.Parse<InvoiceStatus>(req.Status, ignoreCase: true);
+            if (inv.Status == InvoiceStatus.Paid && !inv.PaidDate.HasValue)
+>>>>>>> Stashed changes
             {
                 inv.PaidDate = DateTime.UtcNow;
             }
         }
 
+<<<<<<< Updated upstream
         var rentItem = inv.Items.FirstOrDefault(x => x.Name == "Tiền thuê phòng");
         if (rentItem != null) rentItem.Amount = req.RentFee;
 
@@ -168,6 +225,17 @@ public class InvoiceService(AppDbContext db)
 
         var svcItem = inv.Items.FirstOrDefault(x => x.Name == "Phí dịch vụ" || x.Name.StartsWith("Phí dịch vụ"));
         if (svcItem != null) svcItem.Amount = req.ServiceFee;
+=======
+        // Cập nhật lại các dòng chi tiết phí
+        inv.Items.Clear();
+        inv.Items.Add(new InvoiceItem { Name = "Tiền thuê phòng", Amount = req.RentFee });
+        inv.Items.Add(new InvoiceItem { Name = "Tiền điện", Amount = req.ElecFee });
+        inv.Items.Add(new InvoiceItem { Name = "Tiền nước", Amount = req.WaterFee });
+        if (req.ServiceFee > 0)
+        {
+            inv.Items.Add(new InvoiceItem { Name = "Phí dịch vụ", Amount = req.ServiceFee });
+        }
+>>>>>>> Stashed changes
 
         await db.SaveChangesAsync();
         return MapInvoice(inv);
@@ -178,10 +246,29 @@ public class InvoiceService(AppDbContext db)
     {
         var inv = await db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone).Include(i => i.TenantProfile).ThenInclude(t => t.User).Include(i => i.Items).FirstOrDefaultAsync(i => i.Id == id) ?? throw new KeyNotFoundException();
         inv.Status = Enum.Parse<InvoiceStatus>(status, ignoreCase: true);
-        if (inv.Status == InvoiceStatus.Paid) inv.PaidDate = DateTime.UtcNow;
+        
+        if (inv.Status == InvoiceStatus.Paid)
+        {
+            inv.PaidDate = DateTime.UtcNow;
+
+            // Tự động tạo thông báo xác nhận đã đóng tiền nhà thành công
+            var notifPaid = new Notification
+            {
+                SenderId = inv.Room?.Zone?.LandlordId ?? Guid.Empty,
+                Title = $"Xác nhận thanh toán hóa đơn {inv.InvoiceCode}",
+                Content = $"Hóa đơn tiền nhà tháng {inv.Month} (Phòng {inv.Room?.RoomNumber}) số tiền {inv.TotalAmount:N0} VNĐ đã được xác nhận thanh toán thành công.",
+                Target = NotificationTarget.User,
+                TargetId = inv.TenantProfile?.UserId ?? Guid.Empty,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Notifications.Add(notifPaid);
+        }
+
         await db.SaveChangesAsync();
         return MapInvoice(inv);
     }
+
+
 
     private static InvoiceDto MapInvoice(Invoice i) => new(i.Id, i.InvoiceCode, i.RoomId, i.Room?.RoomNumber ?? "", i.TenantProfileId, i.TenantProfile?.User?.FullName ?? "", i.Month, i.RentFee, i.ElecFee, i.WaterFee, i.ServiceFee, i.TotalAmount, i.Status.ToString(), i.DueDate, i.PaidDate, i.CreatedAt, i.Items.Select(x => new InvoiceItemDto(x.Id, x.Name, x.Amount)).ToList());
 }

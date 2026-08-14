@@ -69,7 +69,7 @@ public class TenantService(AppDbContext db)
         var user = new User { Email = req.Email, PasswordHash = BCrypt.Net.BCrypt.HashPassword(password), FullName = req.FullName, Phone = req.Phone, Role = UserRole.Tenant };
         db.Users.Add(user);
 
-        var profile = new TenantProfile { UserId = user.Id, RoomId = req.RoomId, CCCD = req.CCCD, Hometown = req.Hometown, MoveInDate = req.MoveInDate, Deposit = req.Deposit, CccdFrontUrl = req.CccdFrontUrl, CccdBackUrl = req.CccdBackUrl };
+        var profile = new TenantProfile { UserId = user.Id, RoomId = req.RoomId, CCCD = req.CCCD, Hometown = req.Hometown, MoveInDate = req.MoveInDate, Deposit = req.Deposit, CccdFrontUrl = req.CccdFrontUrl, CccdBackUrl = req.CccdBackUrl, VehicleCount = req.VehicleCount, VehicleInfo = req.VehicleInfo };
         db.TenantProfiles.Add(profile);
 
         room.Status = RoomStatus.Occupied;
@@ -78,12 +78,14 @@ public class TenantService(AppDbContext db)
         return MapTenant(profile);
     }
 
-    // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới).
+    // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới, thông tin xe).
     public async Task<TenantDto> UpdateAsync(Guid id, UpdateTenantRequest req)
     {
         var t = await db.TenantProfiles.Include(t => t.User).Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts)
             .FirstOrDefaultAsync(t => t.Id == id) ?? throw new KeyNotFoundException();
         t.User.FullName = req.FullName; t.User.Phone = req.Phone; t.Hometown = req.Hometown;
+        t.VehicleCount = req.VehicleCount;
+        if (!string.IsNullOrEmpty(req.VehicleInfo)) t.VehicleInfo = req.VehicleInfo;
         if (!string.IsNullOrEmpty(req.CccdFrontUrl)) t.CccdFrontUrl = req.CccdFrontUrl;
         if (!string.IsNullOrEmpty(req.CccdBackUrl)) t.CccdBackUrl = req.CccdBackUrl;
 
@@ -151,5 +153,6 @@ public class TenantService(AppDbContext db)
         return true;
     }
 
-    private static TenantDto MapTenant(TenantProfile t) => new(t.Id, t.UserId, t.User?.FullName ?? "", t.User?.Email ?? "", t.User?.Phone ?? "", t.User?.AvatarUrl, t.CCCD, t.Hometown, t.MoveInDate, t.Deposit, t.RoomId, t.Room?.RoomNumber, t.Room?.Zone?.Name, t.CccdFrontUrl, t.CccdBackUrl, t.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active)?.ContractCode);
+    private static TenantDto MapTenant(TenantProfile t) => new(t.Id, t.UserId, t.User?.FullName ?? "", t.User?.Email ?? "", t.User?.Phone ?? "", t.User?.AvatarUrl, t.CCCD, t.Hometown, t.MoveInDate, t.Deposit, t.RoomId, t.Room?.RoomNumber, t.Room?.Zone?.Name, t.CccdFrontUrl, t.CccdBackUrl, t.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active)?.ContractCode, t.VehicleCount, t.VehicleInfo);
 }
+

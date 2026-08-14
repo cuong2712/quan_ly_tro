@@ -22,6 +22,8 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
     roomId: '',
     moveInDate: '',
     deposit: 4000000,
+    vehicleCount: 0,
+    vehicleInfo: '',
     cccdFrontUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400',
     cccdBackUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400',
   });
@@ -58,6 +60,8 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       roomId: initialRoom?.id || '',
       moveInDate: new Date().toISOString().split('T')[0],
       deposit: initialRoom?.price || 4000000,
+      vehicleCount: 0,
+      vehicleInfo: '',
       cccdFrontUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400',
       cccdBackUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400',
     });
@@ -73,7 +77,9 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       name: t.fullName || t.name || '',
       cccd: t.cccd || t.CCCD || '',
       roomId: t.roomId || t.RoomId || '',
-      password: ''
+      password: '',
+      vehicleCount: t.vehicleCount || 0,
+      vehicleInfo: t.vehicleInfo || '',
     });
     setIsModalOpen(true);
   };
@@ -146,6 +152,8 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             phone: formData.phone,
             hometown: formData.hometown,
             roomId: formData.roomId,
+            vehicleCount: Number(formData.vehicleCount || 0),
+            vehicleInfo: formData.vehicleInfo || '',
           });
         }
       } else {
@@ -160,6 +168,8 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             roomId: formData.roomId,
             moveInDate: formData.moveInDate || new Date().toISOString(),
             deposit: Number(formData.deposit || 0),
+            vehicleCount: Number(formData.vehicleCount || 0),
+            vehicleInfo: formData.vehicleInfo || '',
           });
         }
       }
@@ -218,10 +228,12 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
               <th>Khu Trọ & Phòng</th>
               <th>Hợp Đồng Thuê</th>
               <th>Ngày Nhận Phòng</th>
+              <th>Đăng Ký Xe</th>
               <th>Tiền Cọc</th>
               <th>Giấy Tờ & CCCD</th>
               <th>Thao Tác</th>
             </tr>
+
           </thead>
           <tbody>
             {paginatedTenants.map((t) => {
@@ -265,7 +277,12 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                     )}
                   </td>
                   <td>{formatDate(t.moveInDate)}</td>
+                  <td>
+                    <div style={{ fontWeight: '600' }}>🛵 {t.vehicleCount || 0} xe</div>
+                    {t.vehicleInfo && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t.vehicleInfo}</div>}
+                  </td>
                   <td><strong style={{ color: '#34d399' }}>{formatVND(t.deposit)}</strong></td>
+
                   <td>
                     <button className="btn btn-sm btn-secondary" onClick={() => setViewingProfile(t)}>
                       <Eye size={14} /> Xem CCCD & Hồ sơ
@@ -336,167 +353,164 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       {/* Add / Edit Modal */}
       {isModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3 className="modal-title">{editingTenant ? 'Chỉnh Sửa Hồ Sơ Khách Thuê' : 'Thêm Khách Thuê Mới'}</h3>
-              <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>X</button>
+          <div className="modal-content" style={{ maxWidth: '920px', width: '95vw', padding: 0, overflow: 'hidden' }}>
+            <div className="modal-header" style={{ padding: '10px 18px', background: 'var(--surface-card, #1e2235)', borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.1))' }}>
+              <h3 className="modal-title" style={{ fontSize: '14px', fontWeight: 700 }}>
+                {editingTenant ? '✏️ Chỉnh Sửa Hồ Sơ Khách Thuê' : '👤 Thêm Khách Thuê Mới'}
+              </h3>
+              <button className="btn btn-sm btn-secondary" style={{ padding: '2px 8px', fontSize: '12px' }} onClick={() => setIsModalOpen(false)}>✕</button>
             </div>
+
             <form onSubmit={handleSave}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Họ và Tên Khách Thuê</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
+              <div className="modal-body" style={{ padding: '14px 18px', overflow: 'hidden' }}>
+                <style>{`
+                  .tenant-form-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 10px 12px;
+                  }
+                  .tf-label {
+                    display: block;
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: var(--text-muted, #9ca3af);
+                    margin-bottom: 3px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.3px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                  }
+                  .tf-input {
+                    width: 100%;
+                    height: 32px;
+                    background: var(--input-bg, rgba(255,255,255,0.05));
+                    border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+                    border-radius: 6px;
+                    padding: 0 9px;
+                    font-size: 12px;
+                    color: var(--text-primary, #fff);
+                    outline: none;
+                    box-sizing: border-box;
+                  }
+                  .tf-input:focus {
+                    border-color: #6366f1;
+                    box-shadow: 0 0 0 2px rgba(99,102,241,0.2);
+                  }
+                  .tf-input:disabled {
+                    opacity: 0.4;
+                    cursor: not-allowed;
+                  }
+                `}</style>
 
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Số Điện Thoại</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      required
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    />
+                {/* Grid 4 cột x 3 hàng = 12 trường thông tin */}
+                <div className="tenant-form-grid">
+
+                  {/* ── HÀNG 1: Họ tên | SĐT | Email | Mật khẩu ── */}
+                  <div>
+                    <label className="tf-label">Họ và Tên *</label>
+                    <input className="tf-input" type="text" required value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Nguyễn Văn A" />
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Email</label>
-                    <input
-                      type="email"
-                      className="form-control"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    />
+                  <div>
+                    <label className="tf-label">Số Điện Thoại *</label>
+                    <input className="tf-input" type="text" required value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="09xxxxxxxx" />
                   </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Mật khẩu</label>
-                    <input
-                      type="password"
-                      className="form-control"
-                      required={!editingTenant}
-                      value={formData.password}
+                  <div>
+                    <label className="tf-label">Email *</label>
+                    <input className="tf-input" type="email" required value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@example.com" />
+                  </div>
+                  <div>
+                    <label className="tf-label">Mật Khẩu {!editingTenant && '*'}</label>
+                    <input className="tf-input" type="password" required={!editingTenant} value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Nhập mật khẩu cho tài khoản"
-                    />
+                      placeholder={editingTenant ? '(Giữ nguyên)' : 'Nhập mật khẩu'} />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Quê Quán / Thường Trú</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={formData.hometown}
-                      onChange={(e) => setFormData({ ...formData, hometown: e.target.value })}
-                    />
+                  {/* ── HÀNG 2: CCCD | Quê quán | Khu trọ | Phòng ── */}
+                  <div>
+                    <label className="tf-label">Số CCCD / CMND *</label>
+                    <input className="tf-input" type="text" required value={formData.cccd}
+                      onChange={(e) => setFormData({ ...formData, cccd: e.target.value })} placeholder="012345678901" />
                   </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Số CCCD / CMND</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    required
-                    value={formData.cccd}
-                    onChange={(e) => setFormData({ ...formData, cccd: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Chọn Khu Trọ *</label>
-                    <select
-                      className="form-control"
-                      required
-                      value={selectedZoneId}
+                  <div>
+                    <label className="tf-label">Quê Quán</label>
+                    <input className="tf-input" type="text" value={formData.hometown}
+                      onChange={(e) => setFormData({ ...formData, hometown: e.target.value })} placeholder="Tỉnh / Thành phố" />
+                  </div>
+                  <div>
+                    <label className="tf-label">Chọn Khu Trọ *</label>
+                    <select className="tf-input" required value={selectedZoneId}
                       onChange={(e) => {
                         const zoneId = e.target.value;
                         setSelectedZoneId(zoneId);
                         const zoneRooms = rooms.filter(r => !zoneId || r.zoneId === zoneId || r.ZoneId === zoneId);
                         const firstRoom = zoneRooms[0];
-                        setFormData(prev => ({
-                          ...prev,
-                          roomId: firstRoom?.id || '',
-                          deposit: firstRoom?.price || prev.deposit
-                        }));
-                      }}
-                    >
-                      <option value="">-- Chọn khu trọ --</option>
-                      {zones.map(z => (
-                        <option key={z.id} value={z.id}>{z.name} ({z.address})</option>
-                      ))}
+                        setFormData(prev => ({ ...prev, roomId: firstRoom?.id || '', deposit: firstRoom?.price || prev.deposit }));
+                      }}>
+                      <option value="">-- Chọn khu --</option>
+                      {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
                     </select>
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Xếp Vào Phòng *</label>
-                    <select
-                      className="form-control"
-                      required
-                      value={formData.roomId}
+                  <div>
+                    <label className="tf-label">Xếp Vào Phòng *</label>
+                    <select className="tf-input" required value={formData.roomId}
                       onChange={(e) => {
                         const selectedRoom = rooms.find(r => r.id === e.target.value);
-                        setFormData({
-                          ...formData,
-                          roomId: e.target.value,
-                          deposit: selectedRoom?.price || formData.deposit
-                        });
-                      }}
-                    >
-                      <option value="">-- Chọn phòng xếp khách vào --</option>
-                      {rooms
-                        .filter(r => !selectedZoneId || r.zoneId === selectedZoneId || r.ZoneId === selectedZoneId)
-                        .map(r => {
-                          const count = tenants.filter(t => (t.roomId === r.id || t.RoomId === r.id) && (!editingTenant || t.id !== editingTenant.id)).length;
-                          const max = r.maxTenants || 2;
-                          const isFull = count >= max;
-                          return (
-                            <option key={r.id} value={r.id} disabled={isFull}>
-                              Phòng {r.roomNumber} - {formatVND(r.price)} ({count}/{max} người {isFull ? '- ĐÃ ĐẦY' : ''})
-                            </option>
-                          );
-                        })}
+                        setFormData({ ...formData, roomId: e.target.value, deposit: selectedRoom?.price || formData.deposit });
+                      }}>
+                      <option value="">-- Chọn phòng --</option>
+                      {rooms.filter(r => !selectedZoneId || r.zoneId === selectedZoneId || r.ZoneId === selectedZoneId).map(r => {
+                        const count = tenants.filter(t => (t.roomId === r.id || t.RoomId === r.id) && (!editingTenant || t.id !== editingTenant.id)).length;
+                        const max = r.maxTenants || 2;
+                        const isFull = count >= max;
+                        return <option key={r.id} value={r.id} disabled={isFull}>P.{r.roomNumber} ({count}/{max}{isFull ? ' ĐẦY' : ''})</option>;
+                      })}
                     </select>
                   </div>
-                </div>
 
-                <div className="form-group">
-                  <label className="form-label">Tiền Cọc Đã Nhận (VND)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    required
-                    value={formData.deposit}
-                    onChange={(e) => setFormData({ ...formData, deposit: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
+                  {/* ── HÀNG 3: Ngày vào | Tiền cọc | Số xe | Biển số xe ── */}
+                  <div>
+                    <label className="tf-label">Ngày Chuyển Vào *</label>
+                    <input className="tf-input" type="date" required value={formData.moveInDate}
+                      onChange={(e) => setFormData({ ...formData, moveInDate: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="tf-label">Tiền Cọc (VND) *</label>
+                    <input className="tf-input" type="number" required value={formData.deposit}
+                      onChange={(e) => setFormData({ ...formData, deposit: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <label className="tf-label">🛵 Số Lượng Xe</label>
+                    <select className="tf-input" value={formData.vehicleCount}
+                      onChange={(e) => setFormData({ ...formData, vehicleCount: parseInt(e.target.value) || 0 })}>
+                      <option value={0}>Không xe</option>
+                      <option value={1}>1 xe</option>
+                      <option value={2}>2 xe</option>
+                      <option value={3}>3 xe</option>
+                      <option value={4}>4 xe</option>
+                      <option value={5}>5 xe</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="tf-label">Biển Số Xe</label>
+                    <input className="tf-input" type="text"
+                      placeholder={formData.vehicleCount > 0 ? 'VD: 51G1-12345' : 'Chưa có xe'}
+                      value={formData.vehicleInfo}
+                      disabled={!formData.vehicleCount || formData.vehicleCount <= 0}
+                      onChange={(e) => setFormData({ ...formData, vehicleInfo: e.target.value })} />
+                  </div>
 
-                <div className="form-group">
-                  <label className="form-label">Ngày Bắt Đầu Chuyển Vào</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    required
-                    value={formData.moveInDate}
-                    onChange={(e) => setFormData({ ...formData, moveInDate: e.target.value })}
-                  />
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
-                <button type="submit" className="btn btn-primary">Lưu Thay Đổi</button>
+              <div className="modal-footer" style={{ padding: '8px 18px', background: 'var(--surface-card, #1e2235)', borderTop: '1px solid var(--border-color, rgba(255,255,255,0.1))' }}>
+                <button type="button" className="btn btn-secondary" style={{ padding: '6px 14px', fontSize: '12px' }} onClick={() => setIsModalOpen(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '6px 16px', fontSize: '12px' }} disabled={saving}>
+                  {saving ? '⏳ Đang lưu...' : (editingTenant ? '💾 Cập Nhật Hồ Sơ' : '✅ Thêm Khách Thuê Mới')}
+                </button>
               </div>
             </form>
           </div>

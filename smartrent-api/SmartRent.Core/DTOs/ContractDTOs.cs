@@ -28,6 +28,7 @@ public record UpdateContractRequest(
 public record RenewContractRequest(int ExtendMonths, decimal? NewRentAmount);
 
 public record SettleContractRequest(
+<<<<<<< Updated upstream
     decimal DamageDeductionAmount = 0,
     decimal OtherDeductionAmount = 0,
     string? SettlementNotes = null
@@ -50,3 +51,18 @@ public record ContractSettlementDto(
     DateTime SettleDate
 );
 
+=======
+    decimal DamageDeductionAmount,
+    decimal OtherDeductionAmount,
+    string? SettlementNotes
+);
+
+public record ContractSettlementDto(
+    Guid Id, Guid ContractId, string ContractCode,
+    Guid RoomId, string RoomNumber,
+    Guid TenantProfileId, string TenantName,
+    decimal DepositAmount, decimal UnpaidInvoicesAmount,
+    decimal DamageDeductionAmount, decimal OtherDeductionAmount,
+    decimal RefundAmount, string? SettlementNotes, DateTime SettleDate
+);
+>>>>>>> Stashed changes

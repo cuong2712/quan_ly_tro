@@ -14,6 +14,15 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const [viewingContract, setViewingContract] = useState(null);
   const [selectedZoneId, setSelectedZoneId] = useState('');
 
+  const [settleModalOpen, setSettleModalOpen] = useState(false);
+  const [settlingContract, setSettlingContract] = useState(null);
+  const [settleForm, setSettleForm] = useState({
+    damageDeductionAmount: 0,
+    otherDeductionAmount: 0,
+    settlementNotes: ''
+  });
+
+
   const [formData, setFormData] = useState({
     contractCode: '',
     roomId: '',
@@ -245,6 +254,47 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     onRefresh?.();
   };
 
+  const handleCheckExpiring = async () => {
+    try {
+      const res = await contractService.checkExpiring();
+      const count = res?.count !== undefined ? res.count : (Array.isArray(res) ? res.length : 0);
+      alert(`✅ Đã quét tự động thành công! Tìm thấy ${count} hợp đồng sắp/đã hết hạn. Đã gửi thông báo nhắc nhở tới khách thuê và chủ trọ.`);
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi quét hợp đồng hết hạn: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleOpenSettle = (c) => {
+    setSettlingContract(c);
+    setSettleForm({
+      damageDeductionAmount: 0,
+      otherDeductionAmount: 0,
+      settlementNotes: 'Quyết toán thanh lý hợp đồng và hoàn trả tiền cọc.'
+    });
+    setSettleModalOpen(true);
+  };
+
+  const handleSaveSettle = async (e) => {
+    e.preventDefault();
+    if (!settlingContract) return;
+
+    try {
+      const res = await contractService.settle(settlingContract.id, {
+        damageDeductionAmount: Number(settleForm.damageDeductionAmount || 0),
+        otherDeductionAmount: Number(settleForm.otherDeductionAmount || 0),
+        settlementNotes: settleForm.settlementNotes
+      });
+      alert(`✅ Đã quyết toán hợp đồng ${settlingContract.contractCode} thành công!\nSố tiền hoàn cọc thực tế: ${formatVND(res?.refundAmount || res?.RefundAmount || 0)}`);
+      setContracts(contracts.map(c => c.id === settlingContract.id ? { ...c, status: 'liquidated' } : c));
+      setSettleModalOpen(false);
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi quyết toán hợp đồng: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.tenantId) {
@@ -315,9 +365,15 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           <h2 className="page-title"><FileText size={24} color="#6366f1" /> Quản Lý Hợp Đồng Thuê Nhà</h2>
           <p className="page-subtitle">Tạo mới, gia hạn, thanh lý và in/xuất file PDF hợp đồng pháp lý</p>
         </div>
-        <button className="btn btn-primary" onClick={handleOpenAdd}>
-          <Plus size={18} /> Tạo Hợp Đồng Mới
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn btn-secondary" onClick={handleCheckExpiring}>
+            <Clock size={18} color="#f59e0b" /> Quét HĐ Sắp Hết Hạn
+          </button>
+          <button className="btn btn-primary" onClick={handleOpenAdd}>
+            <Plus size={18} /> Tạo Hợp Đồng Mới
+          </button>
+        </div>
+
       </div>
 
       {/* 📊 THẺ THỐNG KÊ TỔNG QUAN HỢP ĐỒNG */}
@@ -564,10 +620,16 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                             <Printer size={14} />
                           </button>
                           {statusInfo.isActive && (
+                            <button className="btn btn-sm btn-primary" title="Quyết toán & Hoàn cọc" onClick={() => handleOpenSettle(c)} style={{ background: '#10b981', borderColor: '#10b981' }}>
+                              <CheckCircle size={14} /> Quyết toán
+                            </button>
+                          )}
+                          {statusInfo.isActive && (
                             <button className="btn btn-sm btn-secondary" title="Gia Hạn Hợp Đồng" onClick={() => handleRenew(c)} style={{ color: '#10b981' }}>
                               <Clock size={14} />
                             </button>
                           )}
+
                           <button className="btn btn-sm btn-secondary" title="Sửa điều khoản" onClick={() => handleOpenEdit(c)}>
                             <Edit size={14} />
                           </button>
@@ -813,6 +875,81 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           </div>
         </div>
       )}
+
+      {/* Settle Contract Modal (Quyết toán & Hoàn cọc) */}
+      {settleModalOpen && settlingContract && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '550px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Quyết Toán & Hoàn Cọc Hợp Đồng: {settlingContract.contractCode}</h3>
+              <button className="btn btn-sm btn-secondary" onClick={() => setSettleModalOpen(false)}>X</button>
+            </div>
+            <form onSubmit={handleSaveSettle}>
+              <div className="modal-body">
+                <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '14px', borderRadius: '8px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span>Tiền cọc ban đầu:</span>
+                    <strong>{formatVND(settlingContract.deposit || 0)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span>Khấu trừ hư hỏng thiết bị:</span>
+                    <strong style={{ color: '#ef4444' }}>-{formatVND(settleForm.damageDeductionAmount || 0)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span>Khấu trừ khác:</span>
+                    <strong style={{ color: '#ef4444' }}>-{formatVND(settleForm.otherDeductionAmount || 0)}</strong>
+                  </div>
+                  <hr style={{ borderColor: 'var(--border-color)', margin: '8px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold' }}>
+                    <span>Số tiền hoàn cọc dự kiến:</span>
+                    <span style={{ color: '#10b981' }}>
+                      {formatVND(Math.max(0, (settlingContract.deposit || 0) - (Number(settleForm.damageDeductionAmount) || 0) - (Number(settleForm.otherDeductionAmount) || 0)))}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Khấu Trừ Hư Hỏng Thiết Bị (VND)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-control"
+                    value={settleForm.damageDeductionAmount}
+                    onChange={(e) => setSettleForm({ ...settleForm, damageDeductionAmount: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Khấu Trừ Chi Phí Khác (VND)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-control"
+                    value={settleForm.otherDeductionAmount}
+                    onChange={(e) => setSettleForm({ ...settleForm, otherDeductionAmount: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Ghi Chú Quyết Toán</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    value={settleForm.settlementNotes}
+                    onChange={(e) => setSettleForm({ ...settleForm, settlementNotes: e.target.value })}
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setSettleModalOpen(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#10b981', borderColor: '#10b981' }}>Xác Nhận Quyết Toán</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

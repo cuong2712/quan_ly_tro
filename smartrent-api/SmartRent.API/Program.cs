@@ -16,6 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ===== Security Services =====
 builder.Services.AddSecurityServices();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 
 
 // ===== Database =====

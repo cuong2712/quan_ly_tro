@@ -60,11 +60,22 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], tenants = 
     const totalAmount = Number(formData.rentFee || 0) + Number(formData.elecFee || 0) + Number(formData.waterFee || 0) + Number(formData.serviceFee || 0);
 
     try {
-      if (invoiceService && invoiceService.updateStatus) {
-        await invoiceService.updateStatus(editingInvoice.id, formData.status);
+      // Gọi updateInvoice để lưu toàn bộ thông tin chỉnh sửa (số tiền, hạn TT, trạng thái) xuống DB
+      if (invoiceService && invoiceService.updateInvoice) {
+        await invoiceService.updateInvoice(editingInvoice.id, {
+          rentFee: Number(formData.rentFee || 0),
+          elecFee: Number(formData.elecFee || 0),
+          waterFee: Number(formData.waterFee || 0),
+          serviceFee: Number(formData.serviceFee || 0),
+          dueDate: formData.dueDate,
+          status: formData.status,
+        });
       }
     } catch (err) {
-      console.warn('API update status notice:', err);
+      console.warn('API updateInvoice lỗi:', err);
+      alert(`❌ Lưu hóa đơn thất bại: ${err.message || 'Lỗi không xác định'}`);
+      setSaving(false);
+      return;
     }
 
     setInvoices(invoices.map(inv => inv.id === editingInvoice.id ? {

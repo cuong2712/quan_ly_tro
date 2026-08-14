@@ -26,6 +26,10 @@ public class AppDbContext : DbContext
     public DbSet<RoomEquipment> RoomEquipments => Set<RoomEquipment>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ContractSettlement> ContractSettlements => Set<ContractSettlement>();
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -205,4 +209,5 @@ public class AppDbContext : DbContext
         });
     }
 }
+
 

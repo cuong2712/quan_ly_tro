@@ -32,4 +32,42 @@ public class ProfileService(AppDbContext db)
         u.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
         await db.SaveChangesAsync();
     }
+
+    // Cập nhật thông tin xe cộ đăng ký của khách thuê (Số lượng xe & Biển số xe)
+    public async Task<TenantDto> UpdateVehicleInfoAsync(Guid userId, UpdateVehicleRequest req)
+    {
+        var profile = await db.TenantProfiles
+            .Include(t => t.User)
+            .Include(t => t.Room).ThenInclude(r => r!.Zone)
+            .Include(t => t.Contracts)
+            .FirstOrDefaultAsync(t => t.UserId == userId)
+            ?? throw new KeyNotFoundException("Hồ sơ khách thuê không tồn tại");
+
+        profile.VehicleCount = req.VehicleCount >= 0 ? req.VehicleCount : 0;
+        profile.VehicleInfo = req.VehicleInfo;
+
+        await db.SaveChangesAsync();
+        var activeContract = profile.Contracts.FirstOrDefault(c => c.Status == Core.Enums.ContractStatus.Active);
+        return new TenantDto(
+            profile.Id,
+            profile.UserId,
+            profile.User?.FullName ?? "",
+            profile.User?.Email ?? "",
+            profile.User?.Phone ?? "",
+            profile.User?.AvatarUrl,
+            profile.CCCD,
+            profile.Hometown,
+            profile.MoveInDate,
+            profile.Deposit,
+            profile.RoomId,
+            profile.Room?.RoomNumber,
+            profile.Room?.Zone?.Name,
+            profile.CccdFrontUrl,
+            profile.CccdBackUrl,
+            activeContract?.ContractCode,
+            profile.VehicleCount,
+            profile.VehicleInfo
+        );
+    }
 }
+
