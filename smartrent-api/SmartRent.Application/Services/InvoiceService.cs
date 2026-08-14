@@ -132,6 +132,47 @@ public class InvoiceService(AppDbContext db)
         return MapInvoice(inv);
     }
 
+    // Cập nhật thông tin chi tiết hóa đơn (Chỉnh sửa số tiền điện/nước/phòng khi điền sai).
+    public async Task<InvoiceDto> UpdateAsync(Guid id, Guid landlordId, UpdateInvoiceRequest req)
+    {
+        var inv = await db.Invoices
+            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.TenantProfile).ThenInclude(t => t.User)
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == id && i.Room.Zone.LandlordId == landlordId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hóa đơn");
+
+        inv.RentFee = req.RentFee;
+        inv.ElecFee = req.ElecFee;
+        inv.WaterFee = req.WaterFee;
+        inv.ServiceFee = req.ServiceFee;
+        inv.TotalAmount = req.RentFee + req.ElecFee + req.WaterFee + req.ServiceFee;
+        inv.DueDate = req.DueDate;
+        if (Enum.TryParse<InvoiceStatus>(req.Status, true, out var parsedStatus))
+        {
+            inv.Status = parsedStatus;
+            if (inv.Status == InvoiceStatus.Paid && inv.PaidDate == null)
+            {
+                inv.PaidDate = DateTime.UtcNow;
+            }
+        }
+
+        var rentItem = inv.Items.FirstOrDefault(x => x.Name == "Tiền thuê phòng");
+        if (rentItem != null) rentItem.Amount = req.RentFee;
+
+        var elecItem = inv.Items.FirstOrDefault(x => x.Name == "Tiền điện");
+        if (elecItem != null) elecItem.Amount = req.ElecFee;
+
+        var waterItem = inv.Items.FirstOrDefault(x => x.Name == "Tiền nước");
+        if (waterItem != null) waterItem.Amount = req.WaterFee;
+
+        var svcItem = inv.Items.FirstOrDefault(x => x.Name == "Phí dịch vụ" || x.Name.StartsWith("Phí dịch vụ"));
+        if (svcItem != null) svcItem.Amount = req.ServiceFee;
+
+        await db.SaveChangesAsync();
+        return MapInvoice(inv);
+    }
+
     // Cập nhật trạng thái hóa đơn (ví dụ: Chuyển sang Paid - Đã thanh toán).
     public async Task<InvoiceDto> UpdateStatusAsync(Guid id, string status)
     {
