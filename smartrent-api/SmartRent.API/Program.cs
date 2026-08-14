@@ -118,6 +118,9 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ComplaintService>();
 builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<ReportService>();
+
+
 
 // Auth Interface
 builder.Services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());

@@ -73,4 +73,29 @@ public class ContractsController(ContractService contractService) : ControllerBa
         await contractService.RenewAsync(id, request);
         return Ok(new { message = "Gia hạn hợp đồng thành công" });
     }
+
+    // Quyết toán hợp đồng & hoàn trả tiền cọc cho khách thuê
+    [HttpPost("{id:guid}/settle")]
+    public async Task<IActionResult> Settle(Guid id, [FromBody] SettleContractRequest request)
+    {
+        try
+        {
+            var result = await contractService.SettleContractAsync(id, request);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    // Tự động quét và phát hành thông báo hợp đồng sắp hết hạn trong 30 ngày
+    [HttpPost("check-expiring")]
+    public async Task<IActionResult> CheckExpiringContracts()
+    {
+        int count = await contractService.CheckAndNotifyExpiringContractsAsync(CurrentUserId);
+        return Ok(new { message = $"Đã kiểm tra và phát hành {count} thông báo hợp đồng sắp hết hạn.", notifiedCount = count });
+    }
 }
+
+
