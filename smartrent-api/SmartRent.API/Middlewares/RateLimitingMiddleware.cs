@@ -31,9 +31,10 @@ namespace SmartRent.API.Middlewares
             var ip = context.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
             var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
 
-            // Áp dụng giới hạn 30 request/phút cho endpoint xác thực và 120 request/phút cho endpoint thường
+            // Áp dụng giới hạn 200 request/phút cho endpoint xác thực và 300 request/phút cho endpoint thường
             bool isAuthEndpoint = path.Contains("/auth") || path.Contains("/change-password");
-            int maxRequests = isAuthEndpoint ? 30 : 120;
+            int maxRequests = isAuthEndpoint ? 200 : 300;
+
 
 
             // Khóa lưu trong bộ nhớ đệm phân biệt theo IP và loại endpoint

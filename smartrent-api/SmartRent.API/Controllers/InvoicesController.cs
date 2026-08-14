@@ -42,6 +42,16 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    // Cập nhật thông tin chi tiết hóa đơn (Chỉnh sửa số tiền điện/nước/phòng khi điền sai).
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> UpdateInvoice(Guid id, [FromBody] UpdateInvoiceRequest request)
+    {
+        try { return Ok(await invoiceService.UpdateAsync(id, CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     // Cập nhật trạng thái hóa đơn (Chưa thanh toán -> Đã thanh toán...).
     [HttpPatch("{id:guid}/status")]
     [Authorize(Roles = "Landlord")]
@@ -51,3 +61,4 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
         catch (KeyNotFoundException) { return NotFound(); }
     }
 }
+
