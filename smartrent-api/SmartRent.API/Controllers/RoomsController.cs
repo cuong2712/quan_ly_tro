@@ -19,20 +19,20 @@ public class RoomsController(RoomService roomService) : ControllerBase
     public async Task<IActionResult> GetRooms([FromQuery] Guid? zoneId, [FromQuery] int? page, [FromQuery] int? pageSize)
         => Ok(await roomService.GetByLandlordAsync(LandlordId, zoneId, page, pageSize));
 
-    // Lấy thông tin cơ bản của một phòng trọ theo ID.
+    // Lấy thông tin cơ bản của một phòng trọ theo ID (đảm bảo thuộc quyền quản lý của chủ trọ).
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetRoom(Guid id)
     {
-        var room = await roomService.GetByIdAsync(id);
-        return room is null ? NotFound() : Ok(room);
+        var room = await roomService.GetByIdAsync(id, LandlordId);
+        return room is null ? NotFound(new { message = "Không tìm thấy phòng hoặc không có quyền truy cập" }) : Ok(room);
     }
 
     // Lấy chi tiết toàn bộ thông tin phòng (bao gồm danh sách khách ở, lịch sử hóa đơn 6 tháng, chỉ số điện nước và hợp đồng).
     [HttpGet("{id:guid}/detail")]
     public async Task<IActionResult> GetRoomDetail(Guid id)
     {
-        var detail = await roomService.GetRoomDetailAsync(id);
-        return detail is null ? NotFound() : Ok(detail);
+        var detail = await roomService.GetRoomDetailAsync(id, LandlordId);
+        return detail is null ? NotFound(new { message = "Không tìm thấy chi tiết phòng hoặc không có quyền truy cập" }) : Ok(detail);
     }
 
     // Tạo mới một phòng trọ trong khu.
@@ -41,39 +41,43 @@ public class RoomsController(RoomService roomService) : ControllerBase
     {
         try { return CreatedAtAction(nameof(GetRoom), new { id = Guid.Empty }, await roomService.CreateAsync(LandlordId, request)); }
         catch (KeyNotFoundException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     // Cập nhật thông tin phòng trọ.
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateRoom(Guid id, [FromBody] UpdateRoomRequest request)
     {
-        try { return Ok(await roomService.UpdateAsync(id, request)); }
-        catch (KeyNotFoundException) { return NotFound(); }
+        try { return Ok(await roomService.UpdateAsync(id, LandlordId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     // Xóa một phòng trọ khỏi hệ thống.
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteRoom(Guid id)
-        => await roomService.DeleteAsync(id) ? NoContent() : NotFound();
+        => await roomService.DeleteAsync(id, LandlordId) ? NoContent() : NotFound(new { message = "Không tìm thấy phòng hoặc không có quyền xóa." });
 
     // Thêm mới thiết bị bàn giao cho phòng trọ.
     [HttpPost("{id:guid}/equipments")]
     public async Task<IActionResult> AddEquipment(Guid id, [FromBody] CreateEquipmentRequest request)
     {
-        try { return Ok(await roomService.AddEquipmentAsync(id, request)); }
+        try { return Ok(await roomService.AddEquipmentAsync(id, LandlordId, request)); }
         catch (KeyNotFoundException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     // Cập nhật thông tin/tình trạng thiết bị bàn giao.
     [HttpPut("equipments/{equipmentId:guid}")]
     public async Task<IActionResult> UpdateEquipment(Guid equipmentId, [FromBody] CreateEquipmentRequest request)
     {
-        try { return Ok(await roomService.UpdateEquipmentAsync(equipmentId, request)); }
-        catch (KeyNotFoundException) { return NotFound(); }
+        try { return Ok(await roomService.UpdateEquipmentAsync(equipmentId, LandlordId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     // Xóa thiết bị bàn giao khỏi phòng.
     [HttpDelete("equipments/{equipmentId:guid}")]
     public async Task<IActionResult> DeleteEquipment(Guid equipmentId)
-        => await roomService.DeleteEquipmentAsync(equipmentId) ? NoContent() : NotFound();
+        => await roomService.DeleteEquipmentAsync(equipmentId, LandlordId) ? NoContent() : NotFound(new { message = "Không tìm thấy thiết bị hoặc không có quyền xóa." });
 }

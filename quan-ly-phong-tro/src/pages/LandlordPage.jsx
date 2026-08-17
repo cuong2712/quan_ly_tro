@@ -67,12 +67,19 @@ const TAB_FETCHERS = {
   },
   ll_maintenance: {
     maintenanceRequests: maintenanceService.getRequests,
+    rooms: roomService.getRooms,
   },
   ll_reports: {
     invoices: invoiceService.getInvoices,
+    rooms: roomService.getRooms,
+    zones: zoneService.getZones,
+    tenants: tenantService.getTenants,
   },
   ll_notifications: {
     notifications: notificationService.getNotifications,
+    zones: zoneService.getZones,
+    rooms: roomService.getRooms,
+    tenants: tenantService.getTenants,
   },
   ll_zones: {},   // ZoneExplorer quản lý fetch nội bộ
   ll_profile: {}, // Không cần fetch
@@ -82,7 +89,8 @@ const TAB_FETCHERS = {
 const TAB_KEY = 'landlord_active_tab';
 const ACTIVE_TABS = new Set([
   'll_dashboard', 'll_zones', 'll_tenants', 'll_contracts',
-  'll_invoices', 'll_payments', 'll_maintenance', 'll_utilities', 'll_services'
+  'll_invoices', 'll_payments', 'll_maintenance', 'll_utilities', 
+  'll_services', 'll_reports', 'll_notifications', 'll_profile'
 ]);
 
 export default function LandlordPage() {
@@ -229,7 +237,7 @@ export default function LandlordPage() {
             <MaintenanceMgmt
               maintenanceRequests={d.maintenanceRequests || []}
               setMaintenanceRequests={v => setCurrentData('maintenanceRequests', v)}
-              rooms={[]}
+              rooms={d.rooms || []}
               onRefresh={() => handleRefresh()}
             />
           </Suspense>
@@ -237,7 +245,7 @@ export default function LandlordPage() {
       case 'll_reports':
         return (
           <Suspense fallback={<TabLoader />}>
-            <LandlordReports data={{ invoices: d.invoices || [], rooms: [], tenants: [] }} />
+            <LandlordReports data={{ invoices: d.invoices || [], rooms: d.rooms || [], tenants: d.tenants || [], zones: d.zones || [] }} />
           </Suspense>
         );
       case 'll_notifications':
@@ -246,7 +254,9 @@ export default function LandlordPage() {
             <LandlordNotify
               notifications={d.notifications || []}
               setNotifications={v => setCurrentData('notifications', v)}
-              zones={[]} rooms={[]}
+              zones={d.zones || []}
+              rooms={d.rooms || []}
+              tenants={d.tenants || []}
               onRefresh={() => handleRefresh()}
             />
           </Suspense>

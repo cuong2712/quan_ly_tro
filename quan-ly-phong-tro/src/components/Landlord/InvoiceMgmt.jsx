@@ -60,39 +60,40 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], tenants = 
     const totalAmount = Number(formData.rentFee || 0) + Number(formData.elecFee || 0) + Number(formData.waterFee || 0) + Number(formData.serviceFee || 0);
 
     try {
-      // Gọi updateInvoice để lưu toàn bộ thông tin chỉnh sửa (số tiền, hạn TT, trạng thái) xuống DB
+      const payload = {
+        rentFee: Number(formData.rentFee || 0),
+        elecFee: Number(formData.elecFee || 0),
+        waterFee: Number(formData.waterFee || 0),
+        serviceFee: Number(formData.serviceFee || 0),
+        dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : new Date().toISOString(),
+        status: formData.status,
+      };
+
       if (invoiceService && invoiceService.updateInvoice) {
-        await invoiceService.updateInvoice(editingInvoice.id, {
-          rentFee: Number(formData.rentFee || 0),
-          elecFee: Number(formData.elecFee || 0),
-          waterFee: Number(formData.waterFee || 0),
-          serviceFee: Number(formData.serviceFee || 0),
-          dueDate: formData.dueDate,
-          status: formData.status,
-        });
+        await invoiceService.updateInvoice(editingInvoice.id, payload);
+      } else if (invoiceService && invoiceService.updateStatus) {
+        await invoiceService.updateStatus(editingInvoice.id, formData.status);
       }
+
+      setInvoices(invoices.map(inv => inv.id === editingInvoice.id ? {
+        ...inv,
+        rentFee: Number(formData.rentFee || 0),
+        elecFee: Number(formData.elecFee || 0),
+        waterFee: Number(formData.waterFee || 0),
+        serviceFee: Number(formData.serviceFee || 0),
+        totalAmount,
+        dueDate: formData.dueDate,
+        status: formData.status,
+      } : inv));
+
+      setIsModalOpen(false);
+      alert(`✅ Đã cập nhật điều chỉnh hóa đơn ${editingInvoice.invoiceCode} thành công!`);
+      onRefresh?.();
     } catch (err) {
-      console.warn('API updateInvoice lỗi:', err);
-      alert(`❌ Lưu hóa đơn thất bại: ${err.message || 'Lỗi không xác định'}`);
+      alert('Lỗi cập nhật hóa đơn: ' + (err.response?.data?.message || err.message));
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setInvoices(invoices.map(inv => inv.id === editingInvoice.id ? {
-      ...inv,
-      rentFee: Number(formData.rentFee || 0),
-      elecFee: Number(formData.elecFee || 0),
-      waterFee: Number(formData.waterFee || 0),
-      serviceFee: Number(formData.serviceFee || 0),
-      totalAmount,
-      dueDate: formData.dueDate,
-      status: formData.status,
-    } : inv));
-
-    setIsModalOpen(false);
-    alert(`✅ Đã cập nhật điều chỉnh hóa đơn ${editingInvoice.invoiceCode} thành công!`);
-    setSaving(false);
-    onRefresh?.();
   };
 
   return (

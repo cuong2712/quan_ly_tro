@@ -15,6 +15,7 @@ public class ReportsController(ReportService reportService) : ControllerBase
 
     // Lấy tổng quan báo cáo tài chính (Doanh thu, Nợ đọng, Chi phí bảo trì, Lợi nhuận ròng)
     [HttpGet("financial-summary")]
+    [HttpGet("financial")]
     public async Task<IActionResult> GetFinancialSummary()
     {
         var summary = await reportService.GetFinancialSummaryAsync(CurrentUserId);
@@ -23,6 +24,7 @@ public class ReportsController(ReportService reportService) : ControllerBase
 
     // Xuất file CSV/Excel báo cáo doanh thu tài chính cho Chủ trọ
     [HttpGet("export-excel")]
+    [HttpGet("financial/export")]
     public async Task<IActionResult> ExportExcel()
     {
         var fileBytes = await reportService.ExportFinancialCsvAsync(CurrentUserId);

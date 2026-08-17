@@ -42,34 +42,61 @@ public class ContractService(AppDbContext db)
         return contracts.Select(MapContract);
     }
 
-    // Lấy chi tiết một Hợp đồng theo ID
-    public async Task<ContractDto?> GetByIdAsync(Guid id)
+    // Lấy chi tiết một Hợp đồng theo ID (kiểm tra quyền sở hữu).
+    public async Task<ContractDto?> GetByIdAsync(Guid id, Guid currentUserId, string role)
     {
-        var contract = await db.Contracts
+        var query = db.Contracts
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .FirstOrDefaultAsync(c => c.Id == id);
+            .AsQueryable();
+
+        if (role == "Landlord")
+        {
+            query = query.Where(c => c.Room.Zone.LandlordId == currentUserId);
+        }
+        else if (role == "Tenant")
+        {
+            query = query.Where(c => c.TenantProfile.UserId == currentUserId);
+        }
+
+        var contract = await query.FirstOrDefaultAsync(c => c.Id == id);
         return contract is null ? null : MapContract(contract);
     }
 
     // Tạo mới Hợp đồng thuê nhà và tự động đổi trạng thái phòng thành Occupied (Đã ở).
-    public async Task<ContractDto> CreateAsync(CreateContractRequest req)
+    public async Task<ContractDto> CreateAsync(Guid landlordId, CreateContractRequest req)
     {
-        var contract = new Contract { ContractCode = req.ContractCode, RoomId = req.RoomId, TenantProfileId = req.TenantProfileId, StartDate = req.StartDate, EndDate = req.EndDate, RentAmount = req.RentAmount, Deposit = req.Deposit, PaymentTermDay = req.PaymentTermDay, Terms = req.Terms };
+        var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId)
+            ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
+
+        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == req.TenantProfileId)
+            ?? throw new KeyNotFoundException("Hồ sơ khách thuê không tồn tại");
+
+        var contract = new Contract 
+        { 
+            ContractCode = req.ContractCode, 
+            RoomId = req.RoomId, 
+            TenantProfileId = req.TenantProfileId, 
+            StartDate = req.StartDate, 
+            EndDate = req.EndDate, 
+            RentAmount = req.RentAmount, 
+            Deposit = req.Deposit, 
+            PaymentTermDay = req.PaymentTermDay, 
+            Terms = req.Terms 
+        };
         db.Contracts.Add(contract);
 
-        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == req.TenantProfileId);
-        if (tenant != null)
+        if (tenant.RoomId.HasValue && tenant.RoomId.Value != req.RoomId)
         {
-            if (tenant.RoomId.HasValue && tenant.RoomId.Value != req.RoomId)
+            var oldRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Id == tenant.RoomId.Value);
+            if (oldRoom != null)
             {
-                var oldRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Id == tenant.RoomId.Value);
-                if (oldRoom != null) oldRoom.Status = RoomStatus.Vacant;
+                var otherCount = await db.TenantProfiles.CountAsync(other => other.RoomId == oldRoom.Id && other.Id != tenant.Id);
+                if (otherCount == 0) oldRoom.Status = RoomStatus.Vacant;
             }
-            tenant.RoomId = req.RoomId;
-            var newRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Id == req.RoomId);
-            if (newRoom != null) newRoom.Status = RoomStatus.Occupied;
         }
+        tenant.RoomId = req.RoomId;
+        room.Status = RoomStatus.Occupied;
 
         await db.SaveChangesAsync();
         var full = await db.Contracts
@@ -82,7 +109,7 @@ public class ContractService(AppDbContext db)
         {
             var notifNewContract = new Notification
             {
-                SenderId = full.Room.Zone.LandlordId,
+                SenderId = landlordId,
                 Title = $"Thông báo tạo mới hợp đồng phòng {full.Room.RoomNumber}",
                 Content = $"Hợp đồng mã {full.ContractCode} phòng {full.Room.RoomNumber} đã được khởi tạo thành công với thời hạn từ {full.StartDate:dd/MM/yyyy} đến {full.EndDate:dd/MM/yyyy}.",
                 Target = NotificationTarget.User,
@@ -96,23 +123,35 @@ public class ContractService(AppDbContext db)
         return MapContract(full);
     }
 
-    // Cập nhật thông tin Hợp đồng thuê nhà.
-    public async Task<ContractDto> UpdateAsync(Guid id, UpdateContractRequest req)
+    // Cập nhật thông tin Hợp đồng thuê nhà (kiểm tra quyền sở hữu).
+    public async Task<ContractDto> UpdateAsync(Guid id, Guid landlordId, UpdateContractRequest req)
     {
         var c = await db.Contracts
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .FirstOrDefaultAsync(c => c.Id == id) ?? throw new KeyNotFoundException();
-        c.StartDate = req.StartDate; c.EndDate = req.EndDate; c.RentAmount = req.RentAmount; c.PaymentTermDay = req.PaymentTermDay; c.Terms = req.Terms;
+            .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
+
+        c.StartDate = req.StartDate; 
+        c.EndDate = req.EndDate; 
+        c.RentAmount = req.RentAmount; 
+        c.PaymentTermDay = req.PaymentTermDay; 
+        c.Terms = req.Terms;
 
         if (req.RoomId.HasValue && c.RoomId != req.RoomId.Value)
         {
+            var newRoom = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId.Value && r.Zone.LandlordId == landlordId)
+                ?? throw new KeyNotFoundException("Phòng chuyển đến không tồn tại hoặc không thuộc quyền quản lý của bạn.");
+
             var oldRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Id == c.RoomId);
-            if (oldRoom != null) oldRoom.Status = RoomStatus.Vacant;
+            if (oldRoom != null)
+            {
+                var otherCount = await db.TenantProfiles.CountAsync(other => other.RoomId == oldRoom.Id && other.Id != c.TenantProfileId);
+                if (otherCount == 0) oldRoom.Status = RoomStatus.Vacant;
+            }
 
             c.RoomId = req.RoomId.Value;
-            var newRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Id == req.RoomId.Value);
-            if (newRoom != null) newRoom.Status = RoomStatus.Occupied;
+            newRoom.Status = RoomStatus.Occupied;
 
             var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == c.TenantProfileId);
             if (tenant != null) tenant.RoomId = req.RoomId.Value;
@@ -123,9 +162,10 @@ public class ContractService(AppDbContext db)
     }
 
     // Xóa một hợp đồng và cập nhật trạng thái phòng nếu không còn hợp đồng active khác.
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(Guid id, Guid landlordId)
     {
-        var c = await db.Contracts.Include(c => c.Room).FirstOrDefaultAsync(c => c.Id == id);
+        var c = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId);
         if (c is null) return false;
 
         if (c.Status == ContractStatus.Active && c.Room != null)
@@ -143,34 +183,55 @@ public class ContractService(AppDbContext db)
     }
 
     // Thanh lý hợp đồng thuê nhà (Đổi trạng thái hợp đồng thành Liquidated và phòng thành Vacant).
-    public async Task TerminateAsync(Guid id)
+    public async Task TerminateAsync(Guid id, Guid landlordId)
     {
-        var c = await db.Contracts.Include(c => c.Room).FirstOrDefaultAsync(c => c.Id == id) ?? throw new KeyNotFoundException();
+        var c = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
+
         c.Status = ContractStatus.Liquidated;
-        c.Room.Status = RoomStatus.Vacant;
+        if (c.Room != null)
+        {
+            var activeContracts = await db.Contracts.CountAsync(other => other.RoomId == c.RoomId && other.Id != c.Id && other.Status == ContractStatus.Active);
+            if (activeContracts == 0)
+            {
+                c.Room.Status = RoomStatus.Vacant;
+            }
+        }
         var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.RoomId == c.RoomId);
         if (tenant != null) { tenant.RoomId = null; }
         await db.SaveChangesAsync();
     }
 
     // Gia hạn hợp đồng (Thanh lý hợp đồng cũ và tạo tự động một hợp đồng mới gia hạn thêm số tháng).
-    public async Task RenewAsync(Guid id, RenewContractRequest req)
+    public async Task RenewAsync(Guid id, Guid landlordId, RenewContractRequest req)
     {
-        var c = await db.Contracts
-            .Include(c => c.Room).ThenInclude(r => r.Zone)
-            .Include(c => c.TenantProfile)
-            .FirstOrDefaultAsync(c => c.Id == id) ?? throw new KeyNotFoundException();
+        var c = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone).Include(c => c.TenantProfile)
+            .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
+
         c.Status = ContractStatus.Liquidated;
-        var newContract = new Contract { ContractCode = c.ContractCode + "-GH", RoomId = c.RoomId, TenantProfileId = c.TenantProfileId, StartDate = c.EndDate, EndDate = c.EndDate.AddMonths(req.ExtendMonths), RentAmount = req.NewRentAmount ?? c.RentAmount, Deposit = c.Deposit, PaymentTermDay = c.PaymentTermDay, Terms = c.Terms };
+        var newContract = new Contract 
+        { 
+            ContractCode = c.ContractCode + "-GH", 
+            RoomId = c.RoomId, 
+            TenantProfileId = c.TenantProfileId, 
+            StartDate = c.EndDate, 
+            EndDate = c.EndDate.AddMonths(req.ExtendMonths), 
+            RentAmount = req.NewRentAmount ?? c.RentAmount, 
+            Deposit = c.Deposit, 
+            PaymentTermDay = c.PaymentTermDay, 
+            Terms = c.Terms 
+        };
         db.Contracts.Add(newContract);
 
         if (c.TenantProfile != null)
         {
             var notifRenew = new Notification
             {
-                SenderId = c.Room.Zone.LandlordId,
-                Title = $"Thông báo gia hạn hợp đồng phòng {c.Room.RoomNumber}",
-                Content = $"Hợp đồng phòng {c.Room.RoomNumber} đã được gia hạn thêm {req.ExtendMonths} tháng thành công.",
+                SenderId = landlordId,
+                Title = $"Thông báo gia hạn hợp đồng phòng {c.Room?.RoomNumber}",
+                Content = $"Hợp đồng phòng {c.Room?.RoomNumber} đã được gia hạn thêm {req.ExtendMonths} tháng thành công.",
                 Target = NotificationTarget.User,
                 TargetId = c.TenantProfile.UserId,
                 CreatedAt = DateTime.UtcNow
@@ -181,14 +242,14 @@ public class ContractService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
-<<<<<<< Updated upstream
     // Quyết toán hợp đồng & hoàn trả tiền cọc cho khách thuê
-    public async Task<ContractSettlementDto> SettleContractAsync(Guid id, SettleContractRequest req)
+    public async Task<ContractSettlementDto> SettleContractAsync(Guid id, Guid landlordId, SettleContractRequest req)
     {
         var c = await db.Contracts
             .Include(c => c.Room).ThenInclude(r => r.Zone)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .FirstOrDefaultAsync(c => c.Id == id) ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng");
+            .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
 
         var unpaidInvoices = await db.Invoices
             .Where(i => i.TenantProfileId == c.TenantProfileId && i.Status != InvoiceStatus.Paid)
@@ -213,38 +274,11 @@ public class ContractService(AppDbContext db)
         var settlement = new ContractSettlement
         {
             ContractId = c.Id,
-            LandlordId = c.Room?.Zone?.LandlordId ?? Guid.Empty,
+            LandlordId = landlordId,
             TenantProfileId = c.TenantProfileId,
             RoomId = c.RoomId,
             DepositAmount = c.Deposit,
             UnpaidInvoicesAmount = unpaidInvoices,
-=======
-    // Quyết toán hợp đồng và tính toán tiền cọc hoàn lại cho khách thuê
-    public async Task<ContractSettlementDto> SettleContractAsync(Guid contractId, SettleContractRequest req)
-    {
-        var contract = await db.Contracts
-            .Include(c => c.Room).ThenInclude(r => r.Zone)
-            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .FirstOrDefaultAsync(c => c.Id == contractId)
-            ?? throw new KeyNotFoundException("Hợp đồng không tồn tại");
-
-        // Lấy tổng số nợ từ các hóa đơn chưa thanh toán của hợp đồng này
-        var unpaidInvoicesSum = await db.Invoices
-            .Where(i => i.RoomId == contract.RoomId && (i.Status == InvoiceStatus.Unpaid || i.Status == InvoiceStatus.Overdue))
-            .SumAsync(i => i.TotalAmount);
-
-        // Tính tiền hoàn lại = Tiền cọc - Nợ hóa đơn - Hư hỏng - Khấu trừ khác
-        var refundAmount = contract.Deposit - unpaidInvoicesSum - req.DamageDeductionAmount - req.OtherDeductionAmount;
-
-        var settlement = new ContractSettlement
-        {
-            ContractId = contract.Id,
-            LandlordId = contract.Room.Zone.LandlordId,
-            TenantProfileId = contract.TenantProfileId,
-            RoomId = contract.RoomId,
-            DepositAmount = contract.Deposit,
-            UnpaidInvoicesAmount = unpaidInvoicesSum,
->>>>>>> Stashed changes
             DamageDeductionAmount = req.DamageDeductionAmount,
             OtherDeductionAmount = req.OtherDeductionAmount,
             RefundAmount = refundAmount,
@@ -253,44 +287,26 @@ public class ContractService(AppDbContext db)
         };
 
         db.ContractSettlements.Add(settlement);
-<<<<<<< Updated upstream
-=======
 
-        // Cập nhật trạng thái hợp đồng thành Thanh lý (Liquidated) và phòng thành Trống (Vacant)
-        contract.Status = ContractStatus.Liquidated;
-        if (contract.Room != null)
-        {
-            contract.Room.Status = RoomStatus.Vacant;
-        }
-
-        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == contract.TenantProfileId);
-        if (tenant != null)
-        {
-            tenant.RoomId = null;
-        }
-
-        // Tự động gửi thông báo kết quả quyết toán cọc vào ứng dụng cho khách thuê
-        if (contract.TenantProfile != null)
+        // Tự động tạo thông báo kết quả quyết toán gửi đến khách thuê
+        if (c.TenantProfile != null)
         {
             var notifSettle = new Notification
             {
-                SenderId = contract.Room?.Zone?.LandlordId ?? Guid.Empty,
-                Title = $"Thông báo quyết toán cọc phòng {contract.Room?.RoomNumber}",
-                Content = $"Hợp đồng phòng {contract.Room?.RoomNumber} đã hoàn tất quyết toán thanh lý. Số tiền cọc thực tế hoàn lại: {refundAmount:N0} VNĐ.",
-
+                SenderId = landlordId,
+                Title = $"Thông báo quyết toán cọc phòng {c.Room?.RoomNumber}",
+                Content = $"Hợp đồng phòng {c.Room?.RoomNumber} đã hoàn tất quyết toán thanh lý. Số tiền cọc thực tế hoàn lại: {refundAmount:N0} VNĐ.",
                 Target = NotificationTarget.User,
-                TargetId = contract.TenantProfile.UserId,
+                TargetId = c.TenantProfile.UserId,
                 CreatedAt = DateTime.UtcNow
             };
             db.Notifications.Add(notifSettle);
         }
 
->>>>>>> Stashed changes
         await db.SaveChangesAsync();
 
         return new ContractSettlementDto(
             settlement.Id,
-<<<<<<< Updated upstream
             settlement.ContractId,
             settlement.LandlordId,
             settlement.TenantProfileId,
@@ -303,108 +319,58 @@ public class ContractService(AppDbContext db)
             settlement.OtherDeductionAmount,
             settlement.RefundAmount,
             settlement.SettlementNotes,
-=======
-            contract.Id,
-            contract.ContractCode,
-            contract.RoomId,
-            contract.Room?.RoomNumber ?? "",
-            contract.TenantProfileId,
-            contract.TenantProfile?.User?.FullName ?? "",
-            contract.Deposit,
-            unpaidInvoicesSum,
-            req.DamageDeductionAmount,
-            req.OtherDeductionAmount,
-            refundAmount,
-            req.SettlementNotes,
->>>>>>> Stashed changes
             settlement.SettleDate
         );
     }
 
-<<<<<<< Updated upstream
-    // Tự động quét và phát hành thông báo hợp đồng sắp hết hạn trong 30 ngày
-    public async Task<int> CheckAndNotifyExpiringContractsAsync(Guid landlordId)
-    {
-        var threshold = DateTime.UtcNow.AddDays(30);
-        var expiringContracts = await db.Contracts
-            .Include(c => c.Room).ThenInclude(r => r.Zone)
-            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .Where(c => c.Room.Zone.LandlordId == landlordId && c.Status == ContractStatus.Active && c.EndDate <= threshold)
-            .ToListAsync();
-
-        int count = 0;
-        foreach (var contract in expiringContracts)
-        {
-            var daysRemaining = (contract.EndDate.Date - DateTime.UtcNow.Date).Days;
-            var notif = new Notification
-            {
-                SenderId = landlordId,
-                Title = $"Hợp đồng phòng {contract.Room?.RoomNumber} sắp hết hạn",
-                Content = $"Hợp đồng {contract.ContractCode} của khách {contract.TenantProfile?.User?.FullName} sẽ hết hạn vào ngày {contract.EndDate:dd/MM/yyyy} (còn {Math.Max(0, daysRemaining)} ngày).",
-                Target = NotificationTarget.User,
-                TargetId = contract.TenantProfile?.UserId ?? landlordId,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.Notifications.Add(notif);
-            count++;
-=======
     // Tự động quét và phát hành thông báo hợp đồng sắp hết hạn trong vòng 30 ngày tới
     public async Task<int> CheckAndNotifyExpiringContractsAsync(Guid landlordId)
     {
         var thirtyDaysFromNow = DateTime.UtcNow.AddDays(30);
         var expiringContracts = await db.Contracts
             .Include(c => c.Room).ThenInclude(r => r.Zone)
-            .Include(c => c.TenantProfile)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .Where(c => c.Room.Zone.LandlordId == landlordId &&
                         c.Status == ContractStatus.Active &&
                         c.EndDate <= thirtyDaysFromNow &&
-                        c.EndDate >= DateTime.UtcNow)
+                        c.EndDate >= DateTime.UtcNow.Date)
             .ToListAsync();
 
         int count = 0;
-        foreach (var c in expiringContracts)
+        foreach (var contract in expiringContracts)
         {
-            if (c.TenantProfile == null) continue;
+            if (contract.TenantProfile == null) continue;
 
             var today = DateTime.UtcNow.Date;
             var alreadyNotified = await db.Notifications.AnyAsync(n =>
-                n.TargetId == c.TenantProfile.UserId &&
-                n.Title.Contains("hợp đồng sắp hết hạn") &&
+                n.TargetId == contract.TenantProfile.UserId &&
+                n.Title.Contains("sắp hết hạn") &&
                 n.CreatedAt >= today);
 
             if (!alreadyNotified)
             {
+                var daysRemaining = (contract.EndDate.Date - DateTime.UtcNow.Date).Days;
                 var notif = new Notification
                 {
                     SenderId = landlordId,
-                    Title = $"Cảnh báo hợp đồng sắp hết hạn - Phòng {c.Room?.RoomNumber}",
-                    Content = $"Hợp đồng mã {c.ContractCode} phòng {c.Room?.RoomNumber} sẽ hết hạn vào ngày {c.EndDate:dd/MM/yyyy}. Vui lòng liên hệ chủ trọ để gia hạn.",
+                    Title = $"Hợp đồng phòng {contract.Room?.RoomNumber} sắp hết hạn",
+                    Content = $"Hợp đồng {contract.ContractCode} của khách {contract.TenantProfile?.User?.FullName} sẽ hết hạn vào ngày {contract.EndDate:dd/MM/yyyy} (còn {Math.Max(0, daysRemaining)} ngày). Vui lòng liên hệ chủ trọ để gia hạn.",
                     Target = NotificationTarget.User,
-                    TargetId = c.TenantProfile.UserId,
+                    TargetId = contract.TenantProfile?.UserId ?? Guid.Empty,
                     CreatedAt = DateTime.UtcNow
                 };
                 db.Notifications.Add(notif);
                 count++;
             }
->>>>>>> Stashed changes
         }
 
         if (count > 0)
         {
             await db.SaveChangesAsync();
         }
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
         return count;
     }
 
-
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
     private static ContractDto MapContract(Contract c) => new(
         c.Id,
         c.ContractCode,
@@ -432,4 +398,3 @@ public class ContractService(AppDbContext db)
         c.CreatedAt
     );
 }
-

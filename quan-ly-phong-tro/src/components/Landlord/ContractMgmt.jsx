@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle } from 'lucide-react';
+import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { contractService } from '../../services';
 import { Pagination } from '../Common/Pagination';
@@ -13,7 +13,6 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const [editingContract, setEditingContract] = useState(null);
   const [viewingContract, setViewingContract] = useState(null);
   const [selectedZoneId, setSelectedZoneId] = useState('');
-
   const [settleModalOpen, setSettleModalOpen] = useState(false);
   const [settlingContract, setSettlingContract] = useState(null);
   const [settleForm, setSettleForm] = useState({
@@ -233,7 +232,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
-  const handleRenew = (c) => {
+  const handleRenew = async (c) => {
     const monthsStr = prompt(`Gia hạn hợp đồng ${c.contractCode}.\nNhập số tháng muốn gia hạn (VD: 6 hoặc 12):`, '12');
     if (!monthsStr) return;
     const months = parseInt(monthsStr);
@@ -245,13 +244,14 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
     try {
       if (contractService && contractService.renew) {
-        contractService.renew(c.id, { extendMonths: months, newRentAmount: c.rentAmount });
+        await contractService.renew(c.id, { extendMonths: months, newRentAmount: c.rentAmount });
       }
-    } catch (e) { console.warn(e); }
-
-    setContracts(contracts.map(item => item.id === c.id ? { ...item, endDate: newEndDateStr, status: 'active' } : item));
-    alert(`✅ Đã gia hạn hợp đồng ${c.contractCode} thêm ${months} tháng đến ngày ${formatDate(newEndDateStr)}!`);
-    onRefresh?.();
+      setContracts(contracts.map(item => item.id === c.id ? { ...item, endDate: newEndDateStr, status: 'active' } : item));
+      alert(`✅ Đã gia hạn hợp đồng ${c.contractCode} thêm ${months} tháng đến ngày ${formatDate(newEndDateStr)}!`);
+      onRefresh?.();
+    } catch (e) {
+      alert('Lỗi gia hạn hợp đồng: ' + (e.response?.data?.message || e.message));
+    }
   };
 
   const handleCheckExpiring = async () => {
@@ -365,15 +365,14 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           <h2 className="page-title"><FileText size={24} color="#6366f1" /> Quản Lý Hợp Đồng Thuê Nhà</h2>
           <p className="page-subtitle">Tạo mới, gia hạn, thanh lý và in/xuất file PDF hợp đồng pháp lý</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={handleCheckExpiring}>
-            <Clock size={18} color="#f59e0b" /> Quét HĐ Sắp Hết Hạn
+            <Clock size={16} color="#f59e0b" /> Quét HĐ Sắp Hết Hạn
           </button>
           <button className="btn btn-primary" onClick={handleOpenAdd}>
             <Plus size={18} /> Tạo Hợp Đồng Mới
           </button>
         </div>
-
       </div>
 
       {/* 📊 THẺ THỐNG KÊ TỔNG QUAN HỢP ĐỒNG */}
@@ -632,6 +631,9 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
                           <button className="btn btn-sm btn-secondary" title="Sửa điều khoản" onClick={() => handleOpenEdit(c)}>
                             <Edit size={14} />
+                          </button>
+                          <button className="btn btn-sm btn-secondary" title="Quyết toán cọc & hoàn tiền" onClick={() => handleOpenSettle(c)} style={{ color: '#0ea5e9' }}>
+                            <CreditCard size={14} />
                           </button>
                           {statusInfo.isActive && (
                             <button className="btn btn-sm btn-danger" title="Thanh lý hợp đồng" onClick={() => handleLiquidate(c.id)}>

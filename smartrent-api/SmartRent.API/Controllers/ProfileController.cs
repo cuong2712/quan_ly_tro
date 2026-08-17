@@ -44,6 +44,7 @@ public class ProfileController(ProfileService profileService) : ControllerBase
     public async Task<IActionResult> UpdateVehicle([FromBody] UpdateVehicleRequest request)
     {
         try { return Ok(await profileService.UpdateVehicleInfoAsync(CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 }

@@ -12,13 +12,25 @@ public class NotificationService(AppDbContext db)
     // Lấy danh sách thông báo phù hợp với tài khoản và vai trò của người dùng.
     public async Task<IEnumerable<NotificationDto>> GetForUserAsync(Guid userId, string role)
     {
-        var notifications = await db.Notifications.Include(n => n.Sender)
+        Guid? landlordIdOfTenant = null;
+        if (role == "Tenant")
+        {
+            landlordIdOfTenant = await db.TenantProfiles
+                .Where(t => t.UserId == userId && t.Room != null)
+                .Select(t => (Guid?)t.Room!.Zone.LandlordId)
+                .FirstOrDefaultAsync();
+        }
+
+        var notifications = await db.Notifications
+            .Include(n => n.Sender)
             .Include(n => n.Reads.Where(r => r.UserId == userId))
-            .Where(n => (n.Target == NotificationTarget.AllLandlords && role == "Landlord") ||
-                        (n.Target == NotificationTarget.AllTenants && role == "Tenant") ||
-                        (n.Target == NotificationTarget.User && n.TargetId == userId) ||
-                        role == "SuperAdmin")
+            .Where(n => 
+                (n.Target == NotificationTarget.AllLandlords && role == "Landlord") ||
+                (n.Target == NotificationTarget.AllTenants && role == "Tenant" && (n.Sender.Role == UserRole.SuperAdmin || (landlordIdOfTenant.HasValue && n.SenderId == landlordIdOfTenant.Value))) ||
+                (n.Target == NotificationTarget.User && n.TargetId == userId) ||
+                role == "SuperAdmin")
             .OrderByDescending(n => n.CreatedAt).ToListAsync();
+
         return notifications.Select(n => new NotificationDto(n.Id, n.Sender?.FullName ?? "Hệ thống", n.Title, n.Content, n.Target.ToString(), n.TargetId, n.Reads.Any(r => r.IsRead), n.CreatedAt));
     }
 
@@ -42,10 +54,10 @@ public class NotificationService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
-    // Xóa thông báo khỏi hệ thống.
-    public async Task<bool> DeleteAsync(Guid id)
+    // Xóa thông báo khỏi hệ thống (kiểm tra quyền sở hữu).
+    public async Task<bool> DeleteAsync(Guid id, Guid currentUserId, string role)
     {
-        var n = await db.Notifications.FindAsync(id);
+        var n = await db.Notifications.FirstOrDefaultAsync(x => x.Id == id && (role == "SuperAdmin" || x.SenderId == currentUserId));
         if (n is null) return false;
         db.Notifications.Remove(n);
         await db.SaveChangesAsync();

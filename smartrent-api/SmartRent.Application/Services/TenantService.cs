@@ -33,11 +33,14 @@ public class TenantService(AppDbContext db)
         return tenants.Select(MapTenant);
     }
 
-    // Lấy thông tin chi tiết người thuê theo ID hồ sơ (TenantProfileId).
-    public async Task<TenantDto?> GetByIdAsync(Guid id)
+    // Lấy thông tin chi tiết người thuê theo ID hồ sơ (TenantProfileId), bảo đảm thuộc quyền quản lý của Chủ trọ.
+    public async Task<TenantDto?> GetByIdAsync(Guid id, Guid landlordId)
     {
-        var t = await db.TenantProfiles.Include(t => t.User).Include(t => t.Room).ThenInclude(r => r!.Zone)
-            .Include(t => t.Contracts).FirstOrDefaultAsync(t => t.Id == id);
+        var t = await db.TenantProfiles
+            .Include(t => t.User)
+            .Include(t => t.Room).ThenInclude(r => r!.Zone)
+            .Include(t => t.Contracts)
+            .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)));
         return t is null ? null : MapTenant(t);
     }
 
@@ -69,7 +72,19 @@ public class TenantService(AppDbContext db)
         var user = new User { Email = req.Email, PasswordHash = BCrypt.Net.BCrypt.HashPassword(password), FullName = req.FullName, Phone = req.Phone, Role = UserRole.Tenant };
         db.Users.Add(user);
 
-        var profile = new TenantProfile { UserId = user.Id, RoomId = req.RoomId, CCCD = req.CCCD, Hometown = req.Hometown, MoveInDate = req.MoveInDate, Deposit = req.Deposit, CccdFrontUrl = req.CccdFrontUrl, CccdBackUrl = req.CccdBackUrl, VehicleCount = req.VehicleCount, VehicleInfo = req.VehicleInfo };
+        var profile = new TenantProfile
+        {
+            UserId = user.Id,
+            RoomId = req.RoomId,
+            CCCD = req.CCCD,
+            Hometown = req.Hometown,
+            MoveInDate = req.MoveInDate,
+            Deposit = req.Deposit,
+            CccdFrontUrl = req.CccdFrontUrl,
+            CccdBackUrl = req.CccdBackUrl,
+            VehicleCount = req.VehicleCount,
+            VehicleInfo = req.VehicleInfo
+        };
         db.TenantProfiles.Add(profile);
 
         room.Status = RoomStatus.Occupied;
@@ -79,10 +94,12 @@ public class TenantService(AppDbContext db)
     }
 
     // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới, thông tin xe).
-    public async Task<TenantDto> UpdateAsync(Guid id, UpdateTenantRequest req)
+    public async Task<TenantDto> UpdateAsync(Guid id, Guid landlordId, UpdateTenantRequest req)
     {
         var t = await db.TenantProfiles.Include(t => t.User).Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts)
-            .FirstOrDefaultAsync(t => t.Id == id) ?? throw new KeyNotFoundException();
+            .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)))
+            ?? throw new KeyNotFoundException("Không tìm thấy khách thuê hoặc bạn không có quyền thao tác.");
+
         t.User.FullName = req.FullName; t.User.Phone = req.Phone; t.Hometown = req.Hometown;
         t.VehicleCount = req.VehicleCount;
         if (!string.IsNullOrEmpty(req.VehicleInfo)) t.VehicleInfo = req.VehicleInfo;
@@ -91,24 +108,31 @@ public class TenantService(AppDbContext db)
 
         if (req.RoomId.HasValue && t.RoomId != req.RoomId.Value)
         {
+            var newRoom = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId.Value && r.Zone.LandlordId == landlordId)
+                ?? throw new KeyNotFoundException("Phòng chuyển đến không tồn tại hoặc không thuộc quyền quản lý của bạn.");
+
             if (t.RoomId.HasValue)
             {
                 var oldRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Id == t.RoomId.Value);
-                if (oldRoom != null) oldRoom.Status = RoomStatus.Vacant;
+                if (oldRoom != null)
+                {
+                    var otherCount = await db.TenantProfiles.CountAsync(other => other.RoomId == oldRoom.Id && other.Id != t.Id);
+                    if (otherCount == 0) oldRoom.Status = RoomStatus.Vacant;
+                }
             }
             t.RoomId = req.RoomId.Value;
-            var newRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Id == req.RoomId.Value);
-            if (newRoom != null) newRoom.Status = RoomStatus.Occupied;
+            newRoom.Status = RoomStatus.Occupied;
         }
 
         await db.SaveChangesAsync();
         return MapTenant(t);
     }
 
-    // Xóa hồ sơ khách thuê và xóa liên quới (hợp đồng, hóa đơn, sự cố, giải phóng phòng nếu trống).
-    public async Task<bool> DeleteAsync(Guid id)
+    // Xóa hồ sơ khách thuê và xóa liên quan (hợp đồng, hóa đơn, sự cố, giải phóng phòng nếu trống).
+    public async Task<bool> DeleteAsync(Guid id, Guid landlordId)
     {
-        var t = await db.TenantProfiles.Include(t => t.Room).FirstOrDefaultAsync(t => t.Id == id);
+        var t = await db.TenantProfiles.Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts).ThenInclude(c => c.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)));
         if (t is null) return false;
 
         // 1. Release room status if no remaining tenants
@@ -153,6 +177,25 @@ public class TenantService(AppDbContext db)
         return true;
     }
 
-    private static TenantDto MapTenant(TenantProfile t) => new(t.Id, t.UserId, t.User?.FullName ?? "", t.User?.Email ?? "", t.User?.Phone ?? "", t.User?.AvatarUrl, t.CCCD, t.Hometown, t.MoveInDate, t.Deposit, t.RoomId, t.Room?.RoomNumber, t.Room?.Zone?.Name, t.CccdFrontUrl, t.CccdBackUrl, t.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active)?.ContractCode, t.VehicleCount, t.VehicleInfo);
+    private static TenantDto MapTenant(TenantProfile t) => new(
+        t.Id,
+        t.UserId,
+        t.User?.FullName ?? "",
+        t.User?.Email ?? "",
+        t.User?.Phone ?? "",
+        t.User?.AvatarUrl,
+        t.CCCD,
+        t.Hometown,
+        t.MoveInDate,
+        t.Deposit,
+        t.RoomId,
+        t.Room?.RoomNumber,
+        t.Room?.Zone?.Name,
+        t.CccdFrontUrl,
+        t.CccdBackUrl,
+        t.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active)?.ContractCode,
+        t.VehicleCount,
+        t.VehicleInfo
+    );
 }
 

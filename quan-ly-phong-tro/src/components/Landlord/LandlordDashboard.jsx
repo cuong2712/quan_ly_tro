@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Home, Users, Receipt, DollarSign, TrendingDown, AlertCircle, PieChart, Activity } from 'lucide-react';
+import { Building2, Home, Users, Receipt, DollarSign, Wrench, AlertCircle, Activity, TrendingUp } from 'lucide-react';
 import { formatVND } from '../../utils/formatters';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import {
@@ -25,58 +25,75 @@ export const LandlordDashboard = ({ data = {} }) => {
   const unpaidCount = dbStats.unpaidInvoices ?? unpaidInvoices.length;
   const outstandingDebt = unpaidInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
 
-  const monthlyRevenue = dbStats.revenue || invoices
-    .filter(i => i.month === '2026-07' && (i.status || '').toLowerCase() === 'paid')
+  const currentMonthStr = new Date().toISOString().slice(0, 7);
+  const currentMonthPaid = invoices
+    .filter(i => i.month === currentMonthStr && (i.status || '').toLowerCase() === 'paid')
     .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
-  const monthlyExpenses = 3500000; // Chi phí sửa chữa & bảo trì tháng 7
+  const totalPaidAllTime = invoices
+    .filter(i => (i.status || '').toLowerCase() === 'paid')
+    .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+  const revenueDisplay = dbStats.revenue || currentMonthPaid || totalPaidAllTime;
 
-  // Biểu đồ Doanh thu theo tháng
+  const occupancyRate = dbStats.occupancyRate ?? (totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
+  const pendingMaintenance = dbStats.pendingMaintenance ?? 0;
+
+  // ── Tính toán động biểu đồ 6 tháng gần nhất ────────────────────
+  const last6Months = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    last6Months.push({
+      key: d.toISOString().slice(0, 7),
+      label: `T${d.getMonth() + 1}/${d.getFullYear()}`
+    });
+  }
+
+  const revenueByMonth = last6Months.map(m => {
+    return invoices
+      .filter(i => i.month === m.key && (i.status || '').toLowerCase() === 'paid')
+      .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
+  });
+
   const revenueData = {
-    labels: ['T2/2026', 'T3/2026', 'T4/2026', 'T5/2026', 'T6/2026', 'T7/2026'],
+    labels: last6Months.map(m => m.label),
     datasets: [
       {
-        label: 'Doanh Thu (VND)',
-        data: [35000000, 38000000, 42000000, 41000000, 45000000, 48000000],
+        label: 'Doanh Thu Đã Thu (VNĐ)',
+        data: revenueByMonth,
         backgroundColor: 'rgba(99, 102, 241, 0.7)',
         borderRadius: 6,
       }
     ]
   };
 
-  // Biểu đồ Thu chi
-  const incomeExpenseData = {
-    labels: ['Tháng 5', 'Tháng 6', 'Tháng 7'],
+  // ── Tỷ lệ lấp đầy phòng ─────────────────────────────────────────
+  const occupancyChartData = {
+    labels: ['Đang Thuê', 'Còn Trống'],
     datasets: [
       {
-        label: 'Thu Nhập',
-        data: [41000000, 45000000, 48000000],
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.2)',
-        tension: 0.3,
-      },
-      {
-        label: 'Chi Phí Bảo Trì',
-        data: [4200000, 2800000, 3500000],
-        borderColor: '#f43f5e',
-        backgroundColor: 'rgba(244, 63, 94, 0.2)',
-        tension: 0.3,
+        data: [occupiedRooms, vacantRooms],
+        backgroundColor: ['#10b981', '#6366f1'],
+        borderWidth: 0,
       }
     ]
   };
 
-  // Biểu đồ Điện Nước
+  // ── Tiêu thụ Điện/Nước theo từng hóa đơn phòng gần nhất ─────────
+  const latestInvoices = invoices.slice(0, 6);
   const utilityData = {
-    labels: ['P.101', 'P.102', 'P.301'],
+    labels: latestInvoices.map(i => i.roomNumber ? `P.${i.roomNumber}` : (i.roomId ? `P.${i.roomId.slice(0, 4)}` : 'Phòng')),
     datasets: [
       {
-        label: 'Điện (kWh)',
-        data: [100, 100, 90],
+        label: 'Tiền Điện (VNĐ)',
+        data: latestInvoices.map(i => i.elecFee || 0),
         backgroundColor: '#f59e0b',
+        borderRadius: 4,
       },
       {
-        label: 'Nước (m³)',
-        data: [15, 15, 12],
+        label: 'Tiền Nước (VNĐ)',
+        data: latestInvoices.map(i => i.waterFee || 0),
         backgroundColor: '#06b6d4',
+        borderRadius: 4,
       }
     ]
   };
@@ -86,7 +103,7 @@ export const LandlordDashboard = ({ data = {} }) => {
       <div className="page-header">
         <div>
           <h2 className="page-title"><Activity size={24} color="#6366f1" /> Trang Tổng Quan Chủ Trọ</h2>
-          <p className="page-subtitle">Theo dõi tình hình kinh doanh, doanh thu và tỷ lệ lấp đầy phòng trọ</p>
+          <p className="page-subtitle">Theo dõi tình hình kinh doanh, doanh thu thực tế và tỷ lệ lấp đầy phòng trọ</p>
         </div>
       </div>
 
@@ -135,7 +152,7 @@ export const LandlordDashboard = ({ data = {} }) => {
         <div className="kpi-card">
           <div className="kpi-icon amber"><Receipt /></div>
           <div className="kpi-info">
-            <h3>Hóa Đơn Chưa Trả</h3>
+            <h3>Hóa Đơn Chưa Thu</h3>
             <div className="value" style={{ color: '#fbbf24' }}>{unpaidCount}</div>
           </div>
         </div>
@@ -143,24 +160,24 @@ export const LandlordDashboard = ({ data = {} }) => {
         <div className="kpi-card">
           <div className="kpi-icon emerald"><DollarSign /></div>
           <div className="kpi-info">
-            <h3>Doanh Thu Tháng 7</h3>
-            <div className="value">{formatVND(monthlyRevenue || 48000000)}</div>
+            <h3>Tổng Thu Thực Tế</h3>
+            <div className="value">{formatVND(revenueDisplay)}</div>
           </div>
         </div>
 
         <div className="kpi-card">
-          <div className="kpi-icon rose"><TrendingDown /></div>
-          <div className="kpi-info">
-            <h3>Chi Phí Tháng 7</h3>
-            <div className="value">{formatVND(monthlyExpenses)}</div>
-          </div>
-        </div>
-
-        <div className="kpi-card">
-          <div className="kpi-icon amber"><AlertCircle /></div>
+          <div className="kpi-icon rose"><AlertCircle /></div>
           <div className="kpi-info">
             <h3>Tổng Công Nợ</h3>
             <div className="value" style={{ color: '#f87171' }}>{formatVND(outstandingDebt)}</div>
+          </div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-icon emerald"><TrendingUp /></div>
+          <div className="kpi-info">
+            <h3>Tỷ Lệ Lấp Đầy</h3>
+            <div className="value" style={{ color: '#10b981' }}>{occupancyRate}%</div>
           </div>
         </div>
       </div>
@@ -169,7 +186,7 @@ export const LandlordDashboard = ({ data = {} }) => {
       <div className="charts-grid">
         <div className="chart-card">
           <div className="chart-header">
-            <h3 className="chart-title">Doanh Thu Theo Tháng (VND)</h3>
+            <h3 className="chart-title">Doanh Thu Thực Tế Theo Tháng (VNĐ)</h3>
           </div>
           <div style={{ height: '280px' }}>
             <Bar data={revenueData} options={{ responsive: true, maintainAspectRatio: false }} />
@@ -178,16 +195,16 @@ export const LandlordDashboard = ({ data = {} }) => {
 
         <div className="chart-card">
           <div className="chart-header">
-            <h3 className="chart-title">So Sánh Thu Nhập & Chi Phí Bảo Trì</h3>
+            <h3 className="chart-title">Tỷ Lệ Lấp Đầy Phòng</h3>
           </div>
-          <div style={{ height: '280px' }}>
-            <Line data={incomeExpenseData} options={{ responsive: true, maintainAspectRatio: false }} />
+          <div style={{ height: '280px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Doughnut data={occupancyChartData} options={{ responsive: true, maintainAspectRatio: false }} />
           </div>
         </div>
 
         <div className="chart-card">
           <div className="chart-header">
-            <h3 className="chart-title">Tiêu Thụ Điện & Nước Theo Phòng</h3>
+            <h3 className="chart-title">Chi Phí Điện & Nước Theo Phòng</h3>
           </div>
           <div style={{ height: '280px' }}>
             <Bar data={utilityData} options={{ responsive: true, maintainAspectRatio: false }} />

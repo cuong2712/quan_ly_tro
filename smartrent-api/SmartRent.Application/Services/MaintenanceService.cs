@@ -60,19 +60,13 @@ public class MaintenanceService(AppDbContext db)
     // Khách thuê gửi báo cáo sự cố hư hỏng (điện, nước, cơ sở vật chất...) kèm hình ảnh minh họa.
     public async Task<MaintenanceRequestDto> CreateAsync(Guid tenantUserId, CreateMaintenanceRequest req)
     {
-        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        var profile = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.UserId == tenantUserId);
         if (profile == null)
         {
             var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
             if (user != null)
             {
-                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
-                if (profile == null)
-                {
-                    profile = new TenantProfile { UserId = user.Id, CCCD = "000000000000", MoveInDate = DateTime.UtcNow };
-                    db.TenantProfiles.Add(profile);
-                    await db.SaveChangesAsync();
-                }
+                profile = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.User.Email == user.Email);
             }
         }
 
@@ -90,22 +84,17 @@ public class MaintenanceService(AppDbContext db)
             {
                 roomId = activeContract.RoomId;
                 profile.RoomId = roomId;
+                await db.SaveChangesAsync();
             }
-            else
-            {
-                var anyRoom = await db.Rooms.FirstOrDefaultAsync();
-                if (anyRoom != null)
-                {
-                    roomId = anyRoom.Id;
-                    profile.RoomId = roomId;
-                }
-                else
-                {
-                    throw new InvalidOperationException("Chưa có phòng nào trong hệ thống để báo sự cố.");
-                }
-            }
-            await db.SaveChangesAsync();
         }
+
+        if (roomId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Bạn chưa được gán phòng trọ nên không thể tạo yêu cầu bảo trì.");
+        }
+
+        var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == roomId)
+            ?? throw new KeyNotFoundException("Phòng trọ không tồn tại.");
 
         var priority = Enum.Parse<MaintenancePriority>(req.Priority, ignoreCase: true);
         var m = new MaintenanceRequest
@@ -119,6 +108,19 @@ public class MaintenanceService(AppDbContext db)
             ImageUrl = req.ImageUrl
         };
         db.MaintenanceRequests.Add(m);
+
+        // Tự động tạo thông báo gửi đến Chủ trọ
+        var notifLandlord = new Notification
+        {
+            SenderId = tenantUserId,
+            Title = $"Báo cáo sự cố mới phòng {room.RoomNumber}",
+            Content = $"Phòng {room.RoomNumber} ({room.Zone.Name}): Khách thuê {profile.User?.FullName} đã báo cáo sự cố '{req.Title}'. Vui lòng kiểm tra và xử lý.",
+            Target = NotificationTarget.User,
+            TargetId = room.Zone.LandlordId,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Notifications.Add(notifLandlord);
+
         await db.SaveChangesAsync();
 
         var full = await db.MaintenanceRequests
@@ -129,18 +131,34 @@ public class MaintenanceService(AppDbContext db)
         return MapReq(full);
     }
 
-    // Chủ trọ cập nhật tiến độ sửa chữa, người thực hiện và ghi chú hoàn thành bảo trì.
-    public async Task<MaintenanceRequestDto> UpdateAsync(Guid id, UpdateMaintenanceRequest req)
+    // Chủ trọ cập nhật tiến độ sửa chữa, người thực hiện và ghi chú hoàn thành bảo trì (kiểm tra quyền sở hữu).
+    public async Task<MaintenanceRequestDto> UpdateAsync(Guid id, Guid landlordId, UpdateMaintenanceRequest req)
     {
         var m = await db.MaintenanceRequests
-            .Include(x => x.Room)
+            .Include(x => x.Room).ThenInclude(r => r.Zone)
             .Include(x => x.TenantProfile).ThenInclude(t => t.User)
-            .FirstOrDefaultAsync(x => x.Id == id) ?? throw new KeyNotFoundException();
+            .FirstOrDefaultAsync(x => x.Id == id && x.Room.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Yêu cầu bảo trì không tồn tại hoặc bạn không có quyền cập nhật.");
 
         m.Status = Enum.Parse<MaintenanceStatus>(req.Status, ignoreCase: true);
         if (req.AssignedTo != null) m.AssignedTo = req.AssignedTo;
         if (req.CompletionNote != null) m.CompletionNote = req.CompletionNote;
         if (m.Status == MaintenanceStatus.Completed) m.CompletedAt = DateTime.UtcNow;
+
+        // Tự động tạo thông báo gửi đến Khách thuê khi trạng thái được cập nhật
+        if (m.TenantProfile != null)
+        {
+            var notifTenant = new Notification
+            {
+                SenderId = landlordId,
+                Title = $"Cập nhật sự cố phòng {m.Room?.RoomNumber}",
+                Content = $"Sự cố '{m.Title}' đã được cập nhật sang trạng thái: {m.Status}. Ghi chú: {m.CompletionNote ?? "Đang xử lý"}.",
+                Target = NotificationTarget.User,
+                TargetId = m.TenantProfile.UserId,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Notifications.Add(notifTenant);
+        }
 
         await db.SaveChangesAsync();
         return MapReq(m);

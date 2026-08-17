@@ -19,32 +19,40 @@ public class TenantsController(TenantService tenantService) : ControllerBase
     public async Task<IActionResult> GetTenants([FromQuery] int? page, [FromQuery] int? pageSize)
         => Ok(await tenantService.GetByLandlordAsync(LandlordId, page, pageSize));
 
-    // Lấy chi tiết hồ sơ người thuê theo ID.
+    // Lấy chi tiết hồ sơ người thuê theo ID (đảm bảo thuộc quyền quản lý của chủ trọ).
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetTenant(Guid id)
     {
-        var t = await tenantService.GetByIdAsync(id);
-        return t is null ? NotFound() : Ok(t);
+        var t = await tenantService.GetByIdAsync(id, LandlordId);
+        return t is null ? NotFound(new { message = "Không tìm thấy khách thuê" }) : Ok(t);
     }
 
     // Thêm một người thuê mới vào phòng trọ (tự động tạo tài khoản đăng nhập).
     [HttpPost]
     public async Task<IActionResult> CreateTenant([FromBody] CreateTenantRequest request)
     {
-        try { return CreatedAtAction(nameof(GetTenant), new { id = Guid.Empty }, await tenantService.CreateAsync(LandlordId, request)); }
-        catch (Exception ex) { return BadRequest(new { message = ex.InnerException?.Message ?? ex.Message }); }
+        try 
+        { 
+            var created = await tenantService.CreateAsync(LandlordId, request);
+            return CreatedAtAction(nameof(GetTenant), new { id = created.Id }, created); 
+        }
+        catch (Exception ex) 
+        { 
+            return BadRequest(new { message = ex.Message }); 
+        }
     }
 
     // Cập nhật thông tin người thuê (họ tên, SĐT, quê quán, ảnh CCCD, chuyển phòng mới).
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateTenant(Guid id, [FromBody] UpdateTenantRequest request)
     {
-        try { return Ok(await tenantService.UpdateAsync(id, request)); }
-        catch (KeyNotFoundException) { return NotFound(); }
+        try { return Ok(await tenantService.UpdateAsync(id, LandlordId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     // Xóa người thuê khỏi phòng trọ (tự động cập nhật lại trạng thái phòng và dữ liệu liên quan).
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteTenant(Guid id)
-        => await tenantService.DeleteAsync(id) ? NoContent() : NotFound();
+        => await tenantService.DeleteAsync(id, LandlordId) ? NoContent() : NotFound(new { message = "Không tìm thấy khách thuê hoặc không có quyền xóa." });
 }

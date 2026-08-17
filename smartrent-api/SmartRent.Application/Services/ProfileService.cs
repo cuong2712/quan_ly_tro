@@ -17,7 +17,7 @@ public class ProfileService(AppDbContext db)
     // Cập nhật thông tin cá nhân (Họ tên, Số điện thoại, Ảnh đại diện).
     public async Task<UserProfileDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest req)
     {
-        var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException();
+        var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
         u.FullName = req.FullName; u.Phone = req.Phone; u.AvatarUrl = req.AvatarUrl;
         await db.SaveChangesAsync();
         return new UserProfileDto(u.Id, u.FullName, u.Email, u.Phone, u.AvatarUrl, u.Role.ToString(), u.CreatedAt);
@@ -27,7 +27,7 @@ public class ProfileService(AppDbContext db)
     public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest req)
     {
         if (req.NewPassword != req.ConfirmPassword) throw new InvalidOperationException("Mật khẩu xác nhận không khớp");
-        var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException();
+        var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
         if (!BCrypt.Net.BCrypt.Verify(req.OldPassword, u.PasswordHash)) throw new UnauthorizedAccessException("Mật khẩu cũ không đúng");
         u.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
         await db.SaveChangesAsync();

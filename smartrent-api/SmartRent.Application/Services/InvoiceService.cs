@@ -65,18 +65,35 @@ public class InvoiceService(AppDbContext db)
         return invoices.Select(MapInvoice);
     }
 
-    // Lấy chi tiết một hóa đơn theo ID hóa đơn.
-    public async Task<InvoiceDto?> GetByIdAsync(Guid id)
+    // Lấy chi tiết một hóa đơn theo ID hóa đơn (kiểm tra quyền truy cập).
+    public async Task<InvoiceDto?> GetByIdAsync(Guid id, Guid currentUserId, string role)
     {
-        var i = await db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone).Include(i => i.TenantProfile).ThenInclude(t => t.User).Include(i => i.Items).FirstOrDefaultAsync(i => i.Id == id);
+        var query = db.Invoices
+            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.TenantProfile).ThenInclude(t => t.User)
+            .Include(i => i.Items)
+            .AsQueryable();
+
+        if (role == "Landlord")
+        {
+            query = query.Where(i => i.Room.Zone.LandlordId == currentUserId);
+        }
+        else if (role == "Tenant")
+        {
+            query = query.Where(i => i.TenantProfile.UserId == currentUserId || (i.TenantProfile.RoomId.HasValue && i.RoomId == i.TenantProfile.RoomId.Value));
+        }
+
+        var i = await query.FirstOrDefaultAsync(i => i.Id == id);
         return i is null ? null : MapInvoice(i);
     }
 
     // Tạo mới một hóa đơn thủ công (Kiểm tra chống trùng hóa đơn cùng 1 phòng trong 1 tháng).
     public async Task<InvoiceDto> CreateAsync(Guid landlordId, CreateInvoiceRequest req)
     {
-        var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId) ?? throw new KeyNotFoundException("Phòng không tồn tại");
-        var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.RoomId == req.RoomId) ?? throw new KeyNotFoundException("Không có khách thuê trong phòng này");
+        var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
+        var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.RoomId == req.RoomId) 
+            ?? throw new KeyNotFoundException("Không có khách thuê trong phòng này");
 
         // Kiểm tra xem phòng này trong tháng đã có hóa đơn chưa (ngăn trùng lặp hóa đơn 2 lần trong 1 tháng)
         var existingInvoice = await db.Invoices.FirstOrDefaultAsync(i => i.RoomId == req.RoomId && i.Month == req.Month);
@@ -172,11 +189,7 @@ public class InvoiceService(AppDbContext db)
         return MapInvoice(inv);
     }
 
-<<<<<<< Updated upstream
-    // Cập nhật thông tin chi tiết hóa đơn (Chỉnh sửa số tiền điện/nước/phòng khi điền sai).
-=======
-    // Cập nhật thông tin chi tiết hóa đơn (Chủ trọ sửa lại số tiền điện/nước/phòng khi điền sai).
->>>>>>> Stashed changes
+    // Cập nhật thông tin chi tiết hóa đơn (kiểm tra quyền sở hữu).
     public async Task<InvoiceDto> UpdateAsync(Guid id, Guid landlordId, UpdateInvoiceRequest req)
     {
         var inv = await db.Invoices
@@ -184,11 +197,7 @@ public class InvoiceService(AppDbContext db)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
             .FirstOrDefaultAsync(i => i.Id == id && i.Room.Zone.LandlordId == landlordId)
-<<<<<<< Updated upstream
-            ?? throw new KeyNotFoundException("Không tìm thấy hóa đơn");
-=======
-            ?? throw new KeyNotFoundException("Hóa đơn không tồn tại hoặc bạn không có quyền chỉnh sửa");
->>>>>>> Stashed changes
+            ?? throw new KeyNotFoundException("Hóa đơn không tồn tại hoặc bạn không có quyền chỉnh sửa.");
 
         inv.RentFee = req.RentFee;
         inv.ElecFee = req.ElecFee;
@@ -196,24 +205,16 @@ public class InvoiceService(AppDbContext db)
         inv.ServiceFee = req.ServiceFee;
         inv.TotalAmount = req.RentFee + req.ElecFee + req.WaterFee + req.ServiceFee;
         inv.DueDate = req.DueDate;
-<<<<<<< Updated upstream
+
         if (Enum.TryParse<InvoiceStatus>(req.Status, true, out var parsedStatus))
         {
             inv.Status = parsedStatus;
             if (inv.Status == InvoiceStatus.Paid && inv.PaidDate == null)
-=======
-
-        if (!string.IsNullOrEmpty(req.Status))
-        {
-            inv.Status = Enum.Parse<InvoiceStatus>(req.Status, ignoreCase: true);
-            if (inv.Status == InvoiceStatus.Paid && !inv.PaidDate.HasValue)
->>>>>>> Stashed changes
             {
                 inv.PaidDate = DateTime.UtcNow;
             }
         }
 
-<<<<<<< Updated upstream
         var rentItem = inv.Items.FirstOrDefault(x => x.Name == "Tiền thuê phòng");
         if (rentItem != null) rentItem.Amount = req.RentFee;
 
@@ -225,50 +226,63 @@ public class InvoiceService(AppDbContext db)
 
         var svcItem = inv.Items.FirstOrDefault(x => x.Name == "Phí dịch vụ" || x.Name.StartsWith("Phí dịch vụ"));
         if (svcItem != null) svcItem.Amount = req.ServiceFee;
-=======
-        // Cập nhật lại các dòng chi tiết phí
-        inv.Items.Clear();
-        inv.Items.Add(new InvoiceItem { Name = "Tiền thuê phòng", Amount = req.RentFee });
-        inv.Items.Add(new InvoiceItem { Name = "Tiền điện", Amount = req.ElecFee });
-        inv.Items.Add(new InvoiceItem { Name = "Tiền nước", Amount = req.WaterFee });
-        if (req.ServiceFee > 0)
-        {
-            inv.Items.Add(new InvoiceItem { Name = "Phí dịch vụ", Amount = req.ServiceFee });
-        }
->>>>>>> Stashed changes
 
         await db.SaveChangesAsync();
         return MapInvoice(inv);
     }
 
-    // Cập nhật trạng thái hóa đơn (ví dụ: Chuyển sang Paid - Đã thanh toán).
-    public async Task<InvoiceDto> UpdateStatusAsync(Guid id, string status)
+    // Cập nhật trạng thái hóa đơn (kiểm tra quyền sở hữu).
+    public async Task<InvoiceDto> UpdateStatusAsync(Guid id, Guid landlordId, string status)
     {
-        var inv = await db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone).Include(i => i.TenantProfile).ThenInclude(t => t.User).Include(i => i.Items).FirstOrDefaultAsync(i => i.Id == id) ?? throw new KeyNotFoundException();
+        var inv = await db.Invoices
+            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.TenantProfile).ThenInclude(t => t.User)
+            .Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Id == id && i.Room.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Hóa đơn không tồn tại hoặc bạn không có quyền thao tác.");
+
         inv.Status = Enum.Parse<InvoiceStatus>(status, ignoreCase: true);
-        
         if (inv.Status == InvoiceStatus.Paid)
         {
             inv.PaidDate = DateTime.UtcNow;
 
             // Tự động tạo thông báo xác nhận đã đóng tiền nhà thành công
-            var notifPaid = new Notification
+            if (inv.TenantProfile != null)
             {
-                SenderId = inv.Room?.Zone?.LandlordId ?? Guid.Empty,
-                Title = $"Xác nhận thanh toán hóa đơn {inv.InvoiceCode}",
-                Content = $"Hóa đơn tiền nhà tháng {inv.Month} (Phòng {inv.Room?.RoomNumber}) số tiền {inv.TotalAmount:N0} VNĐ đã được xác nhận thanh toán thành công.",
-                Target = NotificationTarget.User,
-                TargetId = inv.TenantProfile?.UserId ?? Guid.Empty,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.Notifications.Add(notifPaid);
+                var notifPaid = new Notification
+                {
+                    SenderId = landlordId,
+                    Title = $"Xác nhận thanh toán hóa đơn {inv.InvoiceCode}",
+                    Content = $"Hóa đơn tiền nhà tháng {inv.Month} (Phòng {inv.Room?.RoomNumber}) số tiền {inv.TotalAmount:N0} VNĐ đã được xác nhận thanh toán thành công.",
+                    Target = NotificationTarget.User,
+                    TargetId = inv.TenantProfile.UserId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                db.Notifications.Add(notifPaid);
+            }
         }
 
         await db.SaveChangesAsync();
         return MapInvoice(inv);
     }
 
-
-
-    private static InvoiceDto MapInvoice(Invoice i) => new(i.Id, i.InvoiceCode, i.RoomId, i.Room?.RoomNumber ?? "", i.TenantProfileId, i.TenantProfile?.User?.FullName ?? "", i.Month, i.RentFee, i.ElecFee, i.WaterFee, i.ServiceFee, i.TotalAmount, i.Status.ToString(), i.DueDate, i.PaidDate, i.CreatedAt, i.Items.Select(x => new InvoiceItemDto(x.Id, x.Name, x.Amount)).ToList());
+    private static InvoiceDto MapInvoice(Invoice i) => new(
+        i.Id, 
+        i.InvoiceCode, 
+        i.RoomId, 
+        i.Room?.RoomNumber ?? "", 
+        i.TenantProfileId, 
+        i.TenantProfile?.User?.FullName ?? "", 
+        i.Month, 
+        i.RentFee, 
+        i.ElecFee, 
+        i.WaterFee, 
+        i.ServiceFee, 
+        i.TotalAmount, 
+        i.Status.ToString(), 
+        i.DueDate, 
+        i.PaidDate, 
+        i.CreatedAt, 
+        i.Items.Select(x => new InvoiceItemDto(x.Id, x.Name, x.Amount)).ToList()
+    );
 }
