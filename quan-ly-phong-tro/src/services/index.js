@@ -97,6 +97,8 @@ export const invoiceService = {
   createInvoice: (data) => apiClient.post('/invoices', data).then(r => r.data),
   updateInvoice: (id, data) => apiClient.put(`/invoices/${id}`, data).then(r => r.data),
   updateStatus: (id, status) => apiClient.patch(`/invoices/${id}/status`, null, { params: { status } }).then(r => r.data),
+  reportInvoice: (id, data) => apiClient.post(`/invoices/${id}/report`, data).then(r => r.data),
+  report: (id, data) => apiClient.post(`/invoices/${id}/report`, data).then(r => r.data),
 };
 
 export const paymentService = {

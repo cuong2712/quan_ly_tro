@@ -61,4 +61,15 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    // Khách thuê gửi báo cáo / khiếu nại sai sót số liệu hóa đơn cho Chủ trọ.
+    [HttpPost("{id:guid}/report")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> ReportInvoice(Guid id, [FromBody] ReportInvoiceRequest request)
+    {
+        try { return Ok(await invoiceService.ReportInvoiceAsync(id, CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

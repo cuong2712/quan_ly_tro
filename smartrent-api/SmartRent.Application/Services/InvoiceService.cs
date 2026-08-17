@@ -266,6 +266,63 @@ public class InvoiceService(AppDbContext db)
         return MapInvoice(inv);
     }
 
+    // Khách thuê gửi báo cáo / khiếu nại sai sót số liệu hóa đơn cho Chủ trọ.
+    public async Task<object> ReportInvoiceAsync(Guid id, Guid currentUserId, ReportInvoiceRequest req)
+    {
+        var inv = await db.Invoices
+            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(i => i.Id == id)
+            ?? throw new KeyNotFoundException("Hóa đơn không tồn tại.");
+
+        // Kiểm tra quyền: Hóa đơn này phải thuộc về khách thuê hiện tại
+        if (inv.TenantProfile?.UserId != currentUserId && (!inv.TenantProfile.RoomId.HasValue || inv.RoomId != inv.TenantProfile.RoomId.Value))
+        {
+            var myProfile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == currentUserId);
+            if (myProfile == null || myProfile.Id != inv.TenantProfileId)
+                throw new UnauthorizedAccessException("Bạn không có quyền báo cáo sai sót cho hóa đơn này.");
+        }
+
+        var landlordId = inv.Room?.Zone?.LandlordId 
+            ?? throw new InvalidOperationException("Không tìm thấy chủ trọ quản lý phòng này.");
+
+        var senderName = inv.TenantProfile?.User?.FullName ?? "Khách thuê";
+        var roomNumber = inv.Room?.RoomNumber ?? "";
+
+        // 1. Tạo Notification gửi riêng cho Chủ trọ
+        var notif = new Notification
+        {
+            SenderId = currentUserId,
+            Title = $"⚠️ Báo cáo sai sót HĐ {inv.InvoiceCode} - Phòng {roomNumber}",
+            Content = $"Khách thuê {senderName} (Phòng {roomNumber}) đã gửi báo cáo sai sót cho hóa đơn {inv.InvoiceCode} (Kỳ {inv.Month}).\n• Lý do: {req.Reason}\n• Nội dung: {req.Description}" + (!string.IsNullOrEmpty(req.ImageUrl) ? $"\n• Ảnh đính kèm: {req.ImageUrl}" : ""),
+            Target = NotificationTarget.User,
+            TargetId = landlordId,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Notifications.Add(notif);
+
+        // 2. Ghi nhận vào bảng Complaints để lưu vết lịch sử khiếu nại của hệ thống
+        var complaint = new Complaint
+        {
+            SenderId = currentUserId,
+            Title = $"[Báo cáo HĐ {inv.InvoiceCode}] {req.Reason} - Phòng {roomNumber}",
+            Content = $"Mã hóa đơn: {inv.InvoiceCode} (Kỳ {inv.Month})\nPhòng: {roomNumber}\nTổng tiền: {inv.TotalAmount:N0} VNĐ\nLý do báo sai: {req.Reason}\nChi tiết: {req.Description}" + (!string.IsNullOrEmpty(req.ImageUrl) ? $"\nẢnh minh chứng: {req.ImageUrl}" : ""),
+            Status = ComplaintStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Complaints.Add(complaint);
+
+        await db.SaveChangesAsync();
+
+        return new
+        {
+            success = true,
+            message = $"Đã gửi báo cáo sai sót hóa đơn {inv.InvoiceCode} thành công tới chủ trọ!",
+            invoiceCode = inv.InvoiceCode,
+            reportedAt = DateTime.UtcNow
+        };
+    }
+
     private static InvoiceDto MapInvoice(Invoice i) => new(
         i.Id, 
         i.InvoiceCode, 

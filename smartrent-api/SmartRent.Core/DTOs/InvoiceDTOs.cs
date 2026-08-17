@@ -20,3 +20,9 @@ public record UpdateInvoiceRequest(
     decimal RentFee, decimal ElecFee, decimal WaterFee,
     decimal ServiceFee, DateTime DueDate, string Status
 );
+
+public record ReportInvoiceRequest(
+    string Reason, 
+    string Description, 
+    string? ImageUrl = null
+);
