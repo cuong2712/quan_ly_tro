@@ -37,19 +37,24 @@ public class ZoneService(AppDbContext db)
         return new ZoneDto(zone.Id, zone.Name, zone.Address, zone.Description, zone.TotalRooms, 0, zone.CreatedAt);
     }
 
-    // Cập nhật thông tin Khu trọ / Tòa nhà.
-    public async Task<ZoneDto> UpdateAsync(Guid id, UpdateZoneRequest req)
+    // Cập nhật thông tin Khu trọ / Tòa nhà (kiểm tra quyền sở hữu).
+    public async Task<ZoneDto> UpdateAsync(Guid id, Guid landlordId, UpdateZoneRequest req)
     {
-        var zone = await db.Zones.Include(z => z.Rooms).FirstOrDefaultAsync(z => z.Id == id) ?? throw new KeyNotFoundException();
-        zone.Name = req.Name; zone.Address = req.Address; zone.Description = req.Description; zone.TotalRooms = req.TotalRooms;
+        var zone = await db.Zones.Include(z => z.Rooms).FirstOrDefaultAsync(z => z.Id == id && z.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Khu trọ không tồn tại hoặc bạn không có quyền thao tác.");
+
+        zone.Name = req.Name; 
+        zone.Address = req.Address; 
+        zone.Description = req.Description; 
+        zone.TotalRooms = req.TotalRooms;
         await db.SaveChangesAsync();
         return new ZoneDto(zone.Id, zone.Name, zone.Address, zone.Description, zone.TotalRooms, zone.Rooms.Count, zone.CreatedAt);
     }
 
-    // Xóa một Khu trọ theo ID.
-    public async Task<bool> DeleteAsync(Guid id)
+    // Xóa một Khu trọ theo ID (kiểm tra quyền sở hữu).
+    public async Task<bool> DeleteAsync(Guid id, Guid landlordId)
     {
-        var z = await db.Zones.FindAsync(id);
+        var z = await db.Zones.FirstOrDefaultAsync(z => z.Id == id && z.LandlordId == landlordId);
         if (z is null) return false;
         db.Zones.Remove(z);
         await db.SaveChangesAsync();

@@ -80,14 +80,14 @@ public class ReportService(AppDbContext db)
 
         var invoices = await db.Invoices
             .Include(i => i.Room)
-            .Include(i => i.TenantProfile)
+            .Include(i => i.TenantProfile).ThenInclude(t => t!.User)
             .Where(i => db.Rooms.Where(r => landlordZoneIds.Contains(r.ZoneId)).Select(r => r.Id).Contains(i.RoomId))
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync();
 
         var sb = new StringBuilder();
         // Ghi dòng tiêu đề cột CSV
-        sb.AppendLine("Mã Hóa Đơn,Tháng,Số Phòng,Khách Thê,Số Tiền (VNĐ),Trạng Thái,Ngày Tạo");
+        sb.AppendLine("Mã Hóa Đơn,Tháng,Số Phòng,Khách Thuê,Số Tiền (VNĐ),Trạng Thái,Ngày Tạo");
 
         foreach (var inv in invoices)
         {
@@ -99,7 +99,9 @@ public class ReportService(AppDbContext db)
                 _ => "Đã hủy"
             };
 
-            var tenantName = inv.TenantProfile?.CCCD ?? "Khách thuê";
+            var tenantName = !string.IsNullOrWhiteSpace(inv.TenantProfile?.User?.FullName)
+                ? inv.TenantProfile.User.FullName
+                : "Khách thuê";
             sb.AppendLine($"\"{inv.InvoiceCode}\",\"{inv.Month}\",\"{inv.Room?.RoomNumber}\",\"{tenantName}\",\"{inv.TotalAmount}\",\"{statusText}\",\"{inv.CreatedAt:dd/MM/yyyy}\"");
         }
 

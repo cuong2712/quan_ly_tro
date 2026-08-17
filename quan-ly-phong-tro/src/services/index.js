@@ -1,5 +1,5 @@
 /**
- * Thêm các API services cần thiết cho room detail và zone hierarchy
+ * Centralized API services for SmartRent client
  */
 import apiClient from './apiClient';
 
@@ -65,11 +65,14 @@ export const tenantService = {
 
 export const contractService = {
   getContracts: () => apiClient.get('/contracts').then(r => r.data),
+  getContract: (id) => apiClient.get(`/contracts/${id}`).then(r => r.data),
   createContract: (data) => apiClient.post('/contracts', data).then(r => r.data),
   updateContract: (id, data) => apiClient.put(`/contracts/${id}`, data).then(r => r.data),
   deleteContract: (id) => apiClient.delete(`/contracts/${id}`).then(r => r.data),
   terminate: (id) => apiClient.patch(`/contracts/${id}/terminate`).then(r => r.data),
   renew: (id, data) => apiClient.post(`/contracts/${id}/renew`, data).then(r => r.data),
+  settleContract: (id, data) => apiClient.post(`/contracts/${id}/settle`, data).then(r => r.data),
+  checkExpiring: () => apiClient.post('/contracts/check-expiring').then(r => r.data),
 };
 
 export const utilityService = {
@@ -90,6 +93,7 @@ export const invoiceService = {
   getInvoices: (params) => apiClient.get('/invoices', { params }).then(r => r.data),
   getInvoice: (id) => apiClient.get(`/invoices/${id}`).then(r => r.data),
   createInvoice: (data) => apiClient.post('/invoices', data).then(r => r.data),
+  updateInvoice: (id, data) => apiClient.put(`/invoices/${id}`, data).then(r => r.data),
   updateStatus: (id, status) => apiClient.patch(`/invoices/${id}/status`, null, { params: { status } }).then(r => r.data),
 };
 
@@ -118,9 +122,16 @@ export const profileService = {
   getProfile: () => apiClient.get('/profile').then(r => r.data),
   updateProfile: (data) => apiClient.put('/profile', data).then(r => r.data),
   changePassword: (data) => apiClient.post('/profile/change-password', data).then(r => r.data),
+  updateVehicle: (data) => apiClient.put('/profile/vehicle', data).then(r => r.data),
 };
 
 export const dashboardService = {
   getLandlordDashboard: () => apiClient.get('/dashboard/landlord').then(r => r.data),
   getTenantDashboard: () => apiClient.get('/dashboard/tenant').then(r => r.data),
+};
+
+export const reportService = {
+  getFinancialSummary: (month, year) => apiClient.get('/reports/financial', { params: { month, year } }).then(r => r.data),
+  getOccupancyReport: () => apiClient.get('/reports/occupancy').then(r => r.data),
+  exportFinancialCsv: () => apiClient.get('/reports/financial/export', { responseType: 'blob' }),
 };
