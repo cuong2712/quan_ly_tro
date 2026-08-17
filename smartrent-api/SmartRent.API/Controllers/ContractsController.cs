@@ -23,58 +23,74 @@ public class ContractsController(ContractService contractService) : ControllerBa
             return Ok(await contractService.GetByLandlordAsync(CurrentUserId, page, pageSize));
         var tenantSvc = HttpContext.RequestServices.GetRequiredService<TenantService>();
         var profile = await tenantSvc.GetByUserIdAsync(CurrentUserId);
-        if (profile is null) return NotFound();
+        if (profile is null) return NotFound(new { message = "Không tìm thấy hồ sơ khách thuê" });
         return Ok(await contractService.GetByTenantAsync(profile.Id));
     }
 
-    // Lấy chi tiết một Hợp đồng theo ID.
+    // Lấy chi tiết một Hợp đồng theo ID (kiểm tra quyền sở hữu).
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetContractById(Guid id)
     {
         var contract = await contractService.GetByIdAsync(id, CurrentUserId, CurrentRole);
-        if (contract is null) return NotFound();
+        if (contract is null) return NotFound(new { message = "Không tìm thấy hợp đồng hoặc bạn không có quyền truy cập." });
         return Ok(contract);
     }
 
-    // Tạo mới một Hợp đồng thuê nhà.
+    // Tạo mới một Hợp đồng thuê nhà (chỉ dành cho Chủ trọ).
     [HttpPost]
+    [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> CreateContract([FromBody] CreateContractRequest request)
     {
         try { return Ok(await contractService.CreateAsync(CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return BadRequest(new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     // Cập nhật điều khoản hoặc thông tin hợp đồng.
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> UpdateContract(Guid id, [FromBody] UpdateContractRequest request)
     {
         try { return Ok(await contractService.UpdateAsync(id, CurrentUserId, request)); }
-        catch (KeyNotFoundException) { return NotFound(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     // Xóa một hợp đồng.
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> DeleteContract(Guid id)
-        => await contractService.DeleteAsync(id, CurrentUserId) ? NoContent() : NotFound();
+        => await contractService.DeleteAsync(id, CurrentUserId) ? NoContent() : NotFound(new { message = "Không tìm thấy hợp đồng hoặc không có quyền xóa." });
 
     // Thanh lý hợp đồng thuê nhà trước hoặc đúng hạn.
     [HttpPatch("{id:guid}/terminate")]
+    [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> Terminate(Guid id)
     {
-        await contractService.TerminateAsync(id, CurrentUserId);
-        return Ok(new { message = "Thanh lý hợp đồng thành công" });
+        try 
+        {
+            await contractService.TerminateAsync(id, CurrentUserId);
+            return Ok(new { message = "Thanh lý hợp đồng thành công" });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
     // Gia hạn thời gian hợp đồng thuê nhà.
     [HttpPost("{id:guid}/renew")]
+    [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> Renew(Guid id, [FromBody] RenewContractRequest request)
     {
-        await contractService.RenewAsync(id, CurrentUserId, request);
-        return Ok(new { message = "Gia hạn hợp đồng thành công" });
+        try
+        {
+            await contractService.RenewAsync(id, CurrentUserId, request);
+            return Ok(new { message = "Gia hạn hợp đồng thành công" });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
     // Quyết toán hợp đồng & hoàn trả tiền cọc cho khách thuê
     [HttpPost("{id:guid}/settle")]
+    [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> Settle(Guid id, [FromBody] SettleContractRequest request)
     {
         try
@@ -90,11 +106,10 @@ public class ContractsController(ContractService contractService) : ControllerBa
 
     // Tự động quét và phát hành thông báo hợp đồng sắp hết hạn trong 30 ngày
     [HttpPost("check-expiring")]
+    [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> CheckExpiringContracts()
     {
         int count = await contractService.CheckAndNotifyExpiringContractsAsync(CurrentUserId);
         return Ok(new { message = $"Đã kiểm tra và phát hành {count} thông báo hợp đồng sắp hết hạn.", notifiedCount = count });
     }
 }
-
-

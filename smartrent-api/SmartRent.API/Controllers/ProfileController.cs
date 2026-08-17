@@ -38,7 +38,7 @@ public class ProfileController(ProfileService profileService) : ControllerBase
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    // Cập nhật thông tin phương tiện/xe cộ của khách thuê.
+    // Khách thuê tự cập nhật số lượng xe & thông tin xe cộ gửi tại nhà trọ.
     [HttpPut("vehicle")]
     [Authorize(Roles = "Tenant")]
     public async Task<IActionResult> UpdateVehicle([FromBody] UpdateVehicleRequest request)

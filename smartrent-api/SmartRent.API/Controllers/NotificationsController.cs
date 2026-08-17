@@ -34,9 +34,9 @@ public class NotificationsController(NotificationService notifService) : Control
         return Ok();
     }
 
-    // Xóa một thông báo.
+    // Xóa một thông báo (chỉ người gửi hoặc SuperAdmin).
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Landlord,SuperAdmin")]
     public async Task<IActionResult> Delete(Guid id)
-        => await notifService.DeleteAsync(id, CurrentUserId, CurrentRole) ? NoContent() : NotFound();
+        => await notifService.DeleteAsync(id, CurrentUserId, CurrentRole) ? NoContent() : NotFound(new { message = "Không tìm thấy thông báo hoặc bạn không có quyền xóa." });
 }
