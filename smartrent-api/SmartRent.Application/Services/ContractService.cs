@@ -323,14 +323,17 @@ public class ContractService(AppDbContext db)
         );
     }
 
-    // Tự động quét và phát hành thông báo hợp đồng sắp hết hạn trong 30 ngày
+    // Tự động quét và phát hành thông báo hợp đồng sắp hết hạn trong vòng 30 ngày tới
     public async Task<int> CheckAndNotifyExpiringContractsAsync(Guid landlordId)
     {
-        var threshold = DateTime.UtcNow.AddDays(30);
+        var thirtyDaysFromNow = DateTime.UtcNow.AddDays(30);
         var expiringContracts = await db.Contracts
             .Include(c => c.Room).ThenInclude(r => r.Zone)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .Where(c => c.Room.Zone.LandlordId == landlordId && c.Status == ContractStatus.Active && c.EndDate <= threshold && c.EndDate >= DateTime.UtcNow.Date)
+            .Where(c => c.Room.Zone.LandlordId == landlordId &&
+                        c.Status == ContractStatus.Active &&
+                        c.EndDate <= thirtyDaysFromNow &&
+                        c.EndDate >= DateTime.UtcNow.Date)
             .ToListAsync();
 
         int count = 0;

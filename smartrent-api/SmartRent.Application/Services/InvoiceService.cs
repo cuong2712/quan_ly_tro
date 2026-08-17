@@ -155,6 +155,7 @@ public class InvoiceService(AppDbContext db)
             itemsList.Add(new InvoiceItem { Name = $"Phí dịch vụ{vehicleNote}", Amount = serviceFee });
         }
 
+
         var inv = new Invoice
         {
             InvoiceCode = code,

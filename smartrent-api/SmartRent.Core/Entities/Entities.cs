@@ -95,6 +95,7 @@ public class TenantProfile
     public string? VehicleInfo { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+
     // Navigation
     public User User { get; set; } = null!;
     public Room? Room { get; set; }

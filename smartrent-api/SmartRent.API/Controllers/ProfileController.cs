@@ -48,3 +48,4 @@ public class ProfileController(ProfileService profileService) : ControllerBase
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 }
+

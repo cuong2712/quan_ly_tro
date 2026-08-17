@@ -6,13 +6,14 @@ import apiClient from './apiClient';
 export const authService = {
   async login(email, password) {
     const { data } = await apiClient.post('/auth/login', { email, password });
-    localStorage.setItem('accessToken', data.accessToken);
-    localStorage.setItem('refreshToken', data.refreshToken);
+    const payload = data?.data || data;
+    localStorage.setItem('accessToken', payload.accessToken);
+    localStorage.setItem('refreshToken', payload.refreshToken);
     localStorage.setItem('user', JSON.stringify({
-      id: data.userId, role: data.role,
-      fullName: data.fullName, email: data.email, avatarUrl: data.avatarUrl
+      id: payload.userId, role: payload.role,
+      fullName: payload.fullName, email: payload.email, avatarUrl: payload.avatarUrl
     }));
-    return data;
+    return payload;
   },
   async logout() {
     try { await apiClient.post('/auth/logout'); } catch {}
@@ -71,6 +72,7 @@ export const contractService = {
   deleteContract: (id) => apiClient.delete(`/contracts/${id}`).then(r => r.data),
   terminate: (id) => apiClient.patch(`/contracts/${id}/terminate`).then(r => r.data),
   renew: (id, data) => apiClient.post(`/contracts/${id}/renew`, data).then(r => r.data),
+  settle: (id, data) => apiClient.post(`/contracts/${id}/settle`, data).then(r => r.data),
   settleContract: (id, data) => apiClient.post(`/contracts/${id}/settle`, data).then(r => r.data),
   checkExpiring: () => apiClient.post('/contracts/check-expiring').then(r => r.data),
 };
@@ -121,8 +123,8 @@ export const notificationService = {
 export const profileService = {
   getProfile: () => apiClient.get('/profile').then(r => r.data),
   updateProfile: (data) => apiClient.put('/profile', data).then(r => r.data),
-  changePassword: (data) => apiClient.post('/profile/change-password', data).then(r => r.data),
   updateVehicle: (data) => apiClient.put('/profile/vehicle', data).then(r => r.data),
+  changePassword: (data) => apiClient.post('/profile/change-password', data).then(r => r.data),
 };
 
 export const dashboardService = {
@@ -134,4 +136,5 @@ export const reportService = {
   getFinancialSummary: (month, year) => apiClient.get('/reports/financial', { params: { month, year } }).then(r => r.data),
   getOccupancyReport: () => apiClient.get('/reports/occupancy').then(r => r.data),
   exportFinancialCsv: () => apiClient.get('/reports/financial/export', { responseType: 'blob' }),
+  exportExcel: () => apiClient.get('/reports/export-excel', { responseType: 'blob' }),
 };

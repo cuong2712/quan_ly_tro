@@ -93,7 +93,7 @@ public class TenantService(AppDbContext db)
         return MapTenant(profile);
     }
 
-    // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới).
+    // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới, thông tin xe).
     public async Task<TenantDto> UpdateAsync(Guid id, Guid landlordId, UpdateTenantRequest req)
     {
         var t = await db.TenantProfiles.Include(t => t.User).Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts)
@@ -198,3 +198,4 @@ public class TenantService(AppDbContext db)
         t.VehicleInfo
     );
 }
+

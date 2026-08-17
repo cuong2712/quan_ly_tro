@@ -20,9 +20,20 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor - tự động refresh token
+// Response interceptor - tự động unpacking ApiResponse<T> & refresh token khi lỗi
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Nếu phản hồi là ApiResponse<T> chuẩn từ Backend
+    const resData = response.data;
+    if (resData && typeof resData === 'object' && 'success' in resData) {
+      if (resData.success === false) {
+        return Promise.reject(new Error(resData.message || 'Thao tác thất bại'));
+      }
+      // Trả về thuộc tính data nếu có, nếu không trả về resData
+      return { ...response, data: resData.data !== undefined && resData.data !== null ? resData.data : resData };
+    }
+    return response;
+  },
   async (error) => {
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
@@ -31,10 +42,11 @@ apiClient.interceptors.response.use(
       if (refreshToken) {
         try {
           const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-          localStorage.setItem('accessToken', res.data.accessToken);
-          localStorage.setItem('refreshToken', res.data.refreshToken);
-          apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.accessToken}`;
-          original.headers.Authorization = `Bearer ${res.data.accessToken}`;
+          const tokenData = res.data?.data || res.data;
+          localStorage.setItem('accessToken', tokenData.accessToken);
+          localStorage.setItem('refreshToken', tokenData.refreshToken);
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${tokenData.accessToken}`;
+          original.headers.Authorization = `Bearer ${tokenData.accessToken}`;
           return apiClient(original);
         } catch {
           localStorage.clear();

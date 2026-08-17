@@ -51,6 +51,35 @@ public static class DataSeeder
         }
         catch (Exception ex) { Console.WriteLine("Create RefreshTokens error: " + ex.Message); }
 
+        try
+
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""ContractSettlements"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""ContractId"" uuid NOT NULL REFERENCES ""Contracts""(""Id"") ON DELETE RESTRICT,
+                    ""LandlordId"" uuid NOT NULL,
+                    ""TenantProfileId"" uuid NOT NULL REFERENCES ""TenantProfiles""(""Id"") ON DELETE RESTRICT,
+                    ""RoomId"" uuid NOT NULL REFERENCES ""Rooms""(""Id"") ON DELETE RESTRICT,
+                    ""DepositAmount"" numeric(18,2) NOT NULL,
+                    ""UnpaidInvoicesAmount"" numeric(18,2) NOT NULL,
+                    ""DamageDeductionAmount"" numeric(18,2) NOT NULL,
+                    ""OtherDeductionAmount"" numeric(18,2) NOT NULL,
+                    ""RefundAmount"" numeric(18,2) NOT NULL,
+                    ""SettlementNotes"" text NULL,
+                    ""SettleDate"" timestamp with time zone NOT NULL DEFAULT NOW()
+                );
+            ");
+        }
+        catch (Exception ex) { Console.WriteLine("Create ContractSettlements error: " + ex.Message); }
+
+        // Thêm cột VehicleCount và VehicleInfo vào TenantProfiles (nếu chưa có)
+        // Phải chạy TRƯỚC early return để áp dụng cả trên DB đã có dữ liệu
+        try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""VehicleCount"" integer NOT NULL DEFAULT 0;"); }
+        catch (Exception ex) { Console.WriteLine("Add VehicleCount col error: " + ex.Message); }
+
+        try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""VehicleInfo"" text;"); }
+        catch (Exception ex) { Console.WriteLine("Add VehicleInfo col error: " + ex.Message); }
 
         if (await context.Users.AnyAsync())
         {
@@ -537,12 +566,42 @@ public static class DataSeeder
 
         try
         {
-            await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text;");
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""ContractSettlements"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""ContractId"" uuid NOT NULL REFERENCES ""Contracts""(""Id"") ON DELETE RESTRICT,
+                    ""LandlordId"" uuid NOT NULL,
+                    ""TenantProfileId"" uuid NOT NULL REFERENCES ""TenantProfiles""(""Id"") ON DELETE RESTRICT,
+                    ""RoomId"" uuid NOT NULL REFERENCES ""Rooms""(""Id"") ON DELETE RESTRICT,
+                    ""DepositAmount"" numeric(18,2) NOT NULL,
+                    ""UnpaidInvoicesAmount"" numeric(18,2) NOT NULL,
+                    ""DamageDeductionAmount"" numeric(18,2) NOT NULL,
+                    ""OtherDeductionAmount"" numeric(18,2) NOT NULL,
+                    ""RefundAmount"" numeric(18,2) NOT NULL,
+                    ""SettlementNotes"" text NULL,
+                    ""SettleDate"" timestamp with time zone NOT NULL DEFAULT NOW()
+                );
+            ");
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Add Amenities col error: " + ex.Message);
+            Console.WriteLine("Create ContractSettlements error: " + ex.Message);
         }
+
+
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text;");
+            await context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""VehicleCount"" integer NOT NULL DEFAULT 0;
+                ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""VehicleInfo"" text NULL;
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Add Amenities/Vehicle cols error: " + ex.Message);
+        }
+
 
         try
         {

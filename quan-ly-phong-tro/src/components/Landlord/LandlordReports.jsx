@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart3, Download, FileSpreadsheet, Printer, DollarSign, AlertCircle, Home, Zap } from 'lucide-react';
 import { formatVND, exportToExcel, exportToPDF } from '../../utils/formatters';
 import { reportService } from '../../services';
@@ -30,6 +30,43 @@ export const LandlordReports = ({ data = {} }) => {
   const totalElecFee = invoices.reduce((sum, i) => sum + (i.elecFee || 0), 0);
   const totalWaterFee = invoices.reduce((sum, i) => sum + (i.waterFee || 0), 0);
 
+  const [summary, setSummary] = useState({
+    totalRevenue: 0,
+    pendingRevenue: 0,
+    totalCollectedInvoices: 0,
+    totalPendingInvoices: 0
+  });
+
+  useEffect(() => {
+    reportService.getFinancialSummary()
+      .then(res => {
+        if (res) {
+          setSummary({
+            totalRevenue: res.totalRevenue || 0,
+            pendingRevenue: res.pendingRevenue || 0,
+            totalCollectedInvoices: res.totalCollectedInvoices || 0,
+            totalPendingInvoices: res.totalPendingInvoices || 0
+          });
+        }
+      })
+      .catch(err => console.warn('Get summary error:', err));
+  }, []);
+
+  const handleExportExcelServer = async () => {
+    try {
+      const response = await reportService.exportExcel();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Bao_Cao_Tai_Chinh_SmartRent_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      handleExportExcel();
+    }
+  };
+
   const handleExportExcel = () => {
     const reportData = invoices.map(inv => {
       const room = rooms.find(r => r.id === inv.roomId);
@@ -55,7 +92,7 @@ export const LandlordReports = ({ data = {} }) => {
   const handleExportCsvBackend = async () => {
     try {
       setDownloadingCsv(true);
-      const response = await reportService.exportFinancialCsv();
+      const response = await (reportService.exportFinancialCsv ? reportService.exportFinancialCsv() : reportService.exportExcel());
       const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -74,6 +111,9 @@ export const LandlordReports = ({ data = {} }) => {
   const handleExportPDF = () => {
     exportToPDF('report-pdf-area', `Bao_Cao_Tong_Hop_SmartRent.pdf`);
   };
+
+  const totalCollected = summary.totalRevenue || revenueDisplay;
+  const totalPending = summary.pendingRevenue || outstandingDebt;
 
   return (
     <div>
@@ -101,7 +141,7 @@ export const LandlordReports = ({ data = {} }) => {
             <div className="kpi-icon emerald"><DollarSign /></div>
             <div className="kpi-info">
               <h3>Tổng Doanh Thu Đã Thu</h3>
-              <div className="value">{formatVND(revenueDisplay)}</div>
+              <div className="value">{formatVND(totalCollected)}</div>
             </div>
           </div>
 
@@ -109,7 +149,7 @@ export const LandlordReports = ({ data = {} }) => {
             <div className="kpi-icon rose"><AlertCircle /></div>
             <div className="kpi-info">
               <h3>Tổng Công Nợ Chưa Thu</h3>
-              <div className="value" style={{ color: '#f87171' }}>{formatVND(outstandingDebt)}</div>
+              <div className="value" style={{ color: '#f87171' }}>{formatVND(totalPending)}</div>
             </div>
           </div>
 
@@ -167,7 +207,7 @@ export const LandlordReports = ({ data = {} }) => {
                       <td>{inv.tenantName || 'Khách thuê'}</td>
                       <td>{formatVND(inv.rentFee)}</td>
                       <td>{formatVND((inv.elecFee || 0) + (inv.waterFee || 0))}</td>
-                      <td>{formatVND(inv.serviceFee)}</td>
+                      <td>{formatVND(inv.serviceFee || 0)}</td>
                       <td><strong style={{ color: '#34d399' }}>{formatVND(inv.totalAmount)}</strong></td>
                       <td>
                         <span className={`status-pill ${isPaid ? 'occupied' : 'vacant'}`}>

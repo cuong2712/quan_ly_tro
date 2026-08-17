@@ -49,4 +49,3 @@ public record ContractSettlementDto(
     string? SettlementNotes,
     DateTime SettleDate
 );
-

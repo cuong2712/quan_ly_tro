@@ -108,25 +108,17 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!editingTenant && !formData.password?.trim()) {
-      alert('Vui lòng nhập mật khẩu cho tài khoản mới');
+    if (!formData.name && !formData.fullName) {
+      alert('Vui lòng nhập họ và tên khách thuê');
       return;
     }
-
-    if (formData.roomId) {
-      const targetRoom = rooms.find(r => r.id === formData.roomId);
-      if (targetRoom) {
-        const max = targetRoom.maxTenants || 2;
-        const count = tenants.filter(t => 
-          (t.roomId === formData.roomId || t.RoomId === formData.roomId) && 
-          (!editingTenant || t.id !== editingTenant.id)
-        ).length;
-
-        if (count >= max) {
-          alert(`Lỗi chọn phòng: Phòng ${targetRoom.roomNumber} đã đạt sức chứa tối đa (${max} người). Vui lòng chọn phòng khác!`);
-          return;
-        }
-      }
+    if (!formData.phone) {
+      alert('Vui lòng nhập số điện thoại');
+      return;
+    }
+    if (!formData.roomId) {
+      alert('Vui lòng chọn phòng để xếp khách thuê vào');
+      return;
     }
 
     if (formData.email) {
@@ -163,7 +155,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             hometown: formData.hometown,
             roomId: formData.roomId,
             vehicleCount: Number(formData.vehicleCount || 0),
-            vehicleInfo: formData.vehicleInfo,
+            vehicleInfo: formData.vehicleInfo || '',
             cccdFrontUrl: formData.cccdFrontUrl,
             cccdBackUrl: formData.cccdBackUrl,
           });
@@ -181,7 +173,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             moveInDate: formData.moveInDate || new Date().toISOString(),
             deposit: Number(formData.deposit || 0),
             vehicleCount: Number(formData.vehicleCount || 0),
-            vehicleInfo: formData.vehicleInfo,
+            vehicleInfo: formData.vehicleInfo || '',
             cccdFrontUrl: formData.cccdFrontUrl,
             cccdBackUrl: formData.cccdBackUrl,
           });
@@ -224,12 +216,15 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       <div className="card-table-container">
         <div className="table-toolbar">
           <div className="search-input-group">
-            <Search size={18} color="var(--text-muted)" />
+            <Search size={16} />
             <input
               type="text"
-              placeholder="Tìm theo họ tên, SĐT, số CCCD..."
+              placeholder="Tìm theo tên, SĐT, số CCCD..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
           </div>
         </div>
@@ -237,13 +232,13 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
         <table className="custom-table">
           <thead>
             <tr>
-              <th>Khách Thuê</th>
-              <th>Số Điện Thoại / CCCD</th>
-              <th>Khu Trọ & Phòng</th>
-              <th>Hợp Đồng Thuê</th>
-              <th>Ngày Nhận Phòng</th>
+              <th>Họ và Tên</th>
+              <th>Liên Hệ & Định Danh</th>
+              <th>Phòng & Khu Trọ</th>
+              <th>Mã Hợp Đồng</th>
+              <th>Ngày Chuyển Vào</th>
               <th>Tiền Cọc</th>
-              <th>Giấy Tờ & CCCD</th>
+              <th>Chi Tiết CCCD</th>
               <th>Thao Tác</th>
             </tr>
           </thead>
@@ -251,14 +246,15 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             {paginatedTenants.length === 0 ? (
               <tr>
                 <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                  Không tìm thấy khách thuê nào.
+                  Không tìm thấy khách thuê nào phù hợp.
                 </td>
               </tr>
             ) : (
-              paginatedTenants.map((t) => {
+              paginatedTenants.map(t => {
                 const room = rooms.find(r => r.id === (t.roomId || t.RoomId));
-                const zoneName = t.zoneName || t.ZoneName || room?.zoneName || zones.find(z => z.id === (room?.zoneId || room?.ZoneId))?.name || '';
-                const roomNumber = t.roomNumber || t.RoomNumber || room?.roomNumber || 'Chưa xếp';
+                const zone = zones.find(z => z.id === room?.zoneId || z.id === room?.ZoneId);
+                const roomNumber = t.roomNumber || (room ? room.roomNumber : 'Chưa xếp');
+                const zoneName = t.zoneName || (zone ? zone.name : '');
                 const contractCode = t.contractCode || t.ContractCode;
 
                 return (
@@ -398,6 +394,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
               <h3 className="modal-title">{editingTenant ? 'Chỉnh Sửa Hồ Sơ Khách Thuê' : 'Thêm Khách Thuê Mới'}</h3>
               <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>✕</button>
             </div>
+
             <form onSubmit={handleSave}>
               <div className="modal-body">
                 <div className="form-group">
