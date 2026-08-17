@@ -91,7 +91,10 @@ public class TenantProfile
     public decimal Deposit { get; set; }
     public string? CccdFrontUrl { get; set; }
     public string? CccdBackUrl { get; set; }
+    public int VehicleCount { get; set; } = 0;
+    public string? VehicleInfo { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
 
     // Navigation
     public User User { get; set; } = null!;

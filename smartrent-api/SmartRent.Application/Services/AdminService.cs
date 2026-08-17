@@ -107,13 +107,12 @@ public class AdminService(AppDbContext db)
     }
 
     // Phản hồi thông tin góp ý/khiếu nại của người dùng.
-    public async Task<ComplaintDto> ReplyComplaintAsync(Guid id, Guid adminId, ReplyComplaintRequest request)
+    public async Task<ComplaintDto> ReplyComplaintAsync(Guid id, ReplyComplaintRequest request)
     {
         var complaint = await db.Complaints.Include(c => c.Sender).FirstOrDefaultAsync(c => c.Id == id)
             ?? throw new KeyNotFoundException("Không tìm thấy phản hồi");
         complaint.Reply = request.Reply;
         complaint.Status = ComplaintStatus.Resolved;
-        complaint.RepliedBy = adminId;
         complaint.RepliedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return new ComplaintDto(complaint.Id, complaint.Sender.FullName, complaint.Sender.Email, complaint.Sender.Role.ToString(),

@@ -70,9 +70,21 @@ public class PaymentService(AppDbContext db)
     // Khách thuê gửi thông tin thanh toán kèm ảnh minh chứng biên lai (ProofImageUrl).
     public async Task<PaymentDto> SubmitAsync(Guid tenantUserId, SubmitPaymentRequest req)
     {
+        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        if (profile == null)
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            if (user != null)
+            {
+                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
+            }
+        }
+
+        if (profile == null) throw new KeyNotFoundException("Không tìm thấy thông tin khách thuê.");
+
         var inv = await db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone)
-            .FirstOrDefaultAsync(i => i.Id == req.InvoiceId)
-            ?? throw new KeyNotFoundException("Hóa đơn không tồn tại");
+            .FirstOrDefaultAsync(i => i.Id == req.InvoiceId && (i.TenantProfileId == profile.Id || (profile.RoomId.HasValue && i.RoomId == profile.RoomId.Value)))
+            ?? throw new KeyNotFoundException("Hóa đơn không tồn tại hoặc không thuộc quyền thanh toán của bạn.");
 
         var method = Enum.Parse<PaymentMethod>(req.Method, ignoreCase: true);
         var pay = new Payment
@@ -86,19 +98,32 @@ public class PaymentService(AppDbContext db)
         };
 
         db.Payments.Add(pay);
+
+        // Tự động tạo thông báo gửi đến Chủ trọ khi Khách thuê gửi minh chứng thanh toán
+        var notifLandlord = new Notification
+        {
+            SenderId = tenantUserId,
+            Title = $"Khách thuê gửi minh chứng thanh toán hóa đơn {inv.InvoiceCode}",
+            Content = $"Phòng {inv.Room?.RoomNumber}: Khách thuê đã gửi minh chứng thanh toán số tiền {pay.Amount:N0} VNĐ. Vui lòng kiểm tra và duyệt.",
+            Target = NotificationTarget.User,
+            TargetId = inv.Room?.Zone?.LandlordId ?? Guid.Empty,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Notifications.Add(notifLandlord);
+
         await db.SaveChangesAsync();
         pay.Invoice = inv;
         return MapPayment(pay);
     }
 
     // Chủ trọ duyệt (Approve = true) hoặc từ chối (Approve = false) giao dịch thanh toán của khách thuê.
-    // Nếu duyệt thành công, tự động cập nhật hóa đơn tương ứng sang trạng thái Paid (Đã thanh toán).
     public async Task<PaymentDto> ConfirmAsync(Guid id, Guid landlordId, ConfirmPaymentRequest req)
     {
         var pay = await db.Payments
-            .Include(p => p.Invoice).ThenInclude(i => i.Room)
-            .FirstOrDefaultAsync(p => p.Id == id)
-            ?? throw new KeyNotFoundException("Giao dịch thanh toán không tồn tại");
+            .Include(p => p.Invoice).ThenInclude(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(p => p.Invoice).ThenInclude(i => i.TenantProfile)
+            .FirstOrDefaultAsync(p => p.Id == id && p.Invoice.Room.Zone.LandlordId == landlordId)
+            ?? throw new KeyNotFoundException("Giao dịch thanh toán không tồn tại hoặc bạn không có quyền duyệt.");
 
         pay.Status = req.Approve ? PaymentStatus.Completed : PaymentStatus.Rejected;
         pay.ConfirmedBy = landlordId;
@@ -120,9 +145,27 @@ public class PaymentService(AppDbContext db)
             pay.Note = req.Note;
         }
 
+        // Tự động tạo thông báo kết quả duyệt thanh toán gửi đến Khách thuê
+        if (pay.Invoice?.TenantProfile != null)
+        {
+            var notifTenant = new Notification
+            {
+                SenderId = landlordId,
+                Title = req.Approve ? $"Duyệt thanh toán thành công hóa đơn {pay.Invoice.InvoiceCode}" : $"Từ chối thanh toán hóa đơn {pay.Invoice.InvoiceCode}",
+                Content = req.Approve 
+                    ? $"Chủ trọ đã xác nhận thanh toán thành công số tiền {pay.Amount:N0} VNĐ cho hóa đơn tháng {pay.Invoice.Month} (Phòng {pay.Invoice.Room?.RoomNumber})."
+                    : $"Chủ trọ đã từ chối xác nhận thanh toán hóa đơn {pay.Invoice.InvoiceCode}. Lý do: {req.Note ?? "Minh chứng không hợp lệ"}.",
+                Target = NotificationTarget.User,
+                TargetId = pay.Invoice.TenantProfile.UserId,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Notifications.Add(notifTenant);
+        }
+
         await db.SaveChangesAsync();
         return MapPayment(pay);
     }
+
 
     private static PaymentDto MapPayment(Payment p) => new(
         p.Id,

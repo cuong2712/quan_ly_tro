@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<UtilityRate> UtilityRates => Set<UtilityRate>();
     public DbSet<RoomEquipment> RoomEquipments => Set<RoomEquipment>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ContractSettlement> ContractSettlements => Set<ContractSettlement>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -188,6 +189,21 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.Token).IsUnique();
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
+
+        // ContractSettlement
+        modelBuilder.Entity<ContractSettlement>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.TenantProfile).WithMany().HasForeignKey(x => x.TenantProfileId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Room).WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(x => x.DepositAmount).HasColumnType("decimal(18,2)");
+            e.Property(x => x.UnpaidInvoicesAmount).HasColumnType("decimal(18,2)");
+            e.Property(x => x.DamageDeductionAmount).HasColumnType("decimal(18,2)");
+            e.Property(x => x.OtherDeductionAmount).HasColumnType("decimal(18,2)");
+            e.Property(x => x.RefundAmount).HasColumnType("decimal(18,2)");
+        });
     }
 }
+
 

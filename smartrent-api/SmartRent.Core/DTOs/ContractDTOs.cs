@@ -27,3 +27,25 @@ public record UpdateContractRequest(
 
 public record RenewContractRequest(int ExtendMonths, decimal? NewRentAmount);
 
+public record SettleContractRequest(
+    decimal DamageDeductionAmount = 0,
+    decimal OtherDeductionAmount = 0,
+    string? SettlementNotes = null
+);
+
+public record ContractSettlementDto(
+    Guid Id,
+    Guid ContractId,
+    Guid LandlordId,
+    Guid TenantProfileId,
+    string TenantName,
+    Guid RoomId,
+    string RoomNumber,
+    decimal DepositAmount,
+    decimal UnpaidInvoicesAmount,
+    decimal DamageDeductionAmount,
+    decimal OtherDeductionAmount,
+    decimal RefundAmount,
+    string? SettlementNotes,
+    DateTime SettleDate
+);

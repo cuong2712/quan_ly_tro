@@ -1,35 +1,53 @@
 import React, { useState } from 'react';
-import { BellRing, Plus, Send, Edit, Trash2 } from 'lucide-react';
+import { BellRing, Plus, Send, Trash2, Users, Home, Building2 } from 'lucide-react';
+import { notificationService } from '../../services';
+import { formatDate } from '../../utils/formatters';
+import { useAuth } from '../../contexts/AuthContext';
 
-export const LandlordNotify = ({ notifications, setNotifications, zones, rooms }) => {
+export const LandlordNotify = ({ notifications = [], setNotifications, zones = [], rooms = [], tenants = [], onRefresh }) => {
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    target: 'all_tenants',
-    targetId: 'all',
+    target: 'AllTenants',
+    targetId: '',
   });
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    const newN = {
-      id: `N00${notifications.length + 1}`,
-      title: formData.title,
-      content: formData.content,
-      target: formData.target,
-      targetName: formData.target === 'all_tenants' ? 'Tất cả khách thuê' : `Khu / Phòng: ${formData.targetId}`,
-      sender: 'Chủ trọ Nguyễn Văn Hải',
-      createdAt: new Date().toLocaleString('vi-VN'),
-      isRead: false,
-    };
-    setNotifications([newN, ...notifications]);
-    setIsModalOpen(false);
-    alert('Đã phát thông báo thành công!');
+    setSaving(true);
+    try {
+      const payload = {
+        title: formData.title,
+        content: formData.content,
+        target: formData.target,
+        targetId: formData.targetId ? formData.targetId : null,
+      };
+
+      const created = await notificationService.create(payload);
+      setNotifications([created, ...notifications]);
+      setIsModalOpen(false);
+      setFormData({ title: '', content: '', target: 'AllTenants', targetId: '' });
+      alert('✅ Đã phát hành thông báo thành công!');
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi gửi thông báo: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm('Bạn có chắc chắn muốn xóa thông báo này?')) {
-      setNotifications(notifications.filter(n => n.id !== id));
+      try {
+        await notificationService.delete(id);
+        setNotifications(notifications.filter(n => n.id !== id));
+        onRefresh?.();
+      } catch (err) {
+        alert('Lỗi xóa thông báo: ' + (err.response?.data?.message || err.message));
+      }
     }
   };
 
@@ -38,7 +56,7 @@ export const LandlordNotify = ({ notifications, setNotifications, zones, rooms }
       <div className="page-header">
         <div>
           <h2 className="page-title"><BellRing size={24} color="#6366f1" /> Quản Lý Thông Báo Cho Khách Thuê</h2>
-          <p className="page-subtitle">Tạo thông báo gửi tới từng phòng hoặc toàn bộ khách thuê trong các khu trọ</p>
+          <p className="page-subtitle">Tạo thông báo gửi tới từng khách thuê hoặc toàn bộ khách thuê trong các khu trọ</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
           <Plus size={18} /> Gửi Thông Báo Mới
@@ -49,29 +67,42 @@ export const LandlordNotify = ({ notifications, setNotifications, zones, rooms }
         <table className="custom-table">
           <thead>
             <tr>
-              <th>Mã TB</th>
               <th>Tiêu Đề</th>
               <th>Nội Dung</th>
+              <th>Người Gửi</th>
               <th>Phạm Vi Gửi</th>
               <th>Thời Gian</th>
               <th>Thao Tác</th>
             </tr>
           </thead>
           <tbody>
-            {notifications.map((n) => (
-              <tr key={n.id}>
-                <td><strong>{n.id}</strong></td>
-                <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{n.title}</td>
-                <td style={{ maxWidth: '350px', color: 'var(--text-secondary)' }}>{n.content}</td>
-                <td><span className="status-pill vacant">{n.targetName}</span></td>
-                <td>{n.createdAt}</td>
-                <td>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(n.id)}>
-                    <Trash2 size={14} /> Xóa
-                  </button>
+            {notifications.length === 0 ? (
+              <tr>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                  Chưa có thông báo nào được phát hành.
                 </td>
               </tr>
-            ))}
+            ) : (
+              notifications.map((n) => {
+                const targetText = n.target === 'AllTenants' ? 'Tất cả khách thuê' 
+                  : (n.target === 'User' ? 'Khách thuê cụ thể' : n.target);
+
+                return (
+                  <tr key={n.id}>
+                    <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{n.title}</td>
+                    <td style={{ maxWidth: '350px', color: 'var(--text-secondary)' }}>{n.content}</td>
+                    <td><span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{n.senderName || user?.fullName || 'Chủ trọ'}</span></td>
+                    <td><span className="status-pill vacant">{targetText}</span></td>
+                    <td>{formatDate(n.createdAt)}</td>
+                    <td>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(n.id)}>
+                        <Trash2 size={14} /> Xóa
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
@@ -81,7 +112,7 @@ export const LandlordNotify = ({ notifications, setNotifications, zones, rooms }
           <div className="modal-content">
             <div className="modal-header">
               <h3 className="modal-title">Gửi Thông Báo Mới</h3>
-              <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>X</button>
+              <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>✕</button>
             </div>
             <form onSubmit={handleSave}>
               <div className="modal-body">
@@ -110,23 +141,41 @@ export const LandlordNotify = ({ notifications, setNotifications, zones, rooms }
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Gửi Đến Phạm Vi</label>
+                  <label className="form-label">Gửi Đến Đối Tượng</label>
                   <select
                     className="form-control"
                     value={formData.target}
-                    onChange={(e) => setFormData({ ...formData, target: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, target: e.target.value, targetId: '' })}
                   >
-                    <option value="all_tenants">Tất cả khách thuê trong các khu trọ</option>
-                    <option value="zone">Khu trọ cụ thể</option>
-                    <option value="room">Phòng trọ cụ thể</option>
+                    <option value="AllTenants">Tất cả khách thuê thuộc quyền quản lý</option>
+                    <option value="User">Gửi riêng cho một khách thuê cụ thể</option>
                   </select>
                 </div>
+
+                {formData.target === 'User' && (
+                  <div className="form-group">
+                    <label className="form-label">Chọn Khách Thuê</label>
+                    <select
+                      className="form-control"
+                      required
+                      value={formData.targetId}
+                      onChange={(e) => setFormData({ ...formData, targetId: e.target.value })}
+                    >
+                      <option value="">-- Chọn khách thuê --</option>
+                      {tenants.map(t => (
+                        <option key={t.id} value={t.userId || t.UserId || t.id}>
+                          {t.fullName || t.name} (Phòng {t.roomNumber || 'Chưa xếp'}) - {t.phone}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
-                <button type="submit" className="btn btn-primary">
-                  <Send size={16} /> Gửi Thông Báo
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  <Send size={16} /> {saving ? 'Đang gửi...' : 'Gửi Thông Báo'}
                 </button>
               </div>
             </form>

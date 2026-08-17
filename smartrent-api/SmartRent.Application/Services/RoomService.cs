@@ -31,19 +31,34 @@ public class RoomService(AppDbContext db)
         return rooms.Select(MapRoom);
     }
 
-    // Lấy thông tin cơ bản của phòng trọ theo ID.
-    public async Task<RoomDto?> GetByIdAsync(Guid id)
+    // Lấy thông tin cơ bản của phòng trọ theo ID (đảm bảo thuộc quyền quản lý của chủ trọ).
+    public async Task<RoomDto?> GetByIdAsync(Guid id, Guid landlordId)
     {
-        var r = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).AsSplitQuery().FirstOrDefaultAsync(r => r.Id == id);
+        var r = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).AsSplitQuery()
+            .FirstOrDefaultAsync(r => r.Id == id && r.Zone.LandlordId == landlordId);
         return r is null ? null : MapRoom(r);
     }
 
     // Tạo mới một phòng trọ trong Khu trọ.
     public async Task<RoomDto> CreateAsync(Guid landlordId, CreateRoomRequest req)
     {
-        var zone = await db.Zones.FirstOrDefaultAsync(z => z.Id == req.ZoneId && z.LandlordId == landlordId) ?? throw new KeyNotFoundException("Zone không tồn tại");
+        var zone = await db.Zones.FirstOrDefaultAsync(z => z.Id == req.ZoneId && z.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Khu trọ không tồn tại hoặc không thuộc quyền quản lý của bạn");
         var status = Enum.Parse<RoomStatus>(req.Status, ignoreCase: true);
-        var room = new Room { ZoneId = req.ZoneId, RoomNumber = req.RoomNumber, Floor = req.Floor, Price = req.Price, Area = req.Area, MaxTenants = req.MaxTenants, Status = status, ElecMeter = req.ElecMeter, WaterMeter = req.WaterMeter, Description = req.Description, Amenities = req.Amenities };
+        var room = new Room 
+        { 
+            ZoneId = req.ZoneId, 
+            RoomNumber = req.RoomNumber, 
+            Floor = req.Floor, 
+            Price = req.Price, 
+            Area = req.Area, 
+            MaxTenants = req.MaxTenants, 
+            Status = status, 
+            ElecMeter = req.ElecMeter, 
+            WaterMeter = req.WaterMeter, 
+            Description = req.Description, 
+            Amenities = req.Amenities 
+        };
         
         if (req.Equipments != null && req.Equipments.Any())
         {
@@ -65,30 +80,39 @@ public class RoomService(AppDbContext db)
         return MapRoom(room);
     }
 
-    // Cập nhật thông tin phòng trọ.
-    public async Task<RoomDto> UpdateAsync(Guid id, UpdateRoomRequest req)
+    // Cập nhật thông tin phòng trọ (kiểm tra quyền sở hữu).
+    public async Task<RoomDto> UpdateAsync(Guid id, Guid landlordId, UpdateRoomRequest req)
     {
-        var room = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).FirstOrDefaultAsync(r => r.Id == id) ?? throw new KeyNotFoundException();
-        room.RoomNumber = req.RoomNumber; room.Floor = req.Floor; room.Price = req.Price; room.Area = req.Area;
-        room.MaxTenants = req.MaxTenants; room.Status = Enum.Parse<RoomStatus>(req.Status, ignoreCase: true);
-        room.ElecMeter = req.ElecMeter; room.WaterMeter = req.WaterMeter; room.Description = req.Description;
+        var room = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments)
+            .FirstOrDefaultAsync(r => r.Id == id && r.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
+
+        room.RoomNumber = req.RoomNumber; 
+        room.Floor = req.Floor; 
+        room.Price = req.Price; 
+        room.Area = req.Area;
+        room.MaxTenants = req.MaxTenants; 
+        room.Status = Enum.Parse<RoomStatus>(req.Status, ignoreCase: true);
+        room.ElecMeter = req.ElecMeter; 
+        room.WaterMeter = req.WaterMeter; 
+        room.Description = req.Description;
         room.Amenities = req.Amenities;
         await db.SaveChangesAsync();
         return MapRoom(room);
     }
 
-    // Xóa một phòng trọ khỏi hệ thống.
-    public async Task<bool> DeleteAsync(Guid id)
+    // Xóa một phòng trọ khỏi hệ thống (kiểm tra quyền sở hữu).
+    public async Task<bool> DeleteAsync(Guid id, Guid landlordId)
     {
-        var r = await db.Rooms.FindAsync(id);
+        var r = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == id && r.Zone.LandlordId == landlordId);
         if (r is null) return false;
         db.Rooms.Remove(r);
         await db.SaveChangesAsync();
         return true;
     }
 
-    // Lấy chi tiết toàn bộ thông tin phòng bao gồm: Khách thuê hiện tại, Hóa đơn 6 tháng gần nhất, Nhật ký điện nước, Hợp đồng active và Thiết bị bàn giao.
-    public async Task<RoomDetailDto?> GetRoomDetailAsync(Guid roomId)
+    // Lấy chi tiết toàn bộ thông tin phòng (kiểm tra quyền sở hữu).
+    public async Task<RoomDetailDto?> GetRoomDetailAsync(Guid roomId, Guid landlordId)
     {
         var r = await db.Rooms
             .Include(r => r.Zone)
@@ -96,7 +120,7 @@ public class RoomService(AppDbContext db)
             .Include(r => r.Tenants).ThenInclude(t => t.Contracts)
             .Include(r => r.Equipments)
             .AsSplitQuery()
-            .FirstOrDefaultAsync(r => r.Id == roomId);
+            .FirstOrDefaultAsync(r => r.Id == roomId && r.Zone.LandlordId == landlordId);
 
         if (r is null) return null;
 
@@ -127,7 +151,8 @@ public class RoomService(AppDbContext db)
                 t.Id, t.UserId, t.User?.FullName ?? "", t.User?.Email ?? "", t.User?.Phone ?? "",
                 t.User?.AvatarUrl, t.CCCD, t.Hometown, t.MoveInDate, t.Deposit,
                 t.RoomId, r.RoomNumber, r.Zone?.Name,
-                t.CccdFrontUrl, t.CccdBackUrl, activeContractCode
+                t.CccdFrontUrl, t.CccdBackUrl, activeContractCode,
+                t.VehicleCount, t.VehicleInfo
             );
         }).ToList();
 
@@ -171,10 +196,12 @@ public class RoomService(AppDbContext db)
         );
     }
 
-    // Quản lý Trang thiết bị / Nội thất phòng
-    public async Task<RoomEquipmentDto> AddEquipmentAsync(Guid roomId, CreateEquipmentRequest req)
+    // Quản lý Trang thiết bị / Nội thất phòng (kiểm tra quyền sở hữu)
+    public async Task<RoomEquipmentDto> AddEquipmentAsync(Guid roomId, Guid landlordId, CreateEquipmentRequest req)
     {
-        var room = await db.Rooms.FindAsync(roomId) ?? throw new KeyNotFoundException("Phòng không tồn tại");
+        var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == roomId && r.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
+
         var eq = new RoomEquipment
         {
             RoomId = roomId,
@@ -188,9 +215,12 @@ public class RoomService(AppDbContext db)
         return new RoomEquipmentDto(eq.Id, eq.RoomId, eq.Name, eq.Brand, eq.Quantity, eq.Condition);
     }
 
-    public async Task<RoomEquipmentDto> UpdateEquipmentAsync(Guid equipmentId, CreateEquipmentRequest req)
+    public async Task<RoomEquipmentDto> UpdateEquipmentAsync(Guid equipmentId, Guid landlordId, CreateEquipmentRequest req)
     {
-        var eq = await db.RoomEquipments.FindAsync(equipmentId) ?? throw new KeyNotFoundException("Thiết bị không tồn tại");
+        var eq = await db.RoomEquipments.Include(e => e.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(e => e.Id == equipmentId && e.Room.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Thiết bị không tồn tại hoặc bạn không có quyền chỉnh sửa");
+
         eq.Name = req.Name;
         eq.Brand = req.Brand;
         eq.Quantity = req.Quantity;
@@ -199,9 +229,10 @@ public class RoomService(AppDbContext db)
         return new RoomEquipmentDto(eq.Id, eq.RoomId, eq.Name, eq.Brand, eq.Quantity, eq.Condition);
     }
 
-    public async Task<bool> DeleteEquipmentAsync(Guid equipmentId)
+    public async Task<bool> DeleteEquipmentAsync(Guid equipmentId, Guid landlordId)
     {
-        var eq = await db.RoomEquipments.FindAsync(equipmentId);
+        var eq = await db.RoomEquipments.Include(e => e.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(e => e.Id == equipmentId && e.Room.Zone.LandlordId == landlordId);
         if (eq is null) return false;
         db.RoomEquipments.Remove(eq);
         await db.SaveChangesAsync();

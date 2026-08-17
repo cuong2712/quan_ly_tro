@@ -25,12 +25,12 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
         return Ok(await invoiceService.GetByTenantUserIdAsync(CurrentUserId));
     }
 
-    // Xem chi tiết một hóa đơn cụ thể theo ID.
+    // Xem chi tiết một hóa đơn cụ thể theo ID (kiểm tra quyền truy cập).
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetInvoice(Guid id)
     {
-        var inv = await invoiceService.GetByIdAsync(id);
-        return inv is null ? NotFound() : Ok(inv);
+        var inv = await invoiceService.GetByIdAsync(id, CurrentUserId, CurrentRole);
+        return inv is null ? NotFound(new { message = "Không tìm thấy hóa đơn hoặc bạn không có quyền truy cập." }) : Ok(inv);
     }
 
     // Tạo mới một Hóa đơn tiền nhà cho phòng (dành riêng cho Chủ trọ).
@@ -57,8 +57,8 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
     [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromQuery] string status)
     {
-        try { return Ok(await invoiceService.UpdateStatusAsync(id, status)); }
-        catch (KeyNotFoundException) { return NotFound(); }
+        try { return Ok(await invoiceService.UpdateStatusAsync(id, CurrentUserId, status)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 }
-

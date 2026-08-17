@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartRent.Core", "SmartRent.Core\SmartRent.Core.csproj", "{B7558867-C473-4EAA-91A8-FBACC6626BF2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartRent.Infrastructure", "SmartRent.Infrastructure\SmartRent.Infrastructure.csproj", "{12E6DBA2-E327-4A64-A081-9ED51EF1C573}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartRent.Application", "SmartRent.Application\SmartRent.Application.csproj", "{7EA183E1-1F56-4248-AF7E-795F4C02A122}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartRent.API", "SmartRent.API\SmartRent.API.csproj", "{76A1DA3C-57A9-4F24-968A-856F32E47852}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B7558867-C473-4EAA-91A8-FBACC6626BF2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7558867-C473-4EAA-91A8-FBACC6626BF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7558867-C473-4EAA-91A8-FBACC6626BF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7558867-C473-4EAA-91A8-FBACC6626BF2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12E6DBA2-E327-4A64-A081-9ED51EF1C573}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12E6DBA2-E327-4A64-A081-9ED51EF1C573}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12E6DBA2-E327-4A64-A081-9ED51EF1C573}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12E6DBA2-E327-4A64-A081-9ED51EF1C573}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7EA183E1-1F56-4248-AF7E-795F4C02A122}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7EA183E1-1F56-4248-AF7E-795F4C02A122}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7EA183E1-1F56-4248-AF7E-795F4C02A122}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7EA183E1-1F56-4248-AF7E-795F4C02A122}.Release|Any CPU.Build.0 = Release|Any CPU
+		{76A1DA3C-57A9-4F24-968A-856F32E47852}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{76A1DA3C-57A9-4F24-968A-856F32E47852}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{76A1DA3C-57A9-4F24-968A-856F32E47852}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{76A1DA3C-57A9-4F24-968A-856F32E47852}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

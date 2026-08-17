@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Key, Camera, Check } from 'lucide-react';
-import { profileService } from '../../services';
+import { UserCheck, Key, Car, Check } from 'lucide-react';
+import { profileService, tenantService } from '../../services';
 
 export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   const [profileData, setProfileData] = useState({
@@ -10,6 +10,12 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
     avatarUrl: activeTenant?.avatarUrl || activeTenant?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     cccd: activeTenant?.cccd || '',
   });
+
+  const [vehicleData, setVehicleData] = useState({
+    vehicleCount: activeTenant?.vehicleCount || 0,
+    vehicleInfo: activeTenant?.vehicleInfo || '',
+  });
+
   const [passwordData, setPasswordData] = useState({ oldPass: '', newPass: '', confirmPass: '' });
   const [successMsg, setSuccessMsg] = useState('');
   const [saving, setSaving] = useState(false);
@@ -26,6 +32,21 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
         }));
       }
     }).catch(err => console.warn('Get profile error:', err));
+
+    // Lấy thông tin hồ sơ người thuê để xem xe cộ
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.id) {
+      tenantService.getTenants().then(res => {
+        const list = Array.isArray(res) ? res : (res?.items || []);
+        const myProfile = list.find(t => t.userId === user.id);
+        if (myProfile) {
+          setVehicleData({
+            vehicleCount: myProfile.vehicleCount || 0,
+            vehicleInfo: myProfile.vehicleInfo || '',
+          });
+        }
+      }).catch(err => console.warn('Get tenant vehicle error:', err));
+    }
   }, []);
 
   const handleUpdateInfo = async (e) => {
@@ -42,6 +63,23 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
       alert('Lỗi cập nhật hồ sơ: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateVehicle = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await profileService.updateVehicle({
+        vehicleCount: Number(vehicleData.vehicleCount),
+        vehicleInfo: vehicleData.vehicleInfo,
+      });
+      setSuccessMsg('✅ Đã cập nhật thông tin đăng ký xe thành công!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      alert('Lỗi cập nhật thông tin xe: ' + (err.response?.data?.message || err.message));
     } finally {
       setSaving(false);
     }
@@ -75,7 +113,7 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
       <div className="page-header">
         <div>
           <h2 className="page-title"><UserCheck size={24} color="#6366f1" /> Hồ Sơ Khách Thuê</h2>
-          <p className="page-subtitle">Cập nhật số điện thoại, email, đổi ảnh đại diện và thay đổi mật khẩu</p>
+          <p className="page-subtitle">Cập nhật số điện thoại, đăng ký xe cộ gửi tại nhà trọ và đổi mật khẩu</p>
         </div>
       </div>
 
@@ -85,6 +123,7 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
         </div>
       )}
 
+      {/* Thông tin hồ sơ cá nhân */}
       <div className="card-table-container" style={{ padding: '24px', marginBottom: '24px' }}>
         <form onSubmit={handleUpdateInfo}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
@@ -136,6 +175,43 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
         </form>
       </div>
 
+      {/* Đăng ký thông tin Xe cộ */}
+      <div className="card-table-container" style={{ padding: '24px', marginBottom: '24px' }}>
+        <h3 style={{ fontSize: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Car size={18} color="#3b82f6" /> Đăng Ký Thông Tin Xe Cộ (Phục vụ tính phí giữ xe)
+        </h3>
+        <form onSubmit={handleUpdateVehicle}>
+          <div className="form-group">
+            <label className="form-label">Số Lượng Xe Đăng Ký Giữ Tại Trọ *</label>
+            <input
+              type="number"
+              min="0"
+              max="10"
+              className="form-control"
+              required
+              value={vehicleData.vehicleCount}
+              onChange={(e) => setVehicleData({ ...vehicleData, vehicleCount: e.target.value })}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Chi Tiết Biển Số & Loại Xe</label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Ví dụ: 29A1-12345 (Honda Vision), 30B2-67890 (Exciter)"
+              value={vehicleData.vehicleInfo}
+              onChange={(e) => setVehicleData({ ...vehicleData, vehicleInfo: e.target.value })}
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? '⏳ Đang lưu...' : 'Cập Nhật Đăng Ký Xe'}
+          </button>
+        </form>
+      </div>
+
+      {/* Đổi mật khẩu */}
       <div className="card-table-container" style={{ padding: '24px' }}>
         <h3 style={{ fontSize: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Key size={18} color="#f59e0b" /> Đổi Mật Khẩu Đăng Nhập

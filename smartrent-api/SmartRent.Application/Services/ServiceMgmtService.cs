@@ -53,10 +53,12 @@ public class ServiceMgmtService(AppDbContext db)
         return MapSvc(s);
     }
 
-    // Cập nhật thông tin Dịch vụ.
-    public async Task<ServiceDto> UpdateAsync(Guid id, UpdateServiceRequest req)
+    // Cập nhật thông tin Dịch vụ (kiểm tra quyền sở hữu).
+    public async Task<ServiceDto> UpdateAsync(Guid id, Guid landlordId, UpdateServiceRequest req)
     {
-        var s = await db.Services.Include(x => x.Zone).FirstOrDefaultAsync(x => x.Id == id) ?? throw new KeyNotFoundException();
+        var s = await db.Services.Include(x => x.Zone).FirstOrDefaultAsync(x => x.Id == id && x.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Dịch vụ không tồn tại hoặc bạn không có quyền thao tác.");
+
         s.Name = req.Name;
         s.Price = req.Price;
         s.Unit = req.Unit;
@@ -71,10 +73,10 @@ public class ServiceMgmtService(AppDbContext db)
         return MapSvc(s);
     }
 
-    // Xóa một Dịch vụ khỏi danh mục.
-    public async Task<bool> DeleteAsync(Guid id)
+    // Xóa một Dịch vụ khỏi danh mục (kiểm tra quyền sở hữu).
+    public async Task<bool> DeleteAsync(Guid id, Guid landlordId)
     {
-        var s = await db.Services.FindAsync(id);
+        var s = await db.Services.FirstOrDefaultAsync(s => s.Id == id && s.LandlordId == landlordId);
         if (s is null) return false;
         db.Services.Remove(s);
         await db.SaveChangesAsync();
