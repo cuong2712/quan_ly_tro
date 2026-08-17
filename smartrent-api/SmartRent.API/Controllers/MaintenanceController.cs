@@ -31,6 +31,7 @@ public class MaintenanceController(MaintenanceService maintenanceService) : Cont
     public async Task<IActionResult> Create([FromBody] CreateMaintenanceRequest request)
     {
         try { return Ok(await maintenanceService.CreateAsync(CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -39,7 +40,8 @@ public class MaintenanceController(MaintenanceService maintenanceService) : Cont
     [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateMaintenanceRequest request)
     {
-        try { return Ok(await maintenanceService.UpdateAsync(id, request)); }
-        catch (KeyNotFoundException) { return NotFound(); }
+        try { return Ok(await maintenanceService.UpdateAsync(id, CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 }
