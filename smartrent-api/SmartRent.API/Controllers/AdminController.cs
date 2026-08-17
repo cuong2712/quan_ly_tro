@@ -12,8 +12,6 @@ namespace SmartRent.API.Controllers;
 [Authorize(Roles = "SuperAdmin")]
 public class AdminController(AdminService adminService) : ControllerBase
 {
-    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
     // Lấy tổng quan các chỉ số thống kê của hệ thống.
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats() => Ok(await adminService.GetSystemStatsAsync());
@@ -63,7 +61,7 @@ public class AdminController(AdminService adminService) : ControllerBase
     [HttpPost("complaints/{id:guid}/reply")]
     public async Task<IActionResult> ReplyComplaint(Guid id, [FromBody] ReplyComplaintRequest request)
     {
-        try { return Ok(await adminService.ReplyComplaintAsync(id, CurrentUserId, request)); }
+        try { return Ok(await adminService.ReplyComplaintAsync(id, request)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
