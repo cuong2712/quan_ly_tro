@@ -39,7 +39,7 @@ public class MaintenanceController(MaintenanceService maintenanceService) : Cont
     [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateMaintenanceRequest request)
     {
-        try { return Ok(await maintenanceService.UpdateAsync(id, request)); }
+        try { return Ok(await maintenanceService.UpdateAsync(id, CurrentUserId, request)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 }

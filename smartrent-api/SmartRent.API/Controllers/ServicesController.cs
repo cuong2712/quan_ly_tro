@@ -28,11 +28,11 @@ public class ServicesController(ServiceMgmtService serviceMgmt) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateServiceRequest req)
     {
-        try { return Ok(await serviceMgmt.UpdateAsync(id, req)); }
+        try { return Ok(await serviceMgmt.UpdateAsync(id, LandlordId, req)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
     // Xóa một dịch vụ khỏi danh mục.
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id) => await serviceMgmt.DeleteAsync(id) ? NoContent() : NotFound();
+    public async Task<IActionResult> Delete(Guid id) => await serviceMgmt.DeleteAsync(id, LandlordId) ? NoContent() : NotFound();
 }

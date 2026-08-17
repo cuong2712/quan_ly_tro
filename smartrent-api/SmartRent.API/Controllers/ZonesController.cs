@@ -28,12 +28,12 @@ public class ZonesController(ZoneService zoneService) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateZone(Guid id, [FromBody] UpdateZoneRequest request)
     {
-        try { return Ok(await zoneService.UpdateAsync(id, request)); }
+        try { return Ok(await zoneService.UpdateAsync(id, LandlordId, request)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
     // Xóa một Khu trọ theo ID.
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteZone(Guid id)
-        => await zoneService.DeleteAsync(id) ? NoContent() : NotFound();
+        => await zoneService.DeleteAsync(id, LandlordId) ? NoContent() : NotFound();
 }

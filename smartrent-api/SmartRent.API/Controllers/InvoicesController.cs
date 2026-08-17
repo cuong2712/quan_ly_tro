@@ -29,7 +29,7 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetInvoice(Guid id)
     {
-        var inv = await invoiceService.GetByIdAsync(id);
+        var inv = await invoiceService.GetByIdAsync(id, CurrentUserId, CurrentRole);
         return inv is null ? NotFound() : Ok(inv);
     }
 
@@ -57,7 +57,7 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
     [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromQuery] string status)
     {
-        try { return Ok(await invoiceService.UpdateStatusAsync(id, status)); }
+        try { return Ok(await invoiceService.UpdateStatusAsync(id, CurrentUserId, status)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 }

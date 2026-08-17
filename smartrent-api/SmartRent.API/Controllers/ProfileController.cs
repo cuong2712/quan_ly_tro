@@ -37,4 +37,14 @@ public class ProfileController(ProfileService profileService) : ControllerBase
         try { await profileService.ChangePasswordAsync(CurrentUserId, request); return Ok(new { message = "Đổi mật khẩu thành công" }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    // Cập nhật thông tin phương tiện/xe cộ của khách thuê.
+    [HttpPut("vehicle")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> UpdateVehicle([FromBody] UpdateVehicleRequest request)
+    {
+        try { return Ok(await profileService.UpdateVehicleInfoAsync(CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

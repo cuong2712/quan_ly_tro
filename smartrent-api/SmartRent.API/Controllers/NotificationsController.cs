@@ -38,5 +38,5 @@ public class NotificationsController(NotificationService notifService) : Control
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Landlord,SuperAdmin")]
     public async Task<IActionResult> Delete(Guid id)
-        => await notifService.DeleteAsync(id) ? NoContent() : NotFound();
+        => await notifService.DeleteAsync(id, CurrentUserId, CurrentRole) ? NoContent() : NotFound();
 }

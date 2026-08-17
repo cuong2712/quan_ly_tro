@@ -31,17 +31,16 @@ public class ContractsController(ContractService contractService) : ControllerBa
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetContractById(Guid id)
     {
-        var contract = await contractService.GetByIdAsync(id);
+        var contract = await contractService.GetByIdAsync(id, CurrentUserId, CurrentRole);
         if (contract is null) return NotFound();
         return Ok(contract);
     }
-
 
     // Tạo mới một Hợp đồng thuê nhà.
     [HttpPost]
     public async Task<IActionResult> CreateContract([FromBody] CreateContractRequest request)
     {
-        try { return Ok(await contractService.CreateAsync(request)); }
+        try { return Ok(await contractService.CreateAsync(CurrentUserId, request)); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -49,20 +48,20 @@ public class ContractsController(ContractService contractService) : ControllerBa
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateContract(Guid id, [FromBody] UpdateContractRequest request)
     {
-        try { return Ok(await contractService.UpdateAsync(id, request)); }
+        try { return Ok(await contractService.UpdateAsync(id, CurrentUserId, request)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
     // Xóa một hợp đồng.
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteContract(Guid id)
-        => await contractService.DeleteAsync(id) ? NoContent() : NotFound();
+        => await contractService.DeleteAsync(id, CurrentUserId) ? NoContent() : NotFound();
 
     // Thanh lý hợp đồng thuê nhà trước hoặc đúng hạn.
     [HttpPatch("{id:guid}/terminate")]
     public async Task<IActionResult> Terminate(Guid id)
     {
-        await contractService.TerminateAsync(id);
+        await contractService.TerminateAsync(id, CurrentUserId);
         return Ok(new { message = "Thanh lý hợp đồng thành công" });
     }
 
@@ -70,7 +69,7 @@ public class ContractsController(ContractService contractService) : ControllerBa
     [HttpPost("{id:guid}/renew")]
     public async Task<IActionResult> Renew(Guid id, [FromBody] RenewContractRequest request)
     {
-        await contractService.RenewAsync(id, request);
+        await contractService.RenewAsync(id, CurrentUserId, request);
         return Ok(new { message = "Gia hạn hợp đồng thành công" });
     }
 
@@ -80,7 +79,7 @@ public class ContractsController(ContractService contractService) : ControllerBa
     {
         try
         {
-            var result = await contractService.SettleContractAsync(id, request);
+            var result = await contractService.SettleContractAsync(id, CurrentUserId, request);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)

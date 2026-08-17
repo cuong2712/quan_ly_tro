@@ -23,7 +23,7 @@ public class TenantsController(TenantService tenantService) : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetTenant(Guid id)
     {
-        var t = await tenantService.GetByIdAsync(id);
+        var t = await tenantService.GetByIdAsync(id, LandlordId);
         return t is null ? NotFound() : Ok(t);
     }
 
@@ -39,12 +39,12 @@ public class TenantsController(TenantService tenantService) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> UpdateTenant(Guid id, [FromBody] UpdateTenantRequest request)
     {
-        try { return Ok(await tenantService.UpdateAsync(id, request)); }
+        try { return Ok(await tenantService.UpdateAsync(id, LandlordId, request)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
     // Xóa người thuê khỏi phòng trọ (tự động cập nhật lại trạng thái phòng và dữ liệu liên quan).
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteTenant(Guid id)
-        => await tenantService.DeleteAsync(id) ? NoContent() : NotFound();
+        => await tenantService.DeleteAsync(id, LandlordId) ? NoContent() : NotFound();
 }
