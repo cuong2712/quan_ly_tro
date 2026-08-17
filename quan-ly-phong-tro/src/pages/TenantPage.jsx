@@ -41,14 +41,19 @@ export default function TenantPage() {
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
 
+  const [tenantProfileState, setTenantProfileState] = useState({});
+
   const activeTenant = {
     ...user,
-    name: user?.fullName,
+    ...tenantProfileState,
+    name: tenantProfileState?.fullName || user?.fullName,
     roomNumber: dashboard?.roomNumber,
     zoneName: dashboard?.zoneName,
     rentAmount: dashboard?.rentAmount,
     deposit: dashboard?.deposit,
     moveInDate: dashboard?.moveInDate,
+    vehicleCount: tenantProfileState.vehicleCount !== undefined ? tenantProfileState.vehicleCount : (dashboard?.vehicleCount || 0),
+    vehicleInfo: tenantProfileState.vehicleInfo !== undefined ? tenantProfileState.vehicleInfo : (dashboard?.vehicleInfo || ''),
   };
 
   const renderContent = () => {
@@ -66,7 +71,7 @@ export default function TenantPage() {
           />
         );
       case 'tn_profile':
-        return <TenantProfile activeTenant={activeTenant} setActiveTenant={() => {}} />;
+        return <TenantProfile activeTenant={activeTenant} setActiveTenant={setTenantProfileState} />;
       case 'tn_contract':
         return <TenantContract activeTenant={activeTenant} contracts={contracts || []} rooms={[]} setContracts={setContracts} />;
       case 'tn_invoices':

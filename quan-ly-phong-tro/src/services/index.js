@@ -122,6 +122,7 @@ export const notificationService = {
 
 export const profileService = {
   getProfile: () => apiClient.get('/profile').then(r => r.data),
+  getVehicle: () => apiClient.get('/profile/vehicle').then(r => r.data),
   updateProfile: (data) => apiClient.put('/profile', data).then(r => r.data),
   updateVehicle: (data) => apiClient.put('/profile/vehicle', data).then(r => r.data),
   changePassword: (data) => apiClient.post('/profile/change-password', data).then(r => r.data),

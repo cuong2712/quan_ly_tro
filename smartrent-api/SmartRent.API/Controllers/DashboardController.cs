@@ -32,7 +32,7 @@ public class DashboardController(AppDbContext db) : ControllerBase
         return Ok(new { totalZones, totalRooms, occupied, vacant, tenants, unpaidInvoices, revenue, pendingMaintenance, occupancyRate = totalRooms > 0 ? Math.Round((double)occupied / totalRooms * 100, 1) : 0 });
     }
 
-    // Lấy chỉ số tổng quan Dashboard dành cho Khách thuê (thông tin phòng ở, tiền phòng, số hóa đơn nợ, tổng tiền đã đóng...).
+    // Lấy chỉ số tổng quan Dashboard dành cho Khách thuê (thông tin phòng ở, tiền phòng, xe cộ, số hóa đơn nợ, tổng tiền đã đóng...).
     [HttpGet("tenant")]
     [Authorize(Roles = "Tenant")]
     public async Task<IActionResult> GetTenantDashboard()
@@ -44,6 +44,20 @@ public class DashboardController(AppDbContext db) : ControllerBase
         var maintenanceCount = await db.MaintenanceRequests.CountAsync(m => m.TenantProfileId == profile.Id);
         var activeContract = profile.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active);
 
-        return Ok(new { roomNumber = profile.Room?.RoomNumber, zoneName = profile.Room?.Zone?.Name, rentAmount = profile.Room?.Price, deposit = profile.Deposit, moveInDate = profile.MoveInDate, unpaidInvoices, totalPaid, maintenanceCount, contractEndDate = activeContract?.EndDate });
+        return Ok(new { 
+            roomNumber = profile.Room?.RoomNumber, 
+            zoneName = profile.Room?.Zone?.Name, 
+            rentAmount = profile.Room?.Price, 
+            deposit = profile.Deposit, 
+            moveInDate = profile.MoveInDate, 
+            unpaidInvoices, 
+            totalPaid, 
+            maintenanceCount, 
+            contractEndDate = activeContract?.EndDate,
+            vehicleCount = profile.VehicleCount,
+            vehicleInfo = profile.VehicleInfo,
+            cccd = profile.CCCD,
+            hometown = profile.Hometown
+        });
     }
 }

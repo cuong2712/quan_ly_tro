@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserCheck, Key, Car, Check } from 'lucide-react';
-import { profileService, tenantService } from '../../services';
+import { profileService } from '../../services';
 
 export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   const [profileData, setProfileData] = useState({
@@ -12,8 +12,8 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   });
 
   const [vehicleData, setVehicleData] = useState({
-    vehicleCount: activeTenant?.vehicleCount || 0,
-    vehicleInfo: activeTenant?.vehicleInfo || '',
+    vehicleCount: activeTenant?.vehicleCount ?? 0,
+    vehicleInfo: activeTenant?.vehicleInfo ?? '',
   });
 
   const [passwordData, setPasswordData] = useState({ oldPass: '', newPass: '', confirmPass: '' });
@@ -21,6 +21,7 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    // Lấy thông tin tài khoản và thông tin xe cộ đã đăng ký từ API
     profileService.getProfile().then(p => {
       if (p) {
         setProfileData(prev => ({
@@ -29,25 +30,28 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
           phone: p.phone || prev.phone,
           email: p.email || prev.email,
           avatarUrl: p.avatarUrl || prev.avatarUrl,
+          cccd: p.cccd || prev.cccd,
         }));
+        setVehicleData({
+          vehicleCount: p.vehicleCount !== undefined && p.vehicleCount !== null ? p.vehicleCount : (activeTenant?.vehicleCount || 0),
+          vehicleInfo: p.vehicleInfo !== undefined && p.vehicleInfo !== null ? p.vehicleInfo : (activeTenant?.vehicleInfo || ''),
+        });
       }
-    }).catch(err => console.warn('Get profile error:', err));
-
-    // Lấy thông tin hồ sơ người thuê để xem xe cộ
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.id) {
-      tenantService.getTenants().then(res => {
-        const list = Array.isArray(res) ? res : (res?.items || []);
-        const myProfile = list.find(t => t.userId === user.id);
-        if (myProfile) {
-          setVehicleData({
-            vehicleCount: myProfile.vehicleCount || 0,
-            vehicleInfo: myProfile.vehicleInfo || '',
-          });
-        }
-      }).catch(err => console.warn('Get tenant vehicle error:', err));
-    }
-  }, []);
+    }).catch(err => {
+      console.warn('Get profile error:', err);
+      // Fallback lấy riêng vehicle nếu cần
+      if (profileService.getVehicle) {
+        profileService.getVehicle().then(v => {
+          if (v) {
+            setVehicleData({
+              vehicleCount: v.vehicleCount ?? 0,
+              vehicleInfo: v.vehicleInfo ?? '',
+            });
+          }
+        }).catch(e => console.warn('Get vehicle error:', e));
+      }
+    });
+  }, [activeTenant]);
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
@@ -58,7 +62,9 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
         phone: profileData.phone,
         avatarUrl: profileData.avatarUrl,
       });
-      setActiveTenant({ ...profileData, ...updated });
+      if (setActiveTenant) {
+        setActiveTenant(prev => ({ ...prev, ...profileData, ...updated }));
+      }
       setSuccessMsg('✅ Đã cập nhật thông tin hồ sơ thành công!');
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
@@ -72,11 +78,25 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await profileService.updateVehicle({
-        vehicleCount: Number(vehicleData.vehicleCount),
-        vehicleInfo: vehicleData.vehicleInfo,
-      });
-      setSuccessMsg('✅ Đã cập nhật thông tin đăng ký xe thành công!');
+      const payload = {
+        vehicleCount: Number(vehicleData.vehicleCount || 0),
+        vehicleInfo: vehicleData.vehicleInfo || '',
+      };
+      const res = await profileService.updateVehicle(payload);
+      if (res) {
+        setVehicleData({
+          vehicleCount: res.vehicleCount !== undefined ? res.vehicleCount : payload.vehicleCount,
+          vehicleInfo: res.vehicleInfo !== undefined ? res.vehicleInfo : payload.vehicleInfo,
+        });
+      }
+      if (setActiveTenant) {
+        setActiveTenant(prev => ({ 
+          ...prev, 
+          vehicleCount: payload.vehicleCount,
+          vehicleInfo: payload.vehicleInfo
+        }));
+      }
+      setSuccessMsg('✅ Đã cập nhật biển số và thông tin xe gửi thành công!');
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
       alert('Lỗi cập nhật thông tin xe: ' + (err.response?.data?.message || err.message));
@@ -118,22 +138,23 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
       </div>
 
       {successMsg && (
-        <div style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.4)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Check size={18} /> {successMsg}
+        <div style={{
+          background: 'rgba(16, 185, 129, 0.15)',
+          border: '1px solid #10b981',
+          color: '#34d399',
+          padding: '14px 20px',
+          borderRadius: '8px',
+          marginBottom: '24px',
+          fontWeight: '600'
+        }}>
+          {successMsg}
         </div>
       )}
 
-      {/* Thông tin hồ sơ cá nhân */}
+      {/* Thông tin cơ bản */}
       <div className="card-table-container" style={{ padding: '24px', marginBottom: '24px' }}>
+        <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Thông Tin Cá Nhân</h3>
         <form onSubmit={handleUpdateInfo}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
-            <img src={profileData.avatarUrl} alt="Avatar" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover' }} />
-            <div>
-              <h3 style={{ fontSize: '18px' }}>{profileData.fullName}</h3>
-              {profileData.cccd && <p style={{ color: 'var(--text-secondary)' }}>CCCD: {profileData.cccd}</p>}
-            </div>
-          </div>
-
           <div className="form-group">
             <label className="form-label">Họ và Tên</label>
             <input
@@ -200,7 +221,7 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
               type="text"
               className="form-control"
               placeholder="Ví dụ: 29A1-12345 (Honda Vision), 30B2-67890 (Exciter)"
-              value={vehicleData.vehicleInfo}
+              value={vehicleData.vehicleInfo || ''}
               onChange={(e) => setVehicleData({ ...vehicleData, vehicleInfo: e.target.value })}
             />
           </div>
