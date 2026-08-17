@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle } from 'lucide-react';
+import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { contractService } from '../../services';
 import { Pagination } from '../Common/Pagination';
@@ -12,6 +12,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState(null);
   const [viewingContract, setViewingContract] = useState(null);
+  const [settlingContract, setSettlingContract] = useState(null);
+  const [settleForm, setSettleForm] = useState({ deductions: 0, refundAmount: 0, note: '' });
   const [selectedZoneId, setSelectedZoneId] = useState('');
 
   const [formData, setFormData] = useState({
@@ -224,7 +226,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
-  const handleRenew = (c) => {
+  const handleRenew = async (c) => {
     const monthsStr = prompt(`Gia hạn hợp đồng ${c.contractCode}.\nNhập số tháng muốn gia hạn (VD: 6 hoặc 12):`, '12');
     if (!monthsStr) return;
     const months = parseInt(monthsStr);
@@ -236,13 +238,51 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
     try {
       if (contractService && contractService.renew) {
-        contractService.renew(c.id, { extendMonths: months, newRentAmount: c.rentAmount });
+        await contractService.renew(c.id, { extendMonths: months, newRentAmount: c.rentAmount });
       }
-    } catch (e) { console.warn(e); }
+      setContracts(contracts.map(item => item.id === c.id ? { ...item, endDate: newEndDateStr, status: 'active' } : item));
+      alert(`✅ Đã gia hạn hợp đồng ${c.contractCode} thêm ${months} tháng đến ngày ${formatDate(newEndDateStr)}!`);
+      onRefresh?.();
+    } catch (e) {
+      alert('Lỗi gia hạn hợp đồng: ' + (e.response?.data?.message || e.message));
+    }
+  };
 
-    setContracts(contracts.map(item => item.id === c.id ? { ...item, endDate: newEndDateStr, status: 'active' } : item));
-    alert(`✅ Đã gia hạn hợp đồng ${c.contractCode} thêm ${months} tháng đến ngày ${formatDate(newEndDateStr)}!`);
-    onRefresh?.();
+  const handleCheckExpiring = async () => {
+    try {
+      const res = await contractService.checkExpiring();
+      alert(res.message || 'Đã kiểm tra và gửi thông báo hợp đồng sắp hết hạn!');
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi kiểm tra hợp đồng: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleOpenSettle = (c) => {
+    setSettlingContract(c);
+    setSettleForm({
+      deductions: 0,
+      refundAmount: c.deposit || 0,
+      note: 'Hoàn trả tiền cọc khi kết thúc hợp đồng',
+    });
+  };
+
+  const handleConfirmSettle = async (e) => {
+    e.preventDefault();
+    if (!settlingContract) return;
+    try {
+      const payload = {
+        deductions: Number(settleForm.deductions || 0),
+        refundAmount: Number(settleForm.refundAmount || 0),
+        note: settleForm.note,
+      };
+      await contractService.settleContract(settlingContract.id, payload);
+      alert('✅ Đã quyết toán hợp đồng & hoàn cọc thành công!');
+      setSettlingContract(null);
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi quyết toán hợp đồng: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const handleSave = async (e) => {
@@ -315,9 +355,14 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           <h2 className="page-title"><FileText size={24} color="#6366f1" /> Quản Lý Hợp Đồng Thuê Nhà</h2>
           <p className="page-subtitle">Tạo mới, gia hạn, thanh lý và in/xuất file PDF hợp đồng pháp lý</p>
         </div>
-        <button className="btn btn-primary" onClick={handleOpenAdd}>
-          <Plus size={18} /> Tạo Hợp Đồng Mới
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={handleCheckExpiring}>
+            <Clock size={16} color="#f59e0b" /> Quét HĐ Sắp Hết Hạn
+          </button>
+          <button className="btn btn-primary" onClick={handleOpenAdd}>
+            <Plus size={18} /> Tạo Hợp Đồng Mới
+          </button>
+        </div>
       </div>
 
       {/* 📊 THẺ THỐNG KÊ TỔNG QUAN HỢP ĐỒNG */}
@@ -571,6 +616,9 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                           <button className="btn btn-sm btn-secondary" title="Sửa điều khoản" onClick={() => handleOpenEdit(c)}>
                             <Edit size={14} />
                           </button>
+                          <button className="btn btn-sm btn-secondary" title="Quyết toán cọc & hoàn tiền" onClick={() => handleOpenSettle(c)} style={{ color: '#0ea5e9' }}>
+                            <CreditCard size={14} />
+                          </button>
                           {statusInfo.isActive && (
                             <button className="btn btn-sm btn-danger" title="Thanh lý hợp đồng" onClick={() => handleLiquidate(c.id)}>
                               <Shield size={14} />
@@ -808,6 +856,71 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary">Lưu Hợp Đồng</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Settle Contract Modal */}
+      {settlingContract && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '560px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Quyết Toán Cọc Hợp Đồng: {settlingContract.contractCode}</h3>
+              <button className="btn btn-sm btn-secondary" onClick={() => setSettlingContract(null)}>✕</button>
+            </div>
+            <form onSubmit={handleConfirmSettle}>
+              <div className="modal-body">
+                <div style={{ background: 'rgba(99, 102, 241, 0.08)', padding: '14px', borderRadius: '10px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Tiền cọc ban đầu:</div>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: '#34d399' }}>{formatVND(settlingContract.deposit)}</div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Khấu Trừ Hư Hại / Tiền Nhà Còn Thiếu (VNĐ)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-control"
+                    value={settleForm.deductions}
+                    onChange={(e) => {
+                      const d = Number(e.target.value || 0);
+                      const deposit = Number(settlingContract.deposit || 0);
+                      setSettleForm({
+                        ...settleForm,
+                        deductions: d,
+                        refundAmount: Math.max(0, deposit - d),
+                      });
+                    }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Số Tiền Thực Tế Hoàn Trả Khách Thuê (VNĐ)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-control"
+                    value={settleForm.refundAmount}
+                    onChange={(e) => setSettleForm({ ...settleForm, refundAmount: Number(e.target.value || 0) })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Ghi Chú Quyết Toán / Lý Do Khấu Trừ</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    placeholder="VD: Trừ 200k tiền vệ sinh phòng, hoàn trả 3.800.000đ qua chuyển khoản..."
+                    value={settleForm.note}
+                    onChange={(e) => setSettleForm({ ...settleForm, note: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setSettlingContract(null)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">Xác Nhận Quyết Toán</button>
               </div>
             </form>
           </div>

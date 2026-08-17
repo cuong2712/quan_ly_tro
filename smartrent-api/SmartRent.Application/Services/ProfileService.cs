@@ -17,7 +17,7 @@ public class ProfileService(AppDbContext db)
     // Cập nhật thông tin cá nhân (Họ tên, Số điện thoại, Ảnh đại diện).
     public async Task<UserProfileDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest req)
     {
-        var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException();
+        var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
         u.FullName = req.FullName; u.Phone = req.Phone; u.AvatarUrl = req.AvatarUrl;
         await db.SaveChangesAsync();
         return new UserProfileDto(u.Id, u.FullName, u.Email, u.Phone, u.AvatarUrl, u.Role.ToString(), u.CreatedAt);
@@ -27,9 +27,46 @@ public class ProfileService(AppDbContext db)
     public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest req)
     {
         if (req.NewPassword != req.ConfirmPassword) throw new InvalidOperationException("Mật khẩu xác nhận không khớp");
-        var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException();
+        var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
         if (!BCrypt.Net.BCrypt.Verify(req.OldPassword, u.PasswordHash)) throw new UnauthorizedAccessException("Mật khẩu cũ không đúng");
         u.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
         await db.SaveChangesAsync();
+    }
+
+    // Cập nhật thông tin xe cộ đăng ký của khách thuê (Số lượng xe & Biển số xe)
+    public async Task<TenantDto> UpdateVehicleInfoAsync(Guid userId, UpdateVehicleRequest req)
+    {
+        var profile = await db.TenantProfiles
+            .Include(t => t.User)
+            .Include(t => t.Room).ThenInclude(r => r!.Zone)
+            .Include(t => t.Contracts)
+            .FirstOrDefaultAsync(t => t.UserId == userId)
+            ?? throw new KeyNotFoundException("Hồ sơ khách thuê không tồn tại");
+
+        profile.VehicleCount = req.VehicleCount >= 0 ? req.VehicleCount : 0;
+        profile.VehicleInfo = req.VehicleInfo;
+
+        await db.SaveChangesAsync();
+        var activeContract = profile.Contracts.FirstOrDefault(c => c.Status == Core.Enums.ContractStatus.Active);
+        return new TenantDto(
+            profile.Id,
+            profile.UserId,
+            profile.User?.FullName ?? "",
+            profile.User?.Email ?? "",
+            profile.User?.Phone ?? "",
+            profile.User?.AvatarUrl,
+            profile.CCCD,
+            profile.Hometown,
+            profile.MoveInDate,
+            profile.Deposit,
+            profile.RoomId,
+            profile.Room?.RoomNumber,
+            profile.Room?.Zone?.Name,
+            profile.CccdFrontUrl,
+            profile.CccdBackUrl,
+            activeContract?.ContractCode,
+            profile.VehicleCount,
+            profile.VehicleInfo
+        );
     }
 }
