@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, Check, CheckCheck, X } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
-import { formatDateTime, formatRelativeTime } from '../../utils/formatters';
+import { formatDateTime, formatRelativeTime, getImageUrl } from '../../utils/formatters';
 
 export const Navbar = ({
   currentRole,
@@ -12,6 +12,7 @@ export const Navbar = ({
   activeLandlord,
   activeTenant,
   onLogout,
+  onNavigateProfile,
   hideRoleSwitcher,
 }) => {
   const {
@@ -51,13 +52,15 @@ export const Navbar = ({
     : currentRole === 'landlord' ? 'Chủ khu trọ'
     : 'Khách thuê phòng';
 
-  const avatarSrc =
-    activeLandlord?.avatarUrl || activeTenant?.avatarUrl ||
-    (currentRole === 'superadmin'
+  const defaultAvatar =
+    currentRole === 'superadmin'
       ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'
       : currentRole === 'landlord'
-      ? activeLandlord?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'
-      : activeTenant?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100');
+      ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100'
+      : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100';
+
+  const rawAvatar = activeLandlord?.avatarUrl || activeLandlord?.avatar || activeTenant?.avatarUrl || activeTenant?.avatar;
+  const avatarSrc = getImageUrl(rawAvatar, defaultAvatar);
 
   const roleBadgeColor =
     currentRole === 'superadmin' ? '#7c3aed'
@@ -286,7 +289,15 @@ export const Navbar = ({
               {onLogout && (
                 <>
                   <div className="dropdown-divider" />
-                  <button className="user-dropdown-item logout-item" onClick={onLogout}>
+                  <button
+                    type="button"
+                    className="user-dropdown-item logout-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowUserDropdown(false);
+                      onLogout();
+                    }}
+                  >
                     <LogOut size={16} />
                     <span>Đăng xuất</span>
                   </button>

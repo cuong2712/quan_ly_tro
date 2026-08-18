@@ -25,15 +25,24 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await authService.logout();
-    setUser(null);
+    try {
+      await authService.logout();
+    } catch (err) {
+      console.warn('Logout API error:', err);
+    } finally {
+      setUser(null);
+      localStorage.clear();
+      sessionStorage.clear();
+    }
   }, []);
 
   const updateUser = useCallback((userData) => {
-    const updated = { ...user, ...userData };
-    setUser(updated);
-    localStorage.setItem('user', JSON.stringify(updated));
-  }, [user]);
+    setUser(prev => {
+      const updated = { ...(prev || {}), ...userData };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, login, logout, loading, error, updateUser, isAuthenticated: !!user }}>

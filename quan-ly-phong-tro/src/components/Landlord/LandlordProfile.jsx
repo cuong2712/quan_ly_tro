@@ -140,7 +140,10 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
               <AvatarUploader
                 value={profileData.avatarUrl}
-                onChange={(newUrl) => setProfileData({ ...profileData, avatarUrl: newUrl })}
+                onChange={(newUrl) => {
+                  setProfileData(prev => ({ ...prev, avatarUrl: newUrl }));
+                  if (setActiveLandlord) setActiveLandlord(prev => ({ ...prev, avatarUrl: newUrl }));
+                }}
                 size={110}
                 compact={true}
               />

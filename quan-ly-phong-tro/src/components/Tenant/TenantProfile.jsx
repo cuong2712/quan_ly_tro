@@ -197,7 +197,10 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
               <div style={{ display: 'inline-block', marginBottom: '10px' }}>
                 <AvatarUploader
                   value={profileData.avatarUrl}
-                  onChange={(newUrl) => setProfileData({ ...profileData, avatarUrl: newUrl })}
+                  onChange={(newUrl) => {
+                    setProfileData(prev => ({ ...prev, avatarUrl: newUrl }));
+                    if (setActiveTenant) setActiveTenant(prev => ({ ...prev, avatarUrl: newUrl }));
+                  }}
                   size={92}
                   compact={true}
                 />

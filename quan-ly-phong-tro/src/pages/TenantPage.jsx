@@ -21,7 +21,7 @@ import { TenantRepair } from '../components/Tenant/TenantRepair';
 import { TenantNotify } from '../components/Tenant/TenantNotify';
 
 export default function TenantPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { notifications, setNotifications } = useNotification();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('tn_dashboard');
@@ -54,7 +54,13 @@ export default function TenantPage() {
     document.body.classList.toggle('light-mode', newTheme === 'light');
   };
 
-  const handleLogout = async () => { await logout(); navigate('/login'); };
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
 
   const [tenantProfileState, setTenantProfileState] = useState({});
 
@@ -86,7 +92,20 @@ export default function TenantPage() {
           />
         );
       case 'tn_profile':
-        return <TenantProfile activeTenant={activeTenant} setActiveTenant={setTenantProfileState} />;
+        return (
+          <TenantProfile
+            activeTenant={activeTenant}
+            setActiveTenant={(updated) => {
+              setTenantProfileState(updated);
+              if (typeof updated === 'function') {
+                const res = updated(activeTenant);
+                updateUser(res);
+              } else {
+                updateUser(updated);
+              }
+            }}
+          />
+        );
       case 'tn_contract':
         return <TenantContract activeTenant={activeTenant} contracts={contracts || []} rooms={[]} setContracts={setContracts} />;
       case 'tn_invoices':

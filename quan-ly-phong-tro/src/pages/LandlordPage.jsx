@@ -99,7 +99,7 @@ const ACTIVE_TABS = new Set([
 ]);
 
 export default function LandlordPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { notifications, setNotifications } = useNotification();
   const navigate = useNavigate();
   const [theme, setTheme] = useState('dark');
@@ -149,7 +149,13 @@ export default function LandlordPage() {
     document.body.classList.toggle('light-mode', newTheme === 'light');
   };
 
-  const handleLogout = async () => { await logout(); navigate('/login'); };
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
 
   const handleRefresh = (relatedTabs = []) => {
     invalidate(activeTab);
@@ -282,7 +288,17 @@ export default function LandlordPage() {
       case 'll_profile':
         return (
           <Suspense fallback={<TabLoader />}>
-            <LandlordProfile activeLandlord={user} setActiveLandlord={() => {}} />
+            <LandlordProfile
+              activeLandlord={user}
+              setActiveLandlord={(updated) => {
+                if (typeof updated === 'function') {
+                  const res = updated(user);
+                  updateUser(res);
+                } else {
+                  updateUser(updated);
+                }
+              }}
+            />
           </Suspense>
         );
       default:

@@ -50,7 +50,13 @@ export default function AdminPage() {
     document.body.classList.toggle('light-mode', newTheme === 'light');
   };
 
-  const handleLogout = async () => { await logout(); navigate('/login'); };
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
 
   const handleRefresh = () => {
     invalidate(activeTab);
