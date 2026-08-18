@@ -123,6 +123,7 @@ export default function TenantPage() {
           notifications={notifications || []}
           activeTenant={activeTenant}
           onLogout={handleLogout}
+          onNavigateProfile={() => setActiveTab('tn_profile')}
           hideRoleSwitcher={true}
         />
         <main className="page-body">

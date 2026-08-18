@@ -31,7 +31,7 @@ public class AdminService(AppDbContext db)
     // Lấy danh sách tài khoản chủ trọ với bộ lọc tìm kiếm theo tên/email/sĐT và trạng thái hoạt động.
     public async Task<IEnumerable<LandlordListDto>> GetLandlordsAsync(string? search = null, bool? isActive = null)
     {
-        var query = db.Users.Where(u => u.Role == UserRole.Landlord).AsQueryable();
+        var query = db.Users.Include(u => u.TenantProfile).Where(u => u.Role == UserRole.Landlord).AsQueryable();
         if (!string.IsNullOrEmpty(search))
             query = query.Where(u => u.FullName.Contains(search) || u.Email.Contains(search) || u.Phone.Contains(search));
         if (isActive.HasValue)
@@ -43,7 +43,12 @@ public class AdminService(AppDbContext db)
         {
             var zonesCount = await db.Zones.CountAsync(z => z.LandlordId == u.Id);
             var roomsCount = await db.Rooms.CountAsync(r => r.Zone.LandlordId == u.Id);
-            result.Add(new LandlordListDto(u.Id, u.FullName, u.Email, u.Phone, u.AvatarUrl, u.IsActive, u.Role.ToString(), zonesCount, roomsCount, u.CreatedAt));
+            result.Add(new LandlordListDto(
+                u.Id, u.FullName, u.Email, u.Phone, u.AvatarUrl, u.IsActive, u.Role.ToString(),
+                zonesCount, roomsCount, u.CreatedAt,
+                u.TenantProfile?.CCCD, u.TenantProfile?.Hometown,
+                u.TenantProfile?.CccdFrontUrl, u.TenantProfile?.CccdBackUrl
+            ));
         }
         return result;
     }
@@ -66,20 +71,25 @@ public class AdminService(AppDbContext db)
         };
         db.Users.Add(user);
         await db.SaveChangesAsync();
-        return new LandlordListDto(user.Id, user.FullName, user.Email, user.Phone, user.AvatarUrl, user.IsActive, user.Role.ToString(), 0, 0, user.CreatedAt);
+        return new LandlordListDto(user.Id, user.FullName, user.Email, user.Phone, user.AvatarUrl, user.IsActive, user.Role.ToString(), 0, 0, user.CreatedAt, null, null, null, null);
     }
 
     // Cập nhật thông tin cá nhân của tài khoản Chủ trọ.
     public async Task<LandlordListDto> UpdateLandlordAsync(Guid id, UpdateLandlordRequest request)
     {
-        var user = await db.Users.FindAsync(id) ?? throw new KeyNotFoundException("Không tìm thấy chủ trọ");
+        var user = await db.Users.Include(u => u.TenantProfile).FirstOrDefaultAsync(u => u.Id == id) ?? throw new KeyNotFoundException("Không tìm thấy chủ trọ");
         user.FullName = request.FullName;
         user.Phone = request.Phone;
         user.AvatarUrl = request.AvatarUrl;
         await db.SaveChangesAsync();
         var zones = await db.Zones.CountAsync(z => z.LandlordId == id);
         var rooms = await db.Rooms.CountAsync(r => r.Zone.LandlordId == id);
-        return new LandlordListDto(user.Id, user.FullName, user.Email, user.Phone, user.AvatarUrl, user.IsActive, user.Role.ToString(), zones, rooms, user.CreatedAt);
+        return new LandlordListDto(
+            user.Id, user.FullName, user.Email, user.Phone, user.AvatarUrl, user.IsActive, user.Role.ToString(),
+            zones, rooms, user.CreatedAt,
+            user.TenantProfile?.CCCD, user.TenantProfile?.Hometown,
+            user.TenantProfile?.CccdFrontUrl, user.TenantProfile?.CccdBackUrl
+        );
     }
 
     // Khóa hoặc mở khóa tài khoản của Chủ trọ.

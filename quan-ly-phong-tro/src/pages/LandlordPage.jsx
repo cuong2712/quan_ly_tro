@@ -301,6 +301,7 @@ export default function LandlordPage() {
           notifications={notifications}
           activeLandlord={user}
           onLogout={handleLogout}
+          onNavigateProfile={() => setActiveTab('ll_profile')}
           hideRoleSwitcher={true}
         />
         <main className="page-body">

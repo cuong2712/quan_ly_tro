@@ -410,8 +410,6 @@ export const CccdCardUploader = ({
   disabled = false
 }) => {
   const [uploading, setUploading] = useState(false);
-  const [showUrlInput, setShowUrlInput] = useState(false);
-  const [tempUrl, setTempUrl] = useState('');
   const [previewZoom, setPreviewZoom] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -436,14 +434,6 @@ export const CccdCardUploader = ({
       alert(`Lỗi tải ${label} lên: ` + (err.response?.data?.message || err.message));
     } finally {
       setUploading(false);
-    }
-  };
-
-  const handleApplyUrl = () => {
-    if (tempUrl.trim()) {
-      onChange(tempUrl.trim());
-      setTempUrl('');
-      setShowUrlInput(false);
     }
   };
 
@@ -539,24 +529,14 @@ export const CccdCardUploader = ({
             <ImageIcon size={32} style={{ margin: '0 auto 6px', color: '#64748b' }} />
             <div style={{ fontSize: '12px', marginBottom: '8px' }}>Chưa có ảnh {label.toLowerCase()}</div>
             {!disabled && (
-              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  style={{ fontSize: '12px', padding: '4px 10px' }}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload size={13} /> Tải ảnh lên
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  style={{ fontSize: '12px', padding: '4px 10px' }}
-                  onClick={() => setShowUrlInput(!showUrlInput)}
-                >
-                  <Link size={13} /> Dán URL
-                </button>
-              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                style={{ fontSize: '12px', padding: '5px 14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={13} /> Tải ảnh lên
+              </button>
             )}
           </div>
         )}
@@ -570,37 +550,6 @@ export const CccdCardUploader = ({
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
-
-      {/* Direct URL Input Popup */}
-      {showUrlInput && (
-        <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-          <input
-            type="url"
-            className="form-control"
-            style={{ fontSize: '12px', padding: '4px 8px', height: '30px' }}
-            placeholder={`Dán link ảnh ${label}...`}
-            value={tempUrl}
-            onChange={(e) => setTempUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyUrl(); } }}
-          />
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            style={{ height: '30px', padding: '0 8px' }}
-            onClick={handleApplyUrl}
-          >
-            <Check size={13} />
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-secondary"
-            style={{ height: '30px', padding: '0 8px' }}
-            onClick={() => setShowUrlInput(false)}
-          >
-            <X size={13} />
-          </button>
-        </div>
-      )}
 
       {/* Lightbox Modal */}
       {previewZoom && (

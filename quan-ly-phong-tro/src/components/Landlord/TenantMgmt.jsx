@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserCheck, Plus, Search, Edit, Trash2, ArrowRightLeft, FileText, Upload, Eye, Shield, Bike, Image as ImageIcon } from 'lucide-react';
-import { formatVND, formatDate, getImageUrl } from '../../utils/formatters';
+import { formatVND, formatDate, getImageUrl, sanitizeCccd, isValidCccd } from '../../utils/formatters';
 import { tenantService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 import { AvatarUploader, CccdCardUploader, ImageLightboxModal } from '../Common/ImageUploader';
@@ -123,6 +123,10 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
     }
     if (!formData.roomId) {
       alert('Vui lòng chọn phòng để xếp khách thuê vào');
+      return;
+    }
+    if (formData.cccd && !isValidCccd(formData.cccd)) {
+      alert('Số CCCD không hợp lệ! Vui lòng nhập đúng 12 chữ số và bắt đầu bằng số 0 (VD: 001201012345).');
       return;
     }
 
@@ -492,10 +496,17 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                       type="text"
                       className="form-control"
                       required
-                      placeholder="12 chữ số CCCD"
+                      maxLength={12}
+                      inputMode="numeric"
+                      placeholder="VD: 001201012345 (12 số, bắt đầu bằng 0)"
                       value={formData.cccd}
-                      onChange={(e) => setFormData({ ...formData, cccd: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, cccd: sanitizeCccd(e.target.value) })}
                     />
+                    <small style={{ fontSize: '11px', color: formData.cccd && !isValidCccd(formData.cccd) ? '#ef4444' : 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      {formData.cccd && !isValidCccd(formData.cccd)
+                        ? '⚠️ CCCD phải gồm đúng 12 chữ số và bắt đầu bằng số 0'
+                        : 'CCCD 12 số chuẩn, chỉ nhận số và bắt đầu bằng 0'}
+                    </small>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Quê Quán</label>

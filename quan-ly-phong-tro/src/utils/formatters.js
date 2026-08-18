@@ -152,3 +152,20 @@ export const exportToPDF = async (elementId, fileName = 'Document.pdf') => {
     element.classList.remove('pdf-export-active');
   }
 };
+
+// ─── CHUẨN HÓA & KIỂM TRA SỐ CCCD ──────────────────────────────────
+// Chuẩn hóa và làm sạch số CCCD (chỉ nhận số, tối đa 12 số, luôn bắt đầu bằng số 0)
+export const sanitizeCccd = (raw) => {
+  if (!raw) return '';
+  let digits = String(raw).replace(/\D/g, '').slice(0, 12);
+  if (digits.length > 0 && digits[0] !== '0') {
+    digits = '0' + digits.slice(0, 11);
+  }
+  return digits;
+};
+
+// Kiểm tra tính hợp lệ của số CCCD (đúng 12 chữ số và bắt đầu bằng số 0)
+export const isValidCccd = (cccd) => {
+  if (!cccd) return false;
+  return /^0\d{11}$/.test(String(cccd).trim());
+};

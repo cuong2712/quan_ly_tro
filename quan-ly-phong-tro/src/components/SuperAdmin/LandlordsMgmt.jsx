@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Users, Plus, Search, Lock, Unlock, KeyRound, Edit, Trash2 } from 'lucide-react';
+import {
+  Users, Plus, Search, Lock, Unlock, KeyRound,
+  Edit, Eye, CreditCard, ShieldCheck, AlertCircle, X, MapPin, Mail, Phone, Building2
+} from 'lucide-react';
 import { adminService } from '../../services';
 
 const normalizeLandlord = (landlord) => ({
@@ -9,6 +12,10 @@ const normalizeLandlord = (landlord) => ({
   status: landlord.status ?? (landlord.isActive === false ? 'locked' : 'active'),
   zonesCount: landlord.zonesCount ?? 0,
   roomsCount: landlord.roomsCount ?? 0,
+  cccd: landlord.cccd ?? '',
+  hometown: landlord.hometown ?? '',
+  cccdFrontUrl: landlord.cccdFrontUrl ?? '',
+  cccdBackUrl: landlord.cccdBackUrl ?? '',
 });
 
 export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
@@ -16,6 +23,7 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLandlord, setEditingLandlord] = useState(null);
+  const [viewingCccdLandlord, setViewingCccdLandlord] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -32,7 +40,8 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
   const filteredLandlords = landlordRows.filter(l => {
     const matchesSearch = l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (l.phone ?? '').includes(searchTerm) ||
-                          (l.email ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+                          (l.email ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (l.cccd ?? '').includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || l.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -49,16 +58,6 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
-    if (confirm('Bạn có chắc chắn muốn xóa tài khoản này?')) {
-      try {
-        setLandlords(landlords.filter(l => l.id !== id));
-      } catch (err) {
-        alert('Lỗi: ' + err.message);
-      }
-    }
-  };
-
   const handleToggleLock = async (id) => {
     try {
       await adminService.toggleLock(id);
@@ -70,8 +69,6 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
       alert('Lỗi: ' + (err.response?.data?.message || err.message));
     }
   };
-
-  const toggleLockStatus = handleToggleLock;
 
   const handleResetPassword = async (id) => {
     try {
@@ -121,7 +118,7 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
       <div className="page-header">
         <div>
           <h2 className="page-title"><Users size={24} color="#6366f1" /> Quản Lý Tài Khoản Chủ Trọ</h2>
-          <p className="page-subtitle">Thêm mới, phân quyền, đặt lại mật khẩu và khóa/mở khóa tài khoản chủ trọ</p>
+          <p className="page-subtitle">Thêm mới, phân quyền, kiểm tra CCCD định danh, đặt lại mật khẩu và khóa/mở khóa</p>
         </div>
         <button className="btn btn-primary" onClick={handleOpenAddModal}>
           <Plus size={18} /> Thêm Chủ Trọ Mới
@@ -135,7 +132,7 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
             <Search size={18} color="var(--text-muted)" />
             <input
               type="text"
-              placeholder="Tìm theo tên, số điện thoại, email..."
+              placeholder="Tìm theo tên, SĐT, email, số CCCD..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -160,9 +157,9 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
               <th>Mã ID</th>
               <th>Chủ Trọ</th>
               <th>Số Điện Thoại</th>
+              <th>Định Danh CCCD</th>
               <th>Email</th>
               <th>Khu Trọ / Phòng</th>
-              <th>Phân Quyền</th>
               <th>Trạng Thái</th>
               <th>Thao Tác</th>
             </tr>
@@ -174,19 +171,48 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     {l.avatar ? (
-                      <img src={l.avatar} alt={l.name} style={{ width: '36px', height: '36px', borderRadius: '50%' }} />
+                      <img src={l.avatar} alt={l.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: '36px', height: '36px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: '#6366f1', color: 'white', fontWeight: 700 }}>
                         {l.name.charAt(0).toUpperCase() || '?'}
                       </div>
                     )}
-                    <span style={{ fontWeight: '600' }}>{l.name}</span>
+                    <div>
+                      <div style={{ fontWeight: '600' }}>{l.name}</div>
+                      {l.hometown && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{l.hometown}</div>}
+                    </div>
                   </div>
                 </td>
                 <td>{l.phone}</td>
+                <td>
+                  {l.cccd ? (
+                    <button
+                      onClick={() => setViewingCccdLandlord(l)}
+                      style={{
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        color: '#10b981',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer'
+                      }}
+                      title="Bấm để xem ảnh CCCD 2 mặt của chủ trọ"
+                    >
+                      <CreditCard size={13} />
+                      <span>{l.cccd}</span>
+                      <Eye size={12} style={{ opacity: 0.7 }} />
+                    </button>
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Chưa nộp CCCD</span>
+                  )}
+                </td>
                 <td>{l.email}</td>
                 <td>{l.zonesCount} Khu / {l.roomsCount} Phòng</td>
-                <td><span className="role-badge landlord">{l.role}</span></td>
                 <td>
                   <span className={`status-pill ${l.status}`}>
                     {l.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
@@ -215,10 +241,90 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
         </table>
       </div>
 
+      {/* Modal Xem Hồ Sơ & CCCD 2 mặt của Chủ Trọ */}
+      {viewingCccdLandlord && (
+        <div className="modal-overlay" onClick={() => setViewingCccdLandlord(null)}>
+          <div className="modal-content" style={{ maxWidth: '650px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CreditCard size={20} color="#10b981" />
+                Hồ Sơ Định Danh CCCD - {viewingCccdLandlord.name}
+              </h3>
+              <button className="btn btn-sm btn-secondary" onClick={() => setViewingCccdLandlord(null)}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="modal-body" style={{ padding: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--bg-dark)', padding: '16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid var(--border-color)' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Số CCCD:</div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>{viewingCccdLandlord.cccd || 'Chưa có'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Số Điện Thoại:</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>{viewingCccdLandlord.phone}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Email:</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>{viewingCccdLandlord.email}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Địa Chỉ / Quê Quán:</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>{viewingCccdLandlord.hometown || 'Chưa cập nhật'}</div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'var(--text-primary)' }}>
+                Ảnh Chụp CCCD 2 Mặt:
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px', background: 'var(--bg-dark)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>Mặt Trước CCCD</div>
+                  {viewingCccdLandlord.cccdFrontUrl ? (
+                    <img
+                      src={viewingCccdLandlord.cccdFrontUrl}
+                      alt="CCCD Mặt Trước"
+                      style={{ width: '100%', height: '170px', objectFit: 'cover', borderRadius: '8px' }}
+                    />
+                  ) : (
+                    <div style={{ height: '170px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      Chưa tải ảnh mặt trước
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px', background: 'var(--bg-dark)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>Mặt Sau CCCD</div>
+                  {viewingCccdLandlord.cccdBackUrl ? (
+                    <img
+                      src={viewingCccdLandlord.cccdBackUrl}
+                      alt="CCCD Mặt Sau"
+                      style={{ width: '100%', height: '170px', objectFit: 'cover', borderRadius: '8px' }}
+                    />
+                  ) : (
+                    <div style={{ height: '170px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      Chưa tải ảnh mặt sau
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setViewingCccdLandlord(null)}>
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">{editingLandlord ? 'Chỉnh Sửa Thông Tin Chủ Trọ' : 'Thêm Tài Khoản Chủ Trọ Mới'}</h3>
               <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>X</button>

@@ -554,6 +554,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
+
   return (
     <div>
       {/* Header */}
@@ -578,6 +579,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
         <div
           className="card"
           onClick={() => setFilterStatus('all')}
+
           style={{
             padding: '16px', cursor: 'pointer', borderRadius: '12px',
             border: filterStatus === 'all' ? '2px solid #6366f1' : '1px solid var(--border-color)',

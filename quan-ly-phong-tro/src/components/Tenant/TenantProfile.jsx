@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { UserCheck, Key, Car, Check, User, CreditCard, Building2, Home, Phone, Mail, MapPin, ShieldCheck, Bike, Sparkles } from 'lucide-react';
 import { profileService } from '../../services';
 import { AvatarUploader, CccdCardUploader } from '../Common/ImageUploader';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, sanitizeCccd, isValidCccd } from '../../utils/formatters';
 
 export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   const [profileData, setProfileData] = useState({
     fullName: activeTenant?.fullName || activeTenant?.name || '',
     phone: activeTenant?.phone || '',
     email: activeTenant?.email || '',
-    avatarUrl: activeTenant?.avatarUrl || activeTenant?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+    avatarUrl: activeTenant?.avatarUrl || activeTenant?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
     cccd: activeTenant?.cccd || '',
     hometown: activeTenant?.hometown || '',
     cccdFrontUrl: activeTenant?.cccdFrontUrl || '',
     cccdBackUrl: activeTenant?.cccdBackUrl || '',
+    role: activeTenant?.role || 'Tenant',
+    createdAt: activeTenant?.createdAt || null,
     roomNumber: activeTenant?.roomNumber || '',
     zoneName: activeTenant?.zoneName || '',
     moveInDate: activeTenant?.moveInDate || '',
@@ -45,6 +47,8 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
           hometown: p.hometown || prev.hometown,
           cccdFrontUrl: p.cccdFrontUrl || prev.cccdFrontUrl,
           cccdBackUrl: p.cccdBackUrl || prev.cccdBackUrl,
+          role: p.role || 'Tenant',
+          createdAt: p.createdAt || prev.createdAt,
           roomNumber: p.roomNumber || prev.roomNumber,
           zoneName: p.zoneName || prev.zoneName,
         }));
@@ -70,6 +74,10 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
+    if (profileData.cccd && !isValidCccd(profileData.cccd)) {
+      alert('Số CCCD không hợp lệ! Vui lòng nhập đúng 12 chữ số và bắt đầu bằng số 0 (VD: 001201012345).');
+      return;
+    }
     setSavingInfo(true);
     try {
       const updated = await profileService.updateProfile({
@@ -383,10 +391,17 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
                     type="text"
                     className="form-control"
                     required
-                    placeholder="Nhập 12 chữ số CCCD"
+                    maxLength={12}
+                    inputMode="numeric"
+                    placeholder="VD: 001201012345 (12 số, bắt đầu bằng 0)"
                     value={profileData.cccd}
-                    onChange={(e) => setProfileData({ ...profileData, cccd: e.target.value })}
+                    onChange={(e) => setProfileData({ ...profileData, cccd: sanitizeCccd(e.target.value) })}
                   />
+                  <small style={{ fontSize: '11px', color: profileData.cccd && !isValidCccd(profileData.cccd) ? '#ef4444' : 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                    {profileData.cccd && !isValidCccd(profileData.cccd)
+                      ? '⚠️ CCCD phải gồm đúng 12 chữ số và bắt đầu bằng số 0'
+                      : 'CCCD 12 số chuẩn, chỉ nhận số và bắt đầu bằng 0'}
+                  </small>
                 </div>
               </div>
 

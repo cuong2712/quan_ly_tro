@@ -13,8 +13,9 @@ const NAV_ITEMS = {
   ],
   landlord: [
     { id: 'll_dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+    { id: 'll_profile', label: 'Hồ sơ cá nhân', icon: UserCheck },
     { id: 'll_zones', label: 'Khu trọ & phòng', icon: Building2 },
-    { id: 'll_tenants', label: 'Người thuê', icon: UserCheck },
+    { id: 'll_tenants', label: 'Người thuê', icon: Users },
     { id: 'll_contracts', label: 'Hợp đồng', icon: FileText },
     { id: 'll_invoices', label: 'Hóa đơn', icon: Receipt },
     { id: 'll_payments', label: 'Thanh toán', icon: CreditCard },

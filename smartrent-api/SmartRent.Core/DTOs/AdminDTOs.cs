@@ -17,7 +17,9 @@ public record SystemStatsDto(
 public record LandlordListDto(
     Guid Id, string FullName, string Email, string Phone,
     string? AvatarUrl, bool IsActive, string Role,
-    int ZonesCount, int RoomsCount, DateTime CreatedAt
+    int ZonesCount, int RoomsCount, DateTime CreatedAt,
+    string? Cccd = null, string? Hometown = null,
+    string? CccdFrontUrl = null, string? CccdBackUrl = null
 );
 
 public record CreateLandlordRequest(

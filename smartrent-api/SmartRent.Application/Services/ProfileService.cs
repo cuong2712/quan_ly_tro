@@ -57,7 +57,7 @@ public class ProfileService(AppDbContext db)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .FirstOrDefaultAsync(t => t.UserId == userId);
 
-        if (tp == null && u.Role == Core.Enums.UserRole.Tenant)
+        if (tp == null && (req.Cccd != null || req.Hometown != null || req.CccdFrontUrl != null || req.CccdBackUrl != null || u.Role == Core.Enums.UserRole.Tenant))
         {
             tp = new Core.Entities.TenantProfile
             {

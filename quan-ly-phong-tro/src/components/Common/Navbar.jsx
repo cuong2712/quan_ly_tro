@@ -266,6 +266,16 @@ export const Navbar = ({
                 </div>
               </div>
               <div className="dropdown-divider" />
+              {onNavigateProfile && (
+                <button
+                  className="user-dropdown-item"
+                  onClick={() => { onNavigateProfile(); setShowUserDropdown(false); }}
+                  style={{ color: '#10b981', fontWeight: 600 }}
+                >
+                  <User size={16} color="#10b981" />
+                  <span>Hồ sơ cá nhân</span>
+                </button>
+              )}
               <button
                 className="user-dropdown-item theme-item"
                 onClick={() => { toggleTheme(); setShowUserDropdown(false); }}
