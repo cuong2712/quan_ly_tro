@@ -16,7 +16,8 @@ public record RoomDto(
     string? Description, string? Amenities, DateTime CreatedAt,
     string? CurrentTenantName,
     List<RoomEquipmentDto>? Equipments = null,
-    decimal ServiceFee = 0
+    decimal ServiceFee = 0,
+    string? CurrentTenantPhone = null
 );
 
 public record CreateRoomRequest(

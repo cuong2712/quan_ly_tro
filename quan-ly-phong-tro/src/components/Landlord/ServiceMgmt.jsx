@@ -255,27 +255,63 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
         </table>
       </div>
 
-      {/* Modal Add / Edit */}
+      {/* Modal Add / Edit (Hiển thị ngay chính giữa màn hình) */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div
+          className="modal-overlay"
+          onClick={() => setIsModalOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '560px',
+              width: '100%',
+              background: 'var(--bg-card)',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              margin: 'auto',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
             <div className="modal-header">
               <h3 className="modal-title">
                 {editingService ? 'Chỉnh Sửa Dịch Vụ' : 'Thêm Dịch Vụ Mới'}
               </h3>
-              <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>
-                X
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary"
+                onClick={() => setIsModalOpen(false)}
+                style={{ borderRadius: '50%', width: 32, height: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ✕
               </button>
             </div>
             <form onSubmit={handleSave}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Tên Dịch Vụ</label>
+                  <label className="form-label">Tên Dịch Vụ *</label>
                   <input
                     type="text"
                     className="form-control"
                     required
-                    placeholder="VD: Internet Wi-Fi, Giữ xe..."
+                    placeholder="VD: Internet Wi-Fi, Giữ xe máy, Vệ sinh..."
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
@@ -299,12 +335,12 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Đơn Giá (VND)</label>
+                    <label className="form-label">Đơn Giá (VND) *</label>
                     <input
                       type="number"
                       className="form-control"
                       required
-                      step="5000"
+                      step="1000"
                       min="0"
                       value={formData.price}
                       onChange={(e) =>
@@ -370,7 +406,7 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? <Loader2 className="animate-spin" size={16} /> : 'Lưu Dịch Vụ'}
+                  {saving ? <Loader2 className="animate-spin" size={16} /> : (editingService ? 'Cập Nhật Dịch Vụ' : 'Lưu Dịch Vụ Mới')}
                 </button>
               </div>
             </form>

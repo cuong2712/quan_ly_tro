@@ -644,23 +644,40 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                           {formatVND(r.price)}<span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', marginLeft: 3 }}>/tháng</span>
                         </div>
 
-                        {/* Chỉ số Điện / Nước - Phân bổ 2 bên cân đối */}
-                        <div className="meter-box" style={{
+                        {/* Người Đại Diện Phòng Trọ (Người đầu tiên vào trọ) */}
+                        <div className="rep-tenant-box" style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
+                          gap: 10,
                           fontSize: 13.5,
                           padding: '10px 14px',
                           borderRadius: 10,
                           border: '1px solid var(--border-color)',
-                          background: 'var(--bg-dark)'
+                          background: 'var(--bg-dark)',
+                          minHeight: 44
                         }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)', fontWeight: 500 }}>
-                            <Zap size={16} color="#f59e0b" style={{ flexShrink: 0 }} /> Điện: <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{r.elecMeter} kWh</strong>
-                          </span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)', fontWeight: 500 }}>
-                            <Droplets size={16} color="#06b6d4" style={{ flexShrink: 0 }} /> Nước: <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{r.waterMeter} m³</strong>
-                          </span>
+                          {r.currentTenantName ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden', width: '100%', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 7, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                <User size={16} color="#10b981" style={{ flexShrink: 0 }} />
+                                <span style={{ fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis' }} title={r.currentTenantName}>
+                                  {r.currentTenantName}
+                                </span>
+                              </div>
+                              {r.currentTenantPhone ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#10b981', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                                  <Phone size={13} /> {r.currentTenantPhone}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>Đại diện</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>
+                              <User size={15} style={{ opacity: 0.5 }} /> Chưa có người ở
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -776,7 +793,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
   // Meter form state
   const [meterForm, setMeterForm] = useState({ month: '08/2026', newElec: room.elecMeter || 0, newWater: room.waterMeter || 0 });
-  
+
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
     month: '08/2026',
@@ -801,6 +818,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
   });
 
   const [maintenanceLogs, setMaintenanceLogs] = useState([]);
+  const [utilityRates, setUtilityRates] = useState(null);
+  const [zoneServices, setZoneServices] = useState([]);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [eqForm, setEqForm] = useState({ name: '', brand: '', quantity: 1, condition: 'Mới 100%' });
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
@@ -813,8 +832,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
       setRoomDetail(detail);
       if (detail) {
         setMeterForm(prev => ({ ...prev, newElec: detail.elecMeter || room.elecMeter, newWater: detail.waterMeter || room.waterMeter }));
-        setInvoiceForm(prev => ({ 
-          ...prev, 
+        setInvoiceForm(prev => ({
+          ...prev,
           rentFee: detail.price || room.price
         }));
         setEditForm({
@@ -834,6 +853,19 @@ const RoomDetail = ({ room, zone, onBack }) => {
     }
 
     try {
+      const [rateRes, servRes] = await Promise.all([
+        utilityService.getRate().catch(() => null),
+        serviceMgmtService.getServices().catch(() => [])
+      ]);
+      if (rateRes) setUtilityRates(rateRes);
+      if (Array.isArray(servRes)) {
+        setZoneServices(servRes.filter(s => !s.zoneId || s.zoneId === zone.id));
+      }
+    } catch (err) {
+      console.warn('Lỗi lấy đơn giá / dịch vụ:', err);
+    }
+
+    try {
       const mRes = await maintenanceService.getRequests();
       if (Array.isArray(mRes)) {
         setMaintenanceLogs(mRes.filter(m => m.roomId === room.id));
@@ -843,7 +875,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
     } finally {
       setLoading(false);
     }
-  }, [room.id, room.elecMeter, room.waterMeter, room.price, room.roomNumber, room.floor, room.area, room.maxTenants, room.status, room.description]);
+  }, [room.id, room.elecMeter, room.waterMeter, room.price, room.roomNumber, room.floor, room.area, room.maxTenants, room.status, room.description, zone.id]);
 
   useEffect(() => {
     loadDetail();
@@ -991,7 +1023,10 @@ const RoomDetail = ({ room, zone, onBack }) => {
   };
 
   const sc = STATUS_CONFIG[roomDetail?.status || room.status] || STATUS_CONFIG.Vacant;
-  const tenants = roomDetail?.tenants || (roomDetail?.currentTenant ? [roomDetail.currentTenant] : []);
+  const rawTenants = roomDetail?.tenants || (roomDetail?.currentTenant ? [roomDetail.currentTenant] : []);
+  const tenants = Array.isArray(rawTenants)
+    ? [...rawTenants].sort((a, b) => new Date(a.moveInDate || a.createdAt || 0) - new Date(b.moveInDate || b.createdAt || 0))
+    : [];
   const mainTenant = tenants[0];
   const activeContract = roomDetail?.activeContract;
   const recentInvoices = roomDetail?.recentInvoices || [];
@@ -1136,7 +1171,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
       </header>
 
       {/* 🧭 SUB TABS NAV */}
-      <div className="tabs-nav">
+      <div className="tabs-nav" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
           <LayoutGrid size={18} /> Tổng Quan & Tiện Nghi
         </button>
@@ -1179,19 +1214,24 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 </div>
                 <div className="data-item">
                   <span className="data-label">Đơn giá Điện</span>
-                  <span className="data-val" style={{ color: '#10b981', fontWeight: 700 }}>3.500 đ / kWh</span>
+                  <span className="data-val" style={{ color: '#10b981', fontWeight: 700 }}>
+                    {formatVND(utilityRates?.elecPrice ?? 3500)} / kWh
+                  </span>
                 </div>
                 <div className="data-item">
                   <span className="data-label">Đơn giá Nước</span>
-                  <span className="data-val" style={{ color: '#3b82f6', fontWeight: 700 }}>25.000 đ / m³</span>
-                </div>
-                <div className="data-item">
-                  <span className="data-label">Phí rác & vệ sinh</span>
-                  <span className="data-val">50.000 đ / phòng</span>
+                  <span className="data-val" style={{ color: '#3b82f6', fontWeight: 700 }}>
+                    {formatVND(utilityRates?.waterPrice ?? 18000)} / m³
+                  </span>
                 </div>
                 <div className="data-item">
                   <span className="data-label">Internet / Wifi</span>
-                  <span className="data-val" style={{ color: '#6366f1', fontWeight: 700 }}>Miễn phí (Gói 200Mbps)</span>
+                  <span className="data-val" style={{ color: '#6366f1', fontWeight: 700 }}>
+                    {(() => {
+                      const wifi = zoneServices.find(s => s.name?.toLowerCase().includes('wifi') || s.name?.toLowerCase().includes('internet'));
+                      return wifi ? `${formatVND(wifi.price)} / ${wifi.unit}` : 'Miễn phí (Gói 200Mbps)';
+                    })()}
+                  </span>
                 </div>
               </div>
 
@@ -1482,8 +1522,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
                             {isPaid ? '✅ Đã trả' : '⏳ Chưa thanh toán'}
                           </span>
                         </div>
-                        <button 
-                          className="btn btn-sm btn-danger" 
+                        <button
+                          className="btn btn-sm btn-danger"
                           title="Xóa hóa đơn để test lại"
                           style={{ width: 32, height: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}
                           onClick={async () => {
@@ -1560,8 +1600,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
       )}
       {/* ⚡ MODAL CHỐT ĐIỆN NƯỚC */}
       {showMeterModal && (
-        <div className="modal-backdrop" onClick={() => setShowMeterModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <div className="modal-backdrop" onClick={() => setShowMeterModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Zap size={20} color="#f59e0b" /> Chốt Chỉ Số Điện / Nước
@@ -1622,8 +1662,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
       {/* 📄 MODAL LẬP HÓA ĐƠN */}
       {showInvoiceModal && (
-        <div className="modal-backdrop" onClick={() => setShowInvoiceModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+        <div className="modal-backdrop" onClick={() => setShowInvoiceModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 540, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <FilePlus size={20} color="#10b981" /> Lập Hóa Đơn Tháng Mới
@@ -1698,8 +1738,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
       {/* ✏️ MODAL SỬA PHÒNG */}
       {showEditModal && (
-        <div className="modal-backdrop" onClick={() => setShowEditModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
+        <div className="modal-backdrop" onClick={() => setShowEditModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 540, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Edit3 size={20} color="#6366f1" /> Chỉnh Sửa Thông Tin Phòng
@@ -1750,8 +1790,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
       {/* 📦 MODAL THÊM THIẾT BỊ BÀN GIAO */}
       {showEquipmentModal && (
-        <div className="modal-backdrop" onClick={() => setShowEquipmentModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+        <div className="modal-backdrop" onClick={() => setShowEquipmentModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Box size={20} color="#6366f1" /> Thêm Thiết Bị Bàn Giao
@@ -1796,8 +1836,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
       {/* 🛠️ MODAL TẠO BÁO LỖI / BẢO TRÌ */}
       {showMaintenanceModal && (
-        <div className="modal-backdrop" onClick={() => setShowMaintenanceModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <div className="modal-backdrop" onClick={() => setShowMaintenanceModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Wrench size={20} color="#f43f5e" /> Tạo Yêu Cầu Bảo Trì Mới

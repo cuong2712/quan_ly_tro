@@ -242,11 +242,16 @@ public class RoomService(AppDbContext db)
         return true;
     }
 
-    private static RoomDto MapRoom(Room r) => new(
-        r.Id, r.ZoneId, r.Zone?.Name ?? "", r.RoomNumber, r.Floor, r.Price, r.Area, r.MaxTenants,
-        r.Status.ToString(), r.ElecMeter, r.WaterMeter, r.Description, r.Amenities, r.CreatedAt,
-        r.Tenants.FirstOrDefault()?.User?.FullName,
-        r.Equipments?.Select(e => new RoomEquipmentDto(e.Id, e.RoomId, e.Name, e.Brand, e.Quantity, e.Condition)).ToList(),
-        r.ServiceFee
-    );
+    private static RoomDto MapRoom(Room r)
+    {
+        var repTenant = r.Tenants?.OrderBy(t => t.MoveInDate ?? t.CreatedAt).FirstOrDefault();
+        return new(
+            r.Id, r.ZoneId, r.Zone?.Name ?? "", r.RoomNumber, r.Floor, r.Price, r.Area, r.MaxTenants,
+            r.Status.ToString(), r.ElecMeter, r.WaterMeter, r.Description, r.Amenities, r.CreatedAt,
+            repTenant?.User?.FullName,
+            r.Equipments?.Select(e => new RoomEquipmentDto(e.Id, e.RoomId, e.Name, e.Brand, e.Quantity, e.Condition)).ToList(),
+            r.ServiceFee,
+            repTenant?.User?.Phone
+        );
+    }
 }
