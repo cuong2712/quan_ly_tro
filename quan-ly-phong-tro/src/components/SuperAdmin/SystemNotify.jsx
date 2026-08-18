@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BellRing, Plus, Edit, Trash2, Send, Users, Home, User } from 'lucide-react';
 import { notificationService } from '../../services';
+import { formatDateTime } from '../../utils/formatters';
 
 export const SystemNotify = ({ notifications, setNotifications, onRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -128,7 +129,7 @@ export const SystemNotify = ({ notifications, setNotifications, onRefresh }) => 
                       {TARGET_OPTIONS.find(t => t.value === n.target)?.label || n.target || 'Hệ thống'}
                     </span>
                   </td>
-                  <td style={{ fontSize: 12 }}>{new Date(n.createdAt).toLocaleDateString('vi-VN')}</td>
+                  <td style={{ fontSize: 12 }}>{formatDateTime(n.createdAt)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button className="btn btn-sm btn-secondary" onClick={() => handleOpenEdit(n)} title="Sửa">

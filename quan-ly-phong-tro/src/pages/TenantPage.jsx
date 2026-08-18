@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../styles/main.css';
 import { Navbar } from '../components/Common/Navbar';
 import { Sidebar } from '../components/Common/Sidebar';
@@ -26,6 +26,20 @@ export default function TenantPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('tn_dashboard');
   const [theme, setTheme] = useState('dark');
+
+  // Lắng nghe sự kiện chuyển tab tự động khi bấm thông báo
+  useEffect(() => {
+    const handleSwitchTab = (e) => {
+      let target = e.detail?.tab;
+      if (target === 'tn_contracts') target = 'tn_contract';
+      if (target === 'tn_repair') target = 'tn_repairs';
+      if (target) {
+        setActiveTab(target);
+      }
+    };
+    window.addEventListener('smartrent:switch-tab', handleSwitchTab);
+    return () => window.removeEventListener('smartrent:switch-tab', handleSwitchTab);
+  }, []);
 
   // ── Fetch dữ liệu từ API thật ────────────────────────────────
   const { data: dashboard, refetch: refetchDashboard } = useApi(() => dashboardService.getTenantDashboard(), []);

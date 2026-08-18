@@ -32,19 +32,28 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
                 role == "SuperAdmin")
             .OrderByDescending(n => n.CreatedAt).ToListAsync();
 
-        return notifications.Select(n => new NotificationDto(n.Id, n.Sender?.FullName ?? "Hệ thống", n.Title, n.Content, n.Target.ToString(), n.TargetId, n.Reads.Any(r => r.IsRead), n.CreatedAt));
+        return notifications.Select(n => new NotificationDto(
+            n.Id, 
+            n.Sender?.FullName ?? "Hệ thống", 
+            n.Title, 
+            n.Content, 
+            n.Target.ToString(), 
+            n.TargetId, 
+            n.Reads.Any(r => r.IsRead), 
+            DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc)
+        ));
     }
 
     // Tạo thông báo mới và phát tán Realtime qua SignalR
     public async Task<NotificationDto> CreateAsync(Guid senderId, CreateNotificationRequest req)
     {
         var target = Enum.Parse<NotificationTarget>(req.Target);
-        var n = new Notification { SenderId = senderId, Title = req.Title, Content = req.Content, Target = target, TargetId = req.TargetId };
+        var n = new Notification { SenderId = senderId, Title = req.Title, Content = req.Content, Target = target, TargetId = req.TargetId, CreatedAt = DateTime.UtcNow };
         db.Notifications.Add(n);
         await db.SaveChangesAsync();
 
         var sender = await db.Users.FindAsync(senderId);
-        var dto = new NotificationDto(n.Id, sender?.FullName ?? "Hệ thống", n.Title, n.Content, n.Target.ToString(), n.TargetId, false, n.CreatedAt);
+        var dto = new NotificationDto(n.Id, sender?.FullName ?? "Hệ thống", n.Title, n.Content, n.Target.ToString(), n.TargetId, false, DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc));
 
         // Phát thông báo Realtime
         await notifier.SendNotificationAsync(dto);
@@ -71,7 +80,7 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
         var sender = await db.Users.FindAsync(senderId);
         if (sender != null) senderName = sender.FullName;
 
-        var dto = new NotificationDto(n.Id, senderName, n.Title, n.Content, n.Target.ToString(), n.TargetId, false, n.CreatedAt);
+        var dto = new NotificationDto(n.Id, senderName, n.Title, n.Content, n.Target.ToString(), n.TargetId, false, DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc));
         await notifier.SendNotificationAsync(dto);
         return dto;
     }

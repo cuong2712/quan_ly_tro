@@ -12,7 +12,11 @@ public class RealtimeNotifier(IHubContext<NotificationHub> hubContext, ILogger<R
     {
         try
         {
-            await hubContext.Clients.User(userId.ToString()).SendAsync("ReceiveNotification", notification);
+            var strId = userId.ToString();
+            var strLower = strId.ToLower();
+            // Gửi cả qua User ID và qua group của user để đảm bảo 100% nhận được
+            await hubContext.Clients.Users(strId, strLower).SendAsync("ReceiveNotification", notification);
+            await hubContext.Clients.Groups(strId, strLower, $"user_{strLower}").SendAsync("ReceiveNotification", notification);
         }
         catch (Exception ex)
         {
@@ -24,7 +28,7 @@ public class RealtimeNotifier(IHubContext<NotificationHub> hubContext, ILogger<R
     {
         try
         {
-            await hubContext.Clients.Group(role).SendAsync("ReceiveNotification", notification);
+            await hubContext.Clients.Groups(role, role.ToLower(), role.ToUpper()).SendAsync("ReceiveNotification", notification);
         }
         catch (Exception ex)
         {

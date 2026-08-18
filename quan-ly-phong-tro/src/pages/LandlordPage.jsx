@@ -119,6 +119,18 @@ export default function LandlordPage() {
 
   const { getTabData, loadingTabs, errorTabs, invalidate } = useTabData();
 
+  // Lắng nghe sự kiện chuyển tab tự động khi bấm thông báo
+  useEffect(() => {
+    const handleSwitchTab = (e) => {
+      const target = e.detail?.tab;
+      if (target && ACTIVE_TABS.has(target)) {
+        setActiveTab(target);
+      }
+    };
+    window.addEventListener('smartrent:switch-tab', handleSwitchTab);
+    return () => window.removeEventListener('smartrent:switch-tab', handleSwitchTab);
+  }, []);
+
   useEffect(() => {
     const fetchers = TAB_FETCHERS[activeTab];
     if (!fetchers || Object.keys(fetchers).length === 0) return;

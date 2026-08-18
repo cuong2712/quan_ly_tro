@@ -6,16 +6,62 @@ export const formatVND = (amount) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 };
 
-// Định dạng Ngày Tháng (YYYY-MM-DD -> DD/MM/YYYY)
+// Chuẩn hóa chuỗi thời gian đảm bảo tính toán chính xác theo UTC -> Múi giờ Việt Nam (GMT+7)
+export const parseVietnamDate = (dateStr) => {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return dateStr;
+  let str = String(dateStr).trim();
+  // Nếu là chuỗi ISO nhưng thiếu timezone indicator ('Z' hoặc offset), thêm 'Z' để browser parse chính xác UTC
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(str) && !str.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(str)) {
+    str += 'Z';
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// Định dạng Ngày Tháng (DD/MM/YYYY) theo múi giờ Việt Nam
 export const formatDate = (dateStr) => {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('vi-VN', {
+  const d = parseVietnamDate(dateStr);
+  if (!d) return String(dateStr);
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'
-  });
+  }).format(d);
+};
+
+// Định dạng Giờ:Phút:Giây Ngày/Tháng/Năm theo múi giờ Việt Nam (GMT+7)
+export const formatDateTime = (dateStr) => {
+  if (!dateStr) return '—';
+  const d = parseVietnamDate(dateStr);
+  if (!d) return String(dateStr);
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour12: false
+  }).format(d);
+};
+
+// Định dạng tóm tắt thời gian tương đối (Vừa xong, 5 phút trước, 2 giờ trước,...)
+export const formatRelativeTime = (dateStr) => {
+  if (!dateStr) return 'Vừa xong';
+  const d = parseVietnamDate(dateStr);
+  if (!d) return 'Vừa xong';
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+
+  if (diffSec < 45) return 'Vừa xong';
+  if (diffSec < 3600) return `${Math.max(1, Math.floor(diffSec / 60))} phút trước`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
+  if (diffSec < 604800) return `${Math.floor(diffSec / 86400)} ngày trước`;
+
+  return formatDateTime(dateStr);
 };
 
 // Tạo liên kết hình ảnh QR Code chuyển khoản ngân hàng VietQR

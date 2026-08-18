@@ -81,7 +81,7 @@ const getToastConfig = (title = '') => {
   };
 };
 
-export const NotificationToastContainer = ({ toasts = [], onDismiss }) => {
+export const NotificationToastContainer = ({ toasts = [], onDismiss, onNavigate }) => {
   if (!toasts || toasts.length === 0) return null;
 
   return (
@@ -96,7 +96,15 @@ export const NotificationToastContainer = ({ toasts = [], onDismiss }) => {
             className="notification-toast-card animate-slide-left"
             style={{
               borderLeft: `4px solid ${config.color}`,
+              cursor: onNavigate ? 'pointer' : 'default',
             }}
+            onClick={() => {
+              if (onNavigate) {
+                onNavigate(toast);
+                onDismiss?.(toast.toastId || toast.id);
+              }
+            }}
+            title={onNavigate ? 'Bấm để chuyển tới trang tương ứng' : ''}
           >
             <div className="toast-icon-wrapper" style={{ background: config.bg, color: config.color }}>
               <IconComponent size={20} />
@@ -126,7 +134,10 @@ export const NotificationToastContainer = ({ toasts = [], onDismiss }) => {
             <button
               type="button"
               className="toast-close-btn"
-              onClick={() => onDismiss?.(toast.toastId || toast.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss?.(toast.toastId || toast.id);
+              }}
               title="Đóng thông báo"
             >
               <X size={16} />

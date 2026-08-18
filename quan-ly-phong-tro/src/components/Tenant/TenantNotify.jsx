@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BellRing, Search, CheckCircle, Trash2, CheckCheck } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
+import { formatDateTime } from '../../utils/formatters';
 
 export const TenantNotify = ({ notifications: propNotifications, setNotifications }) => {
   const { notifications: contextNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotification();
@@ -72,7 +73,7 @@ export const TenantNotify = ({ notifications: propNotifications, setNotification
                   <td style={{ maxWidth: '380px', color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>{n.content}</td>
                   <td><strong>{n.senderName || n.sender || 'Hệ thống'}</strong></td>
                   <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    {n.createdAt ? new Date(n.createdAt).toLocaleString('vi-VN') : '—'}
+                    {formatDateTime(n.createdAt)}
                   </td>
                   <td>
                     <span className={`status-pill ${n.isRead ? 'active' : 'pending'}`}>

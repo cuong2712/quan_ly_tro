@@ -10,11 +10,24 @@ public class NotificationHub : Hub
 {
     public override async Task OnConnectedAsync()
     {
-        var role = Context.User?.FindFirst(ClaimTypes.Role)?.Value;
+        var role = Context.User?.FindFirst(ClaimTypes.Role)?.Value 
+            ?? Context.User?.FindFirst("role")?.Value;
         if (!string.IsNullOrEmpty(role))
         {
-            // Thêm kết nối vào group theo vai trò (Landlord, Tenant, SuperAdmin)
             await Groups.AddToGroupAsync(Context.ConnectionId, role);
+            await Groups.AddToGroupAsync(Context.ConnectionId, role.ToLower());
+        }
+
+        var userId = Context.UserIdentifier 
+            ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? Context.User?.FindFirst("sub")?.Value 
+            ?? Context.User?.FindFirst("nameid")?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, userId);
+            await Groups.AddToGroupAsync(Context.ConnectionId, userId.ToLower());
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId.ToLower()}");
         }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, "AuthenticatedUsers");
@@ -23,10 +36,24 @@ public class NotificationHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var role = Context.User?.FindFirst(ClaimTypes.Role)?.Value;
+        var role = Context.User?.FindFirst(ClaimTypes.Role)?.Value 
+            ?? Context.User?.FindFirst("role")?.Value;
         if (!string.IsNullOrEmpty(role))
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, role);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, role.ToLower());
+        }
+
+        var userId = Context.UserIdentifier 
+            ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? Context.User?.FindFirst("sub")?.Value 
+            ?? Context.User?.FindFirst("nameid")?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId);
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId.ToLower());
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{userId.ToLower()}");
         }
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, "AuthenticatedUsers");

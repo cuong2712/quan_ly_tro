@@ -89,6 +89,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, SmartRent.API.Services.CustomUserIdProvider>();
 
 // ===== Controllers & Model Validation =====
 builder.Services.AddControllers(options =>

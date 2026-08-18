@@ -13,8 +13,8 @@ import LandlordPage from './pages/LandlordPage';
 import TenantPage from './pages/TenantPage';
 
 function ToastHost() {
-  const { toasts, dismissToast } = useNotification();
-  return <NotificationToastContainer toasts={toasts} onDismiss={dismissToast} />;
+  const { toasts, dismissToast, navigateToNotification } = useNotification();
+  return <NotificationToastContainer toasts={toasts} onDismiss={dismissToast} onNavigate={navigateToNotification} />;
 }
 
 export function App() {

@@ -10,8 +10,10 @@ export function NotificationProvider({ children }) {
   const { user, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [toasts, setToasts] = useState([]);
+  const [recentAlert, setRecentAlert] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const connectionRef = useRef(null);
+  const alertTimerRef = useRef(null);
 
   // Tính số thông báo chưa đọc
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -41,12 +43,35 @@ export function NotificationProvider({ children }) {
     setToasts(prev => prev.filter(t => (t.toastId || t.id) !== toastId));
   }, []);
 
+  // Hàm đóng popover nhỏ cạnh chuông
+  const dismissRecentAlert = useCallback(() => {
+    setRecentAlert(null);
+    if (alertTimerRef.current) {
+      clearTimeout(alertTimerRef.current);
+      alertTimerRef.current = null;
+    }
+  }, []);
+
+  // Hàm kích hoạt popover nhỏ cạnh chuông khi nhận thông báo
+  const triggerRecentAlert = useCallback((notification) => {
+    setRecentAlert(notification);
+    if (alertTimerRef.current) {
+      clearTimeout(alertTimerRef.current);
+    }
+    // Tự động đóng sau 4 giây để người dùng kịp đọc lướt
+    alertTimerRef.current = setTimeout(() => {
+      setRecentAlert(null);
+      alertTimerRef.current = null;
+    }, 4000);
+  }, []);
+
   // Hàm thêm một toast mới kèm tự động đóng sau 6s
   const addToast = useCallback((notification) => {
     const toastId = 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
     const toastItem = { ...notification, toastId };
 
     setToasts(prev => [toastItem, ...prev.slice(0, 4)]); // Tối đa 5 toast cùng lúc
+    triggerRecentAlert(notification);
 
     // Phát âm thanh báo hiệu
     playNotificationSound();
@@ -55,7 +80,7 @@ export function NotificationProvider({ children }) {
     setTimeout(() => {
       dismissToast(toastId);
     }, 6000);
-  }, [dismissToast]);
+  }, [dismissToast, triggerRecentAlert]);
 
   // Khởi tạo kết nối SignalR Realtime Hub
   useEffect(() => {
@@ -145,6 +170,55 @@ export function NotificationProvider({ children }) {
     }
   };
 
+  // Tự động chuyển tab/dashboard tương ứng khi click vào thông báo
+  const navigateToNotification = useCallback((notif) => {
+    if (!notif) return;
+
+    if (!notif.isRead && notif.id) {
+      markAsRead(notif.id);
+    }
+    dismissRecentAlert();
+
+    const title = (notif.title || '').toLowerCase();
+    const content = (notif.content || '').toLowerCase();
+    const fullText = `${title} ${content}`;
+
+    const role = user?.role || '';
+    let targetTab = '';
+
+    if (role === 'Landlord') {
+      if (fullText.includes('hợp đồng') || fullText.includes('gia hạn') || fullText.includes('hạn hđ') || fullText.includes('contract') || fullText.includes('cọc') || fullText.includes('quyết toán')) {
+        targetTab = 'll_contracts';
+      } else if (fullText.includes('hóa đơn') || fullText.includes('tiền nhà') || fullText.includes('tiền phòng') || fullText.includes('invoice')) {
+        targetTab = 'll_invoices';
+      } else if (fullText.includes('thanh toán') || fullText.includes('chuyển khoản') || fullText.includes('minh chứng') || fullText.includes('payment')) {
+        targetTab = 'll_payments';
+      } else if (fullText.includes('bảo trì') || fullText.includes('sự cố') || fullText.includes('sửa chữa') || fullText.includes('thiết bị')) {
+        targetTab = 'll_maintenance';
+      } else if (fullText.includes('điện') || fullText.includes('nước') || fullText.includes('chỉ số')) {
+        targetTab = 'll_utilities';
+      } else {
+        targetTab = 'll_notifications';
+      }
+    } else if (role === 'Tenant') {
+      if (fullText.includes('hợp đồng') || fullText.includes('gia hạn') || fullText.includes('hạn hđ') || fullText.includes('contract') || fullText.includes('cọc') || fullText.includes('quyết toán')) {
+        targetTab = 'tn_contract';
+      } else if (fullText.includes('hóa đơn') || fullText.includes('tiền nhà') || fullText.includes('tiền phòng') || fullText.includes('invoice')) {
+        targetTab = 'tn_invoices';
+      } else if (fullText.includes('thanh toán') || fullText.includes('chuyển khoản') || fullText.includes('payment')) {
+        targetTab = 'tn_payment';
+      } else if (fullText.includes('bảo trì') || fullText.includes('sự cố') || fullText.includes('sửa chữa') || fullText.includes('thiết bị')) {
+        targetTab = 'tn_repairs';
+      } else {
+        targetTab = 'tn_notifications';
+      }
+    }
+
+    if (targetTab) {
+      window.dispatchEvent(new CustomEvent('smartrent:switch-tab', { detail: { tab: targetTab } }));
+    }
+  }, [user, dismissRecentAlert]);
+
   const value = {
     notifications,
     setNotifications,
@@ -152,9 +226,12 @@ export function NotificationProvider({ children }) {
     toasts,
     dismissToast,
     addToast,
+    recentAlert,
+    dismissRecentAlert,
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    navigateToNotification,
     refetchNotifications: fetchNotifications,
     isConnected,
   };

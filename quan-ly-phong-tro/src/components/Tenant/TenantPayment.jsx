@@ -257,7 +257,7 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
                     <td><strong style={{ color: '#34d399' }}>{formatVND(p.amount)}</strong></td>
                     <td>
                       {img ? (
-                        <div 
+                        <div
                           onClick={() => setViewingProofPayment(p)}
                           style={{
                             display: 'flex',

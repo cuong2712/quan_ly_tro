@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
+import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { contractService } from '../../services';
 import { Pagination } from '../Common/Pagination';
@@ -12,6 +12,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState(null);
   const [viewingContract, setViewingContract] = useState(null);
+  const [modalReturnToDetail, setModalReturnToDetail] = useState(null); // Lưu lại hợp đồng để quay lại khi đóng popup con
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [settleModalOpen, setSettleModalOpen] = useState(false);
   const [settlingContract, setSettlingContract] = useState(null);
@@ -32,6 +33,10 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const [rejectingContract, setRejectingContract] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingContract, setDeletingContract] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const [formData, setFormData] = useState({
     contractCode: '',
     roomId: '',
@@ -48,21 +53,21 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   // ─── 1. Tính toán Trạng thái & Thống kê ──────────────────────
   const getContractStatusInfo = (c) => {
     const rawStatus = (c.status || '').toLowerCase();
-    
+
     if (rawStatus === 'liquidated') {
       return { label: 'Đã thanh lý', className: 'liquidated', isActive: false, type: 'liquidated' };
     }
 
     if (rawStatus === 'renewrequested' || rawStatus === 'renew_requested' || Boolean(c.requestedRenewMonths)) {
-      return { 
-        label: `⏳ Chờ gia hạn (+${c.requestedRenewMonths || 12}T)`, 
-        className: 'renew_requested', 
-        isActive: true, 
-        type: 'renew_requested', 
-        isRequested: true 
+      return {
+        label: `⏳ Chờ gia hạn (+${c.requestedRenewMonths || 12}T)`,
+        className: 'renew_requested',
+        isActive: true,
+        type: 'renew_requested',
+        isRequested: true
       };
     }
-    
+
     if (c.endDate) {
       const endDateObj = new Date(c.endDate);
       endDateObj.setHours(23, 59, 59, 999);
@@ -93,12 +98,14 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   let activeCount = 0;
   let expiredCount = 0;
   let liquidatedCount = 0;
+  let pendingRenewCount = 0;
 
   contracts.forEach(c => {
-    const st = getContractStatusInfo(c).type;
-    if (st === 'active') activeCount++;
-    else if (st === 'expired') expiredCount++;
-    else if (st === 'liquidated') liquidatedCount++;
+    const info = getContractStatusInfo(c);
+    if (info.isRequested) pendingRenewCount++;
+    if (info.isActive) activeCount++;
+    if (info.type === 'expired') expiredCount++;
+    if (info.type === 'liquidated') liquidatedCount++;
   });
 
   // ─── 2. Lọc Hợp Đồng Theo Tìm Kiếm, Khu Trọ & Trạng Thái ─────
@@ -112,7 +119,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     const tenantPhone = (tenant?.phone || c.tenantPhone || '').toLowerCase();
     const code = (c.contractCode || '').toLowerCase();
     const roomNum = (room?.roomNumber || c.roomNumber || '').toLowerCase();
-    
+
     // Tìm kiếm từ khóa (Mã HĐ, Tên khách, SĐT, Số phòng)
     const matchesSearch = !searchTerm ||
       code.includes(searchTerm.toLowerCase()) ||
@@ -127,11 +134,20 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     // Lọc theo Trạng thái
     const stInfo = getContractStatusInfo(c);
     const matchesStatus = filterStatus === 'all' ||
+      (filterStatus === 'renew_requested' && stInfo.isRequested) ||
       (filterStatus === 'active' && stInfo.isActive) ||
       (filterStatus === 'expired' && stInfo.type === 'expired') ||
       (filterStatus === 'liquidated' && stInfo.type === 'liquidated');
 
     return matchesSearch && matchesZone && matchesStatus;
+  }).sort((a, b) => {
+    // 🌟 ƯU TIÊN 1: Đưa hợp đồng đang có yêu cầu gia hạn lên đầu tiên
+    const aReq = getContractStatusInfo(a).isRequested ? 1 : 0;
+    const bReq = getContractStatusInfo(b).isRequested ? 1 : 0;
+    if (aReq !== bReq) return bReq - aReq;
+
+    // 🌟 ƯU TIÊN 2: Sắp xếp theo ngày tạo / ngày bắt đầu mới nhất
+    return new Date(b.createdAt || b.startDate) - new Date(a.createdAt || a.startDate);
   });
 
   const totalPages = Math.ceil(filteredContracts.length / pageSize);
@@ -214,24 +230,74 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (c) => {
+  const handleOpenEdit = (c, fromDetail = false) => {
+    if (fromDetail) {
+      setModalReturnToDetail(c);
+      setViewingContract(null);
+    } else {
+      setModalReturnToDetail(null);
+    }
     setEditingContract(c);
-    const room = rooms.find(r => r.id === c.roomId);
+    const room = rooms.find(r => r.id === c.roomId || r.id === c.RoomId);
     setSelectedZoneId(room?.zoneId || room?.ZoneId || zones[0]?.id || '');
     setFormData({ ...c });
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
-    if (confirm('Bạn có chắc chắn muốn xóa hợp đồng này?')) {
-      try {
-        await contractService.deleteContract(id);
-        setContracts(contracts.filter(c => c.id !== id));
-        alert('✅ Đã xóa hợp đồng thành công!');
-        onRefresh?.();
-      } catch (err) {
-        alert('Lỗi xóa hợp đồng: ' + (err.response?.data?.message || err.message));
+  const handleCloseEditModal = () => {
+    setIsModalOpen(false);
+    setEditingContract(null);
+    if (modalReturnToDetail) {
+      setViewingContract(modalReturnToDetail);
+      setModalReturnToDetail(null);
+    }
+  };
+
+  const handleOpenDelete = (c, fromDetail = false) => {
+    if (fromDetail) {
+      setModalReturnToDetail(c);
+      setViewingContract(null);
+    } else {
+      setModalReturnToDetail(null);
+    }
+    const room = rooms.find(r => r.id === c.roomId || r.id === c.RoomId);
+    const tenant = tenants.find(t => t.id === c.tenantId || t.id === c.TenantProfileId || t.id === c.tenantProfileId);
+    setDeletingContract({
+      ...c,
+      roomNumber: room?.roomNumber || c.roomNumber,
+      tenantName: tenant?.fullName || tenant?.name || c.tenantName,
+      tenantPhone: tenant?.phone || c.tenantPhone,
+    });
+    setDeleteModalOpen(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setDeletingContract(null);
+    if (modalReturnToDetail) {
+      setViewingContract(modalReturnToDetail);
+      setModalReturnToDetail(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingContract) return;
+    setIsDeleting(true);
+    try {
+      await contractService.deleteContract(deletingContract.id);
+      setContracts(contracts.filter(c => c.id !== deletingContract.id));
+      if (viewingContract?.id === deletingContract.id) {
+        setViewingContract(null);
       }
+      setDeleteModalOpen(false);
+      setDeletingContract(null);
+      setModalReturnToDetail(null);
+      alert(`✅ Đã xóa hợp đồng ${deletingContract.contractCode} thành công!`);
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi xóa hợp đồng: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -248,13 +314,28 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
-  const handleOpenRenew = (c) => {
+  const handleOpenRenew = (c, fromDetail = false) => {
+    if (fromDetail) {
+      setModalReturnToDetail(c);
+      setViewingContract(null);
+    } else {
+      setModalReturnToDetail(null);
+    }
     setRenewingContract(c);
     setRenewForm({
       extendMonths: c.requestedRenewMonths || 12,
       newRentAmount: c.rentAmount || 0,
     });
     setRenewModalOpen(true);
+  };
+
+  const handleCloseRenewModal = () => {
+    setRenewModalOpen(false);
+    setRenewingContract(null);
+    if (modalReturnToDetail) {
+      setViewingContract(modalReturnToDetail);
+      setModalReturnToDetail(null);
+    }
   };
 
   const handleSaveRenew = async (e) => {
@@ -273,16 +354,21 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
         extendMonths: months,
         newRentAmount: Number(renewForm.newRentAmount) || renewingContract.rentAmount
       });
-      setContracts(contracts.map(item => item.id === renewingContract.id ? {
-        ...item,
+      const updatedContract = {
+        ...renewingContract,
         endDate: newEndDateStr,
-        rentAmount: Number(renewForm.newRentAmount) || item.rentAmount,
+        rentAmount: Number(renewForm.newRentAmount) || renewingContract.rentAmount,
         status: 'active',
         requestedRenewMonths: null,
         renewNotes: null,
         renewRequestedAt: null,
-      } : item));
+      };
+      setContracts(contracts.map(item => item.id === renewingContract.id ? updatedContract : item));
       setRenewModalOpen(false);
+      if (modalReturnToDetail) {
+        setViewingContract(updatedContract);
+        setModalReturnToDetail(null);
+      }
       alert(`✅ Đã phê duyệt gia hạn hợp đồng ${renewingContract.contractCode} thêm ${months} tháng đến ngày ${formatDate(newEndDateStr)}!`);
       onRefresh?.();
     } catch (e) {
@@ -290,10 +376,25 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
-  const handleOpenRejectRenew = (c) => {
+  const handleOpenRejectRenew = (c, fromDetail = false) => {
+    if (fromDetail) {
+      setModalReturnToDetail(c);
+      setViewingContract(null);
+    } else {
+      setModalReturnToDetail(null);
+    }
     setRejectingContract(c);
     setRejectReason('');
     setRejectModalOpen(true);
+  };
+
+  const handleCloseRejectModal = () => {
+    setRejectModalOpen(false);
+    setRejectingContract(null);
+    if (modalReturnToDetail) {
+      setViewingContract(modalReturnToDetail);
+      setModalReturnToDetail(null);
+    }
   };
 
   const handleSaveRejectRenew = async (e) => {
@@ -304,14 +405,19 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       await contractService.rejectRenew(rejectingContract.id, {
         reason: rejectReason || 'Không đáp ứng điều kiện gia hạn vào thời điểm này.'
       });
-      setContracts(contracts.map(c => c.id === rejectingContract.id ? {
-        ...c,
+      const updatedContract = {
+        ...rejectingContract,
         status: 'active',
         requestedRenewMonths: null,
         renewNotes: null,
         renewRequestedAt: null,
-      } : c));
+      };
+      setContracts(contracts.map(c => c.id === rejectingContract.id ? updatedContract : c));
       setRejectModalOpen(false);
+      if (modalReturnToDetail) {
+        setViewingContract(updatedContract);
+        setModalReturnToDetail(null);
+      }
       alert(`✅ Đã từ chối yêu cầu gia hạn hợp đồng ${rejectingContract.contractCode} và gửi thông báo cho khách thuê!`);
       onRefresh?.();
     } catch (err) {
@@ -330,7 +436,13 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
-  const handleOpenSettle = (c) => {
+  const handleOpenSettle = (c, fromDetail = false) => {
+    if (fromDetail) {
+      setModalReturnToDetail(c);
+      setViewingContract(null);
+    } else {
+      setModalReturnToDetail(null);
+    }
     setSettlingContract(c);
     setSettleForm({
       damageDeductionAmount: 0,
@@ -338,6 +450,15 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       settlementNotes: 'Quyết toán thanh lý hợp đồng và hoàn trả tiền cọc.'
     });
     setSettleModalOpen(true);
+  };
+
+  const handleCloseSettleModal = () => {
+    setSettleModalOpen(false);
+    setSettlingContract(null);
+    if (modalReturnToDetail) {
+      setViewingContract(modalReturnToDetail);
+      setModalReturnToDetail(null);
+    }
   };
 
   const handleSaveSettle = async (e) => {
@@ -351,8 +472,13 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
         settlementNotes: settleForm.settlementNotes
       });
       alert(`✅ Đã quyết toán hợp đồng ${settlingContract.contractCode} thành công!\nSố tiền hoàn cọc thực tế: ${formatVND(res?.refundAmount || res?.RefundAmount || 0)}`);
-      setContracts(contracts.map(c => c.id === settlingContract.id ? { ...c, status: 'liquidated' } : c));
+      const updatedContract = { ...settlingContract, status: 'liquidated' };
+      setContracts(contracts.map(c => c.id === settlingContract.id ? updatedContract : c));
       setSettleModalOpen(false);
+      if (modalReturnToDetail) {
+        setViewingContract(updatedContract);
+        setModalReturnToDetail(null);
+      }
       onRefresh?.();
     } catch (err) {
       alert('Lỗi quyết toán hợp đồng: ' + (err.response?.data?.message || err.message));
@@ -406,7 +532,13 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
 
     if (editingContract) {
-      setContracts(contracts.map(c => c.id === editingContract.id ? { ...c, ...formData, ...payload } : c));
+      const updatedContract = { ...editingContract, ...formData, ...payload };
+      setContracts(contracts.map(c => c.id === editingContract.id ? updatedContract : c));
+      setIsModalOpen(false);
+      if (modalReturnToDetail) {
+        setViewingContract(updatedContract);
+        setModalReturnToDetail(null);
+      }
     } else {
       const newContract = {
         id: `HD00${contracts.length + 1}`,
@@ -414,9 +546,9 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
         ...payload,
       };
       setContracts([...contracts, newContract]);
+      setIsModalOpen(false);
     }
 
-    setIsModalOpen(false);
     if (apiSuccess) {
       onRefresh?.();
     }
@@ -441,8 +573,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       </div>
 
       {/* 📊 THẺ THỐNG KÊ TỔNG QUAN HỢP ĐỒNG */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-        
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+
         <div
           className="card"
           onClick={() => setFilterStatus('all')}
@@ -455,6 +587,24 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>📄 Tổng Hợp Đồng</div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>{contracts.length}</div>
         </div>
+
+        {pendingRenewCount > 0 && (
+          <div
+            className="card"
+            onClick={() => setFilterStatus('renew_requested')}
+            style={{
+              padding: '16px', cursor: 'pointer', borderRadius: '12px',
+              border: filterStatus === 'renew_requested' ? '2px solid #f59e0b' : '1px solid rgba(245,158,11,0.4)',
+              background: 'rgba(245,158,11,0.12)', transition: 'all 0.2s',
+              boxShadow: '0 0 15px rgba(245,158,11,0.15)'
+            }}
+          >
+            <div style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+              🔔 Chờ Gia Hạn <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 1.5s infinite' }} />
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>{pendingRenewCount}</div>
+          </div>
+        )}
 
         <div
           className="card"
@@ -510,9 +660,57 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
       </div>
 
+      {/* 🔔 BANNER NỔI BẬT KHI CÓ YÊU CẦU GIA HẠN HỢP ĐỒNG */}
+      {pendingRenewCount > 0 && filterStatus !== 'uncontracted' && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(217, 119, 6, 0.06))',
+          border: '1px solid rgba(245, 158, 11, 0.4)',
+          borderRadius: '12px',
+          padding: '14px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          boxShadow: '0 4px 20px -4px rgba(245, 158, 11, 0.2)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
+              background: '#f59e0b',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 0 15px rgba(245, 158, 11, 0.5)'
+            }}>
+              <Clock size={22} />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, color: '#f59e0b', fontSize: '15px', fontWeight: '800' }}>
+                🔔 Có {pendingRenewCount} Yêu Cầu Gia Hạn Hợp Đồng Cần Phê Duyệt!
+              </h4>
+            </div>
+          </div>
+          {filterStatus !== 'renew_requested' && (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={() => setFilterStatus('renew_requested')}
+              style={{ background: '#f59e0b', borderColor: '#f59e0b', fontWeight: '700', flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
+              Chỉ xem {pendingRenewCount} yêu cầu
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 🔍 THANH BỘ LỌC NÂNG CAO (THEO TÊN, KHU TRỌ & TRẠNG THÁI) */}
       <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-        
+
         {/* Lọc theo Từ khóa / Tên khách / Mã HĐ / Số phòng */}
         <div style={{ flex: '1 1 240px', position: 'relative' }}>
           <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -542,14 +740,19 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
         </div>
 
         {/* Lọc theo Trạng thái hợp đồng */}
-        <div style={{ width: '200px' }}>
+        <div style={{ width: '220px' }}>
           <select
             className="form-control"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             style={{ fontSize: '13px' }}
           >
-            <option value="all">📋 Tất cả trạng thái</option>
+            <option value="all">📋 Tất cả trạng thái ({contracts.length})</option>
+            {pendingRenewCount > 0 && (
+              <option value="renew_requested" style={{ color: '#f59e0b', fontWeight: 'bold' }}>
+                🔔 Chờ gia hạn ({pendingRenewCount})
+              </option>
+            )}
             <option value="active">✅ Đang hiệu lực ({activeCount})</option>
             <option value="expired">⏳ Đã hết hạn ({expiredCount})</option>
             <option value="liquidated">🛑 Đã thanh lý ({liquidatedCount})</option>
@@ -640,15 +843,40 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 paginatedContracts.map((c) => {
                   const room = rooms.find(r => r.id === c.roomId || r.id === c.RoomId);
                   const zone = zones.find(z => z.id === (room?.zoneId || room?.ZoneId));
-                  const tenant = tenants.find(t => t.id === c.tenantId || t.id === c.TenantProfileId);
+                  const tenant = tenants.find(t => t.id === c.tenantId || t.id === c.TenantProfileId || t.id === c.tenantProfileId);
                   const tenantName = tenant ? (tenant.fullName || tenant.name) : (c.tenantName || 'Khách thuê');
                   const tenantPhone = tenant?.phone || c.tenantPhone || '';
                   const statusInfo = getContractStatusInfo(c);
+                  const isRenewReq = statusInfo.isRequested;
 
                   return (
-                    <tr key={c.id}>
+                    <tr
+                      key={c.id}
+                      className={`clickable-contract-row ${isRenewReq ? 'highlight-renew-row' : ''}`}
+                      onClick={() => setViewingContract(c)}
+                      title="Bấm vào dòng để xem chi tiết hợp đồng & các thao tác mở rộng"
+                    >
                       <td>
-                        <div style={{ fontWeight: '700', color: '#6366f1' }}>{c.contractCode}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: '700', color: isRenewReq ? '#f59e0b' : '#6366f1' }}>{c.contractCode}</span>
+                          {isRenewReq && (
+                            <span style={{
+                              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                              color: '#ffffff',
+                              fontSize: '10px',
+                              fontWeight: '800',
+                              padding: '3px 9px',
+                              borderRadius: '9999px',
+                              letterSpacing: '0.04em',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)'
+                            }}>
+                              🔥 CẦN DUYỆT
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tạo ngày: {formatDate(c.startDate)}</div>
                       </td>
                       <td>
@@ -660,6 +888,21 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                       <td>
                         <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{tenantName}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>SĐT: {tenantPhone}</div>
+                        {isRenewReq && (
+                          <div style={{
+                            fontSize: '11.5px',
+                            color: '#f59e0b',
+                            fontWeight: '700',
+                            marginTop: '4px',
+                            background: 'rgba(245, 158, 11, 0.12)',
+                            padding: '2px 8px',
+                            borderRadius: '9999px',
+                            display: 'inline-block',
+                            border: '1px solid rgba(245, 158, 11, 0.25)'
+                          }}>
+                            🔔 Xin gia hạn +{c.requestedRenewMonths || 12} tháng
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div>{formatDate(c.startDate)} - {formatDate(c.endDate)}</div>
@@ -675,9 +918,22 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                       </td>
                       <td>
                         <span className={`badge badge-${statusInfo.className}`} style={{
-                          padding: '6px 10px',
+                          padding: '6px 14px',
                           fontSize: '12px',
-                          ...(statusInfo.isRequested ? { background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid #f59e0b' } : {})
+                          borderRadius: '9999px',
+                          fontWeight: '700',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          ...(statusInfo.isRequested ? {
+                            background: 'rgba(245, 158, 11, 0.16)',
+                            color: '#f59e0b',
+                            border: '1px solid rgba(245, 158, 11, 0.5)',
+                            boxShadow: '0 2px 10px rgba(245, 158, 11, 0.25)',
+                            borderRadius: '9999px',
+                          } : {
+                            borderRadius: '9999px',
+                          })
                         }}>
                           {statusInfo.label}
                         </span>
@@ -687,19 +943,15 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                           </div>
                         )}
                       </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <button className="btn btn-sm btn-secondary" title="In / Xem Hợp Đồng PDF" onClick={() => setViewingContract(c)}>
-                            <Printer size={15} />
-                          </button>
-                          
                           {statusInfo.isRequested ? (
-                            <div style={{ display: 'inline-flex', gap: '4px' }}>
+                            <>
                               <button
                                 className="btn btn-sm btn-primary"
                                 title="Khách gửi yêu cầu gia hạn - Bấm để duyệt"
                                 onClick={() => handleOpenRenew(c)}
-                                style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
+                                style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 9px' }}
                               >
                                 <Clock size={14} /> Duyệt
                               </button>
@@ -707,30 +959,31 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                                 className="btn btn-sm btn-danger"
                                 title="Từ chối yêu cầu gia hạn"
                                 onClick={() => handleOpenRejectRenew(c)}
-                                style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
+                                style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 8px' }}
                               >
                                 <UserX size={14} /> Từ Chối
                               </button>
-                            </div>
+                            </>
                           ) : (
                             statusInfo.isActive && (
-                              <button className="btn btn-sm btn-secondary" title="Gia Hạn Hợp Đồng" onClick={() => handleOpenRenew(c)} style={{ color: '#10b981' }}>
-                                <Clock size={15} />
+                              <button
+                                className="btn btn-sm btn-secondary"
+                                title="Gia Hạn Hợp Đồng"
+                                onClick={() => handleOpenRenew(c)}
+                                style={{ color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 9px' }}
+                              >
+                                <Clock size={14} /> Gia Hạn
                               </button>
                             )
                           )}
 
-                          {statusInfo.isActive && (
-                            <button className="btn btn-sm btn-secondary" title="Quyết toán cọc & thanh lý hợp đồng" onClick={() => handleOpenSettle(c)} style={{ color: '#0ea5e9' }}>
-                              <CheckCircle size={15} />
-                            </button>
-                          )}
-
-                          <button className="btn btn-sm btn-secondary" title="Sửa điều khoản" onClick={() => handleOpenEdit(c)}>
-                            <Edit size={15} />
-                          </button>
-                          <button className="btn btn-sm btn-danger" title="Xóa hợp đồng" onClick={() => handleDelete(c.id)}>
-                            <Trash2 size={15} />
+                          <button
+                            className="btn btn-sm btn-danger"
+                            title="Xóa hợp đồng"
+                            onClick={() => handleOpenDelete(c)}
+                            style={{ padding: '5px 8px' }}
+                          >
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </td>
@@ -743,75 +996,164 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
         </div>
       )}
 
-      {/* Contract View / Print Modal */}
-      {viewingContract && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '800px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title">Xem Chi Tiết Hợp Đồng: {viewingContract.contractCode}</h3>
-              <button className="btn btn-sm btn-secondary" onClick={() => setViewingContract(null)}>X</button>
-            </div>
-            <div className="modal-body contract-paper" id="contract-pdf-content" style={{ background: '#ffffff', color: '#0f172a', padding: '28px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '20px', textTransform: 'uppercase', color: '#1e3a8a', fontWeight: '800' }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
-                <p style={{ fontWeight: 'bold', color: '#0f172a', marginTop: '4px' }}>Độc lập - Tự do - Hạnh phúc</p>
-                <h3 style={{ marginTop: '16px', fontSize: '18px', color: '#1e3a8a', fontWeight: '700' }}>HỢP ĐỒNG THUÊ PHÒNG TRỌ</h3>
-                <p style={{ fontSize: '12px', color: '#475569' }}>Mã số: {viewingContract.contractCode}</p>
+      {/* 📄 MODAL XEM CHI TIẾT & THAO TÁC HỢP ĐỒNG */}
+      {viewingContract && (() => {
+        const room = rooms.find(r => r.id === viewingContract.roomId || r.id === viewingContract.RoomId);
+        const zone = zones.find(z => z.id === (room?.zoneId || room?.ZoneId || viewingContract.zoneId || viewingContract.ZoneId));
+        const tenant = tenants.find(t => t.id === viewingContract.tenantId || t.id === viewingContract.tenantProfileId || t.id === viewingContract.TenantProfileId);
+        const statusInfo = getContractStatusInfo(viewingContract);
+        const isRenewReq = statusInfo.isRequested;
+
+        const landlordName = viewingContract.landlordName || viewingContract.LandlordName || zone?.landlordName || 'Chủ trọ';
+        const landlordPhone = viewingContract.landlordPhone || viewingContract.LandlordPhone || zone?.landlordPhone || '';
+        const landlordEmail = viewingContract.landlordEmail || viewingContract.LandlordEmail || '';
+        const zoneName = viewingContract.zoneName || viewingContract.ZoneName || zone?.name || 'Khu trọ';
+        const zoneAddress = viewingContract.zoneAddress || viewingContract.ZoneAddress || zone?.address || '';
+
+        const tenantName = viewingContract.tenantName || viewingContract.TenantName || tenant?.fullName || tenant?.name || 'Khách thuê';
+        const tenantPhone = viewingContract.tenantPhone || viewingContract.TenantPhone || tenant?.phone || '';
+        const tenantCccd = viewingContract.tenantCccd || viewingContract.TenantCccd || tenant?.cccd || tenant?.CCCD || 'Đã xác minh';
+
+        return (
+          <div className="modal-overlay" onClick={() => setViewingContract(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '850px', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+
+              {/* Modal Header */}
+              <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h3 className="modal-title" style={{ margin: 0, fontSize: '18px' }}>
+                    Chi Tiết Hợp Đồng: <span style={{ color: isRenewReq ? '#f59e0b' : '#6366f1' }}>{viewingContract.contractCode}</span>
+                  </h3>
+                  <span className={`badge badge-${statusInfo.className}`} style={{
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    ...(isRenewReq ? { background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid #f59e0b' } : {})
+                  }}>
+                    {statusInfo.label}
+                  </span>
+                </div>
+                <button className="btn btn-sm btn-secondary" onClick={() => setViewingContract(null)}>✕</button>
               </div>
 
-              {(() => {
-                const room = rooms.find(r => r.id === viewingContract.roomId || r.id === viewingContract.RoomId);
-                const zone = zones.find(z => z.id === (room?.zoneId || room?.ZoneId || viewingContract.zoneId || viewingContract.ZoneId));
-                const tenant = tenants.find(t => t.id === viewingContract.tenantId || t.id === viewingContract.tenantProfileId || t.id === viewingContract.TenantProfileId);
-                
-                const landlordName = viewingContract.landlordName || viewingContract.LandlordName || zone?.landlordName || 'Chủ trọ';
-                const landlordPhone = viewingContract.landlordPhone || viewingContract.LandlordPhone || zone?.landlordPhone || '';
-                const landlordEmail = viewingContract.landlordEmail || viewingContract.LandlordEmail || '';
-                const zoneName = viewingContract.zoneName || viewingContract.ZoneName || zone?.name || 'Khu trọ';
-                const zoneAddress = viewingContract.zoneAddress || viewingContract.ZoneAddress || zone?.address || '';
-                
-                const tenantName = viewingContract.tenantName || viewingContract.TenantName || tenant?.fullName || tenant?.name || 'Khách thuê';
-                const tenantPhone = viewingContract.tenantPhone || viewingContract.TenantPhone || tenant?.phone || '';
-                const tenantCccd = viewingContract.tenantCccd || viewingContract.TenantCccd || tenant?.cccd || tenant?.CCCD || 'Đã xác minh';
-                
-                return (
-                  <div style={{ lineHeight: '1.8', fontSize: '14px', color: '#0f172a' }}>
-                    <p style={{ color: '#0f172a' }}><strong style={{ color: '#0f172a' }}>BÊN CHO THUÊ (BÊN A):</strong> {landlordName} {landlordPhone ? `- SĐT: ${landlordPhone}` : ''} {landlordEmail ? `(${landlordEmail})` : ''}</p>
-                    <p style={{ color: '#0f172a' }}><strong style={{ color: '#0f172a' }}>BÊN THUÊ PHÒNG (BÊN B):</strong> {tenantName} {tenantPhone ? `- SĐT: ${tenantPhone}` : ''} - CCCD: {tenantCccd}</p>
-                    
-                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
-                    <p style={{ color: '#0f172a' }}>Bên A đồng ý cho Bên B thuê phòng số <strong style={{ color: '#0f172a' }}>{room?.roomNumber || viewingContract.roomNumber || viewingContract.roomId}</strong> thuộc {zoneName} {zoneAddress ? `(Địa chỉ: ${zoneAddress})` : ''}.</p>
-                    <p style={{ color: '#0f172a' }}>Thời hạn thuê: Từ ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.startDate)}</strong> đến ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.endDate)}</strong>.</p>
+              {/* 🛠️ QUICK ACTION TOOLBAR */}
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.6)',
+                padding: '12px 20px',
+                borderBottom: '1px solid var(--border-color)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '8px',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => exportToPDF('contract-pdf-content', `${viewingContract.contractCode}.pdf`)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <Printer size={15} /> In / Xuất PDF
+                  </button>
 
-                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 2: GIÁ THUÊ VÀ ĐẶT CỌC</h4>
-                    <p style={{ color: '#0f172a' }}>1. Giá tiền thuê phòng: <strong style={{ color: '#059669' }}>{formatVND(viewingContract.rentAmount)} / tháng</strong>.</p>
-                    <p style={{ color: '#0f172a' }}>2. Số tiền đặt cọc giữ phòng: <strong style={{ color: '#0f172a' }}>{formatVND(viewingContract.deposit)}</strong>.</p>
-                    <p style={{ color: '#0f172a' }}>3. Ngày thanh toán tiền nhà hàng tháng: Trước ngày <strong style={{ color: '#0f172a' }}>{viewingContract.paymentTermDay || 5}</strong> hàng tháng.</p>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={() => handleOpenEdit(viewingContract, true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <Edit size={15} /> Sửa Điều Khoản
+                  </button>
 
-                    <h4 style={{ marginTop: '16px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 3: QUY ĐỊNH CHUNG</h4>
-                    <p style={{ color: '#0f172a' }}>{viewingContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}</p>
-                  </div>
-                );
-              })()}
-            </div>
+                  {statusInfo.isActive && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => handleOpenSettle(viewingContract, true)}
+                      style={{ color: '#0ea5e9', borderColor: 'rgba(14, 165, 233, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <CheckCircle size={15} /> Quyết Toán & Thanh Lý
+                    </button>
+                  )}
 
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setViewingContract(null)}>Đóng</button>
-              <button className="btn btn-primary" onClick={() => exportToPDF('contract-pdf-content', `${viewingContract.contractCode}.pdf`)}>
-                <Printer size={16} /> Xuất PDF / In Hợp Đồng
-              </button>
+                  {statusInfo.isActive && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => handleOpenRenew(viewingContract, true)}
+                      style={{ color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <Clock size={15} /> Gia Hạn HĐ
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  onClick={() => handleOpenDelete(viewingContract, true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                >
+                  <Trash2 size={15} /> Xóa HĐ
+                </button>
+              </div>
+
+              {/* Modal Document Body */}
+              <div className="modal-body contract-paper" id="contract-pdf-content" style={{ background: '#ffffff', color: '#0f172a', padding: '28px', overflowY: 'auto', flex: 1 }}>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ fontSize: '20px', textTransform: 'uppercase', color: '#1e3a8a', fontWeight: '800', margin: 0 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
+                  <p style={{ fontWeight: 'bold', color: '#0f172a', marginTop: '4px', marginBottom: 0 }}>Độc lập - Tự do - Hạnh phúc</p>
+                  <h3 style={{ marginTop: '16px', marginBottom: '4px', fontSize: '18px', color: '#1e3a8a', fontWeight: '700' }}>HỢP ĐỒNG THUÊ PHÒNG TRỌ</h3>
+                  <p style={{ fontSize: '12px', color: '#475569', margin: 0 }}>Mã số: {viewingContract.contractCode}</p>
+                </div>
+
+                <div style={{ lineHeight: '1.8', fontSize: '14px', color: '#0f172a' }}>
+                  <p style={{ color: '#0f172a', margin: '6px 0' }}><strong style={{ color: '#0f172a' }}>BÊN CHO THUÊ (BÊN A):</strong> {landlordName} {landlordPhone ? `- SĐT: ${landlordPhone}` : ''} {landlordEmail ? `(${landlordEmail})` : ''}</p>
+                  <p style={{ color: '#0f172a', margin: '6px 0' }}><strong style={{ color: '#0f172a' }}>BÊN THUÊ PHÒNG (BÊN B):</strong> {tenantName} {tenantPhone ? `- SĐT: ${tenantPhone}` : ''} - CCCD: {tenantCccd}</p>
+
+                  <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
+                  <p style={{ color: '#0f172a', margin: '4px 0' }}>Bên A đồng ý cho Bên B thuê phòng số <strong style={{ color: '#0f172a' }}>{room?.roomNumber || viewingContract.roomNumber || viewingContract.roomId}</strong> thuộc {zoneName} {zoneAddress ? `(Địa chỉ: ${zoneAddress})` : ''}.</p>
+                  <p style={{ color: '#0f172a', margin: '4px 0' }}>Thời hạn thuê: Từ ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.startDate)}</strong> đến ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.endDate)}</strong>.</p>
+
+                  <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 2: GIÁ THUÊ VÀ ĐẶT CỌC</h4>
+                  <p style={{ color: '#0f172a', margin: '4px 0' }}>1. Giá tiền thuê phòng: <strong style={{ color: '#059669' }}>{formatVND(viewingContract.rentAmount)} / tháng</strong>.</p>
+                  <p style={{ color: '#0f172a', margin: '4px 0' }}>2. Số tiền đặt cọc giữ phòng: <strong style={{ color: '#0f172a' }}>{formatVND(viewingContract.deposit)}</strong>.</p>
+                  <p style={{ color: '#0f172a', margin: '4px 0' }}>3. Ngày thanh toán tiền nhà hàng tháng: Trước ngày <strong style={{ color: '#0f172a' }}>{viewingContract.paymentTermDay || 5}</strong> hàng tháng.</p>
+
+                  <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 3: QUY ĐỊNH CHUNG</h4>
+                  <p style={{ color: '#0f172a', margin: '4px 0' }}>{viewingContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}</p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="modal-footer" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-color)' }}>
+                <button className="btn btn-secondary" onClick={() => setViewingContract(null)}>Đóng Cửa Sổ</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay" onClick={handleCloseEditModal}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">{editingContract ? 'Chỉnh Sửa Hợp Đồng' : 'Tạo Hợp Đồng Thuê Nhà Mới'}</h3>
-              <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>X</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {modalReturnToDetail && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={handleCloseEditModal}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 12 }}
+                    title="Quay lại xem chi tiết hợp đồng"
+                  >
+                    <ArrowLeft size={14} /> Quay lại
+                  </button>
+                )}
+                <h3 className="modal-title">{editingContract ? 'Chỉnh Sửa Hợp Đồng' : 'Tạo Hợp Đồng Thuê Nhà Mới'}</h3>
+              </div>
+              <button className="btn btn-sm btn-secondary" onClick={handleCloseEditModal}>✕</button>
             </div>
             <form onSubmit={handleSave}>
               <div className="modal-body">
@@ -959,21 +1301,35 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
+                <button type="button" className="btn btn-secondary" onClick={handleCloseEditModal}>
+                  {modalReturnToDetail ? '⬅ Quay Lại Chi Tiết' : 'Hủy'}
+                </button>
                 <button type="submit" className="btn btn-primary">Lưu Hợp Đồng</button>
               </div>
             </form>
           </div>
         </div>
       )}
-
       {/* Settle Contract Modal (Quyết toán & Hoàn cọc) */}
       {settleModalOpen && settlingContract && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '550px' }}>
+        <div className="modal-overlay" onClick={handleCloseSettleModal}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px' }}>
             <div className="modal-header">
-              <h3 className="modal-title">Quyết Toán & Hoàn Cọc Hợp Đồng: {settlingContract.contractCode}</h3>
-              <button className="btn btn-sm btn-secondary" onClick={() => setSettleModalOpen(false)}>X</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {modalReturnToDetail && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={handleCloseSettleModal}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 12 }}
+                    title="Quay lại xem chi tiết hợp đồng"
+                  >
+                    <ArrowLeft size={14} /> Quay lại
+                  </button>
+                )}
+                <h3 className="modal-title">Quyết Toán & Hoàn Cọc: {settlingContract.contractCode}</h3>
+              </div>
+              <button className="btn btn-sm btn-secondary" onClick={handleCloseSettleModal}>✕</button>
             </div>
             <form onSubmit={handleSaveSettle}>
               <div className="modal-body">
@@ -1033,7 +1389,9 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setSettleModalOpen(false)}>Hủy</button>
+                <button type="button" className="btn btn-secondary" onClick={handleCloseSettleModal}>
+                  {modalReturnToDetail ? '⬅ Quay Lại Chi Tiết' : 'Hủy'}
+                </button>
                 <button type="submit" className="btn btn-primary" style={{ background: '#10b981', borderColor: '#10b981' }}>Xác Nhận Quyết Toán</button>
               </div>
             </form>
@@ -1043,13 +1401,26 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
       {/* 🔄 MODAL GIA HẠN HỢP ĐỒNG (CHỦ TRỌ) */}
       {renewModalOpen && renewingContract && (
-        <div className="modal-overlay" onClick={() => setRenewModalOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+        <div className="modal-overlay" onClick={handleCloseRenewModal} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '18px' }}>
-                <Clock size={20} color="#10b981" /> Phê Duyệt / Gia Hạn Hợp Đồng
-              </h3>
-              <button className="btn-close" onClick={() => setRenewModalOpen(false)}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {modalReturnToDetail && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={handleCloseRenewModal}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 12 }}
+                    title="Quay lại xem chi tiết hợp đồng"
+                  >
+                    <ArrowLeft size={14} /> Quay lại
+                  </button>
+                )}
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '18px' }}>
+                  <Clock size={20} color="#10b981" /> Phê Duyệt / Gia Hạn HĐ
+                </h3>
+              </div>
+              <button className="btn-close" onClick={handleCloseRenewModal}>✕</button>
             </div>
             <form onSubmit={handleSaveRenew}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1127,7 +1498,9 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 </div>
               </div>
               <div className="modal-footer" style={{ marginTop: 16 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setRenewModalOpen(false)}>Hủy</button>
+                <button type="button" className="btn btn-secondary" onClick={handleCloseRenewModal}>
+                  {modalReturnToDetail ? '⬅ Quay Lại Chi Tiết' : 'Hủy'}
+                </button>
                 <button type="submit" className="btn btn-primary" style={{ background: '#10b981', borderColor: '#10b981' }}>
                   <CheckCircle size={15} style={{ marginRight: 4 }} />
                   Xác Nhận Gia Hạn HĐ
@@ -1140,13 +1513,26 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
       {/* ❌ MODAL TỪ CHỐI GIA HẠN HỢP ĐỒNG (CHỦ TRỌ) */}
       {rejectModalOpen && rejectingContract && (
-        <div className="modal-overlay" onClick={() => setRejectModalOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+        <div className="modal-overlay" onClick={handleCloseRejectModal} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '100%' }}>
             <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '18px', color: '#f43f5e' }}>
-                <AlertTriangle size={20} color="#f43f5e" /> Từ Chối Yêu Cầu Gia Hạn Hợp Đồng
-              </h3>
-              <button className="btn-close" onClick={() => setRejectModalOpen(false)}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {modalReturnToDetail && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={handleCloseRejectModal}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 12 }}
+                    title="Quay lại xem chi tiết hợp đồng"
+                  >
+                    <ArrowLeft size={14} /> Quay lại
+                  </button>
+                )}
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '18px', color: '#f43f5e' }}>
+                  <AlertTriangle size={20} color="#f43f5e" /> Từ Chối Yêu Cầu Gia Hạn HĐ
+                </h3>
+              </div>
+              <button className="btn-close" onClick={handleCloseRejectModal}>✕</button>
             </div>
             <form onSubmit={handleSaveRejectRenew}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1174,7 +1560,9 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 </div>
               </div>
               <div className="modal-footer" style={{ marginTop: 16 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setRejectModalOpen(false)}>Hủy</button>
+                <button type="button" className="btn btn-secondary" onClick={handleCloseRejectModal}>
+                  {modalReturnToDetail ? '⬅ Quay Lại Chi Tiết' : 'Hủy'}
+                </button>
                 <button type="submit" className="btn btn-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <UserX size={15} /> Xác Nhận Từ Chối
                 </button>
@@ -1183,8 +1571,107 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           </div>
         </div>
       )}
+
+      {/* 🗑️ MODAL XÁC NHẬN XÓA HỢP ĐỒNG */}
+      {deleteModalOpen && deletingContract && (
+        <div
+          className="modal-overlay"
+          onClick={() => !isDeleting && handleCloseDeleteModal()}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+        >
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '100%' }}>
+            <div className="modal-header" style={{ borderBottomColor: 'rgba(244, 63, 94, 0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {modalReturnToDetail && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    disabled={isDeleting}
+                    onClick={handleCloseDeleteModal}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 12 }}
+                    title="Quay lại xem chi tiết hợp đồng"
+                  >
+                    <ArrowLeft size={14} /> Quay lại
+                  </button>
+                )}
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '18px', color: '#f43f5e' }}>
+                  <AlertTriangle size={22} color="#f43f5e" /> Xác Nhận Xóa Hợp Đồng
+                </h3>
+              </div>
+              <button className="btn-close" disabled={isDeleting} onClick={handleCloseDeleteModal}>✕</button>
+            </div>
+
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', lineHeight: 1.5 }}>
+                Bạn có chắc chắn muốn xóa vĩnh viễn hợp đồng này không? Dữ liệu hợp đồng sẽ bị gỡ bỏ khỏi hệ thống.
+              </p>
+
+              <div style={{ background: 'var(--bg-dark)', padding: '14px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Mã hợp đồng:</span>
+                  <strong style={{ color: '#6366f1' }}>{deletingContract.contractCode}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Phòng thuê:</span>
+                  <strong>{deletingContract.roomNumber ? `Phòng ${deletingContract.roomNumber}` : 'Phòng N/A'}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Khách thuê:</span>
+                  <strong>{deletingContract.tenantName || 'Khách thuê'}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Thời hạn:</span>
+                  <span>{formatDate(deletingContract.startDate)} - {formatDate(deletingContract.endDate)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Tiền cọc giữ phòng:</span>
+                  <strong style={{ color: '#10b981' }}>{formatVND(deletingContract.deposit)}</strong>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(244, 63, 94, 0.08)', border: '1px solid rgba(244, 63, 94, 0.25)', borderRadius: 8, padding: '12px 14px', fontSize: 12.5, color: '#f43f5e' }}>
+                <strong>⚠️ Lưu ý:</strong> Nếu khách thuê dọn đi và cần hoàn lại tiền cọc, vui lòng sử dụng tính năng <strong>"Quyết toán cọc & Thanh lý"</strong> thay vì xóa hợp đồng để lưu lại lịch sử thu chi.
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={isDeleting}
+                onClick={handleCloseDeleteModal}
+              >
+                {modalReturnToDetail ? '⬅ Quay Lại Chi Tiết' : 'Hủy Bỏ'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+              >
+                <Trash2 size={16} /> {isDeleting ? 'Đang xóa...' : 'Xác Nhận Xóa Vĩnh Viễn'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 

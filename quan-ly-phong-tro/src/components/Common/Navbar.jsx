@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, Check, CheckCheck } from 'lucide-react';
+import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, Check, CheckCheck, X } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
+import { formatDateTime, formatRelativeTime } from '../../utils/formatters';
 
 export const Navbar = ({
   currentRole,
@@ -13,7 +14,15 @@ export const Navbar = ({
   onLogout,
   hideRoleSwitcher,
 }) => {
-  const { notifications: contextNotifications, unreadCount: contextUnreadCount, markAsRead, markAllAsRead } = useNotification();
+  const {
+    notifications: contextNotifications,
+    unreadCount: contextUnreadCount,
+    markAsRead,
+    markAllAsRead,
+    recentAlert,
+    dismissRecentAlert,
+    navigateToNotification,
+  } = useNotification();
   const notifications = propNotifications && propNotifications.length > 0 ? propNotifications : (contextNotifications || []);
   const unreadCount = contextUnreadCount !== undefined ? contextUnreadCount : notifications.filter(n => !n.isRead).length;
 
@@ -99,7 +108,11 @@ export const Navbar = ({
         <div style={{ position: 'relative' }} ref={notifyRef}>
           <button
             className="icon-btn"
-            onClick={() => { setShowNotifyDropdown(v => !v); setShowUserDropdown(false); }}
+            onClick={() => {
+              setShowNotifyDropdown(v => !v);
+              setShowUserDropdown(false);
+              dismissRecentAlert?.();
+            }}
             title="Thông báo"
           >
             <Bell size={18} />
@@ -108,12 +121,47 @@ export const Navbar = ({
             )}
           </button>
 
+          {/* 🔔 Mini Callout Box nổi bên cạnh chuông thông báo */}
+          {recentAlert && !showNotifyDropdown && (
+            <div
+              className="notify-callout-popover"
+              onClick={() => {
+                navigateToNotification(recentAlert);
+              }}
+              title="Bấm để chuyển tới trang liên quan"
+            >
+              <div className="callout-arrow" />
+              <div className="callout-icon">
+                <Bell size={16} color="#f59e0b" />
+              </div>
+              <div className="callout-content">
+                <div className="callout-badge-row">
+                  <span className="callout-badge">Mới nhận</span>
+                  <span className="callout-time">Vừa xong</span>
+                </div>
+                <div className="callout-title">{recentAlert.title}</div>
+                <div className="callout-desc">{recentAlert.content}</div>
+              </div>
+              <button
+                type="button"
+                className="callout-close-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismissRecentAlert?.();
+                }}
+                title="Đóng"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          )}
+
           {showNotifyDropdown && (
             <div className="navbar-dropdown notify-dropdown">
               <div className="dropdown-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>Thông báo</span>
-                  {unreadCount > 0 && <span className="badge-pill">{unreadCount} mới</span>}
+                  <span style={{ fontWeight: 700 }}>Thông báo</span>
+                  {unreadCount > 0 && <span className="badge-pill">{unreadCount} chưa đọc</span>}
                 </div>
                 {unreadCount > 0 && (
                   <button
@@ -130,34 +178,64 @@ export const Navbar = ({
                       gap: '4px',
                       padding: '2px 6px',
                       borderRadius: '4px',
+                      fontWeight: 600,
                     }}
                   >
                     <CheckCheck size={13} /> Đã đọc tất cả
                   </button>
                 )}
               </div>
+              
+              {/* Tóm tắt nhanh */}
+              {unreadCount > 0 && (
+                <div style={{
+                  padding: '8px 12px',
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  borderBottom: '1px solid rgba(245, 158, 11, 0.2)',
+                  fontSize: '11.5px',
+                  color: '#f59e0b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <Bell size={13} />
+                  <span>Bạn có <strong>{unreadCount}</strong> thông báo mới cần kiểm tra</span>
+                </div>
+              )}
+
               <div className="dropdown-body">
                 {notifications.length === 0 ? (
                   <div className="dropdown-empty">
                     <Bell size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
-                    <p>Không có thông báo</p>
+                    <p>Không có thông báo nào</p>
                   </div>
                 ) : (
-                  notifications.slice(0, 6).map(n => (
+                  notifications.slice(0, 8).map(n => (
                     <div
                       key={n.id}
                       className={`notify-item ${!n.isRead ? 'unread' : ''}`}
-                      onClick={() => !n.isRead && markAsRead(n.id)}
+                      onClick={() => {
+                        navigateToNotification(n);
+                        setShowNotifyDropdown(false);
+                      }}
                       style={{ cursor: 'pointer' }}
+                      title="Bấm để mở trang liên quan đến thông báo này"
                     >
-                      <div className="notify-title">{n.title}</div>
-                      <div className="notify-content">{n.content}</div>
-                      <div className="notify-time">{new Date(n.createdAt).toLocaleString('vi-VN')}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <div className="notify-title" style={{ fontWeight: !n.isRead ? '700' : '600' }}>{n.title}</div>
+                        {!n.isRead && (
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />
+                        )}
+                      </div>
+                      <div className="notify-content" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{n.content}</div>
+                      <div className="notify-time" style={{ fontSize: '10.5px', marginTop: '4px', color: 'var(--text-muted)' }} title={formatDateTime(n.createdAt)}>
+                        {n.createdAt ? formatRelativeTime(n.createdAt) : 'Vừa xong'}
+                      </div>
                     </div>
                   ))
                 )}
               </div>
-              {notifications.length > 6 && (
+              {notifications.length > 8 && (
                 <div className="dropdown-footer">Tổng cộng {notifications.length} thông báo</div>
               )}
             </div>

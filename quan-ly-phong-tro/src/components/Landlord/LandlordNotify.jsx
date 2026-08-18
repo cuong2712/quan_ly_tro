@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BellRing, Plus, Send, Trash2, Users, Home, Building2 } from 'lucide-react';
 import { notificationService } from '../../services';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, formatDateTime } from '../../utils/formatters';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const LandlordNotify = ({ notifications = [], setNotifications, zones = [], rooms = [], tenants = [], onRefresh }) => {
@@ -93,7 +93,7 @@ export const LandlordNotify = ({ notifications = [], setNotifications, zones = [
                     <td style={{ maxWidth: '350px', color: 'var(--text-secondary)' }}>{n.content}</td>
                     <td><span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{n.senderName || user?.fullName || 'Chủ trọ'}</span></td>
                     <td><span className="status-pill vacant">{targetText}</span></td>
-                    <td>{formatDate(n.createdAt)}</td>
+                    <td>{formatDateTime(n.createdAt)}</td>
                     <td>
                       <button className="btn btn-sm btn-danger" onClick={() => handleDelete(n.id)}>
                         <Trash2 size={14} /> Xóa
