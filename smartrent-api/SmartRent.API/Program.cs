@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using SmartRent.API.Hubs;
 using SmartRent.API.Middlewares;
+using SmartRent.API.Services;
 using SmartRent.Application.Services;
 using SmartRent.Core.Interfaces;
 using SmartRent.Infrastructure.Data;
@@ -45,6 +47,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         // Bắt lỗi 401 Unauthorized và 403 Forbidden để luôn trả về HTTP 200 kèm Envelope ApiResponse
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notifications"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse(); // Bỏ qua response 401 mặc định của framework
@@ -76,6 +88,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSignalR();
 
 // ===== Controllers & Model Validation =====
 builder.Services.AddControllers(options =>
@@ -176,6 +189,9 @@ builder.Services.AddScoped<ReportService>();
 
 
 
+// Realtime Notifier
+builder.Services.AddScoped<IRealtimeNotifier, RealtimeNotifier>();
+
 // Auth Interface
 builder.Services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
 
@@ -213,6 +229,7 @@ app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 // ===== Seed Data =====
 using (var scope = app.Services.CreateScope())

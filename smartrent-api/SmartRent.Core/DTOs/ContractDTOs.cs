@@ -30,6 +30,8 @@ public record UpdateContractRequest(
 
 public record RequestRenewContractRequest(int ExtendMonths = 12, string? Notes = null);
 
+public record RejectRenewContractRequest(string? Reason = null);
+
 public record RenewContractRequest(int ExtendMonths, decimal? NewRentAmount);
 
 public record SettleContractRequest(

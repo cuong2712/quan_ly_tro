@@ -66,7 +66,8 @@ public enum NotificationTarget
     AllTenants = 2,
     Zone = 3,
     Room = 4,
-    User = 5
+    User = 5,
+    SuperAdmin = 6
 }
 
 public enum ComplaintStatus

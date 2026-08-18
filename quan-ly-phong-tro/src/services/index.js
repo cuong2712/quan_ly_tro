@@ -72,6 +72,7 @@ export const contractService = {
   deleteContract: (id) => apiClient.delete(`/contracts/${id}`).then(r => r.data),
   terminate: (id) => apiClient.patch(`/contracts/${id}/terminate`).then(r => r.data),
   renew: (id, data) => apiClient.post(`/contracts/${id}/renew`, data).then(r => r.data),
+  rejectRenew: (id, data) => apiClient.post(`/contracts/${id}/reject-renew`, data).then(r => r.data),
   requestRenew: (id, data) => apiClient.post(`/contracts/${id}/request-renew`, data).then(r => r.data),
   cancelRenew: (id) => apiClient.post(`/contracts/${id}/cancel-renew`).then(r => r.data),
   settle: (id, data) => apiClient.post(`/contracts/${id}/settle`, data).then(r => r.data),

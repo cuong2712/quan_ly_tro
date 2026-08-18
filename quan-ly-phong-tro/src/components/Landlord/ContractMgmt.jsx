@@ -28,6 +28,10 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     newRentAmount: 0
   });
 
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectingContract, setRejectingContract] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+
   const [formData, setFormData] = useState({
     contractCode: '',
     roomId: '',
@@ -283,6 +287,35 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       onRefresh?.();
     } catch (e) {
       alert('Lỗi gia hạn hợp đồng: ' + (e.response?.data?.message || e.message));
+    }
+  };
+
+  const handleOpenRejectRenew = (c) => {
+    setRejectingContract(c);
+    setRejectReason('');
+    setRejectModalOpen(true);
+  };
+
+  const handleSaveRejectRenew = async (e) => {
+    e.preventDefault();
+    if (!rejectingContract) return;
+
+    try {
+      await contractService.rejectRenew(rejectingContract.id, {
+        reason: rejectReason || 'Không đáp ứng điều kiện gia hạn vào thời điểm này.'
+      });
+      setContracts(contracts.map(c => c.id === rejectingContract.id ? {
+        ...c,
+        status: 'active',
+        requestedRenewMonths: null,
+        renewNotes: null,
+        renewRequestedAt: null,
+      } : c));
+      setRejectModalOpen(false);
+      alert(`✅ Đã từ chối yêu cầu gia hạn hợp đồng ${rejectingContract.contractCode} và gửi thông báo cho khách thuê!`);
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi từ chối gia hạn: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -661,14 +694,24 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                           </button>
                           
                           {statusInfo.isRequested ? (
-                            <button
-                              className="btn btn-sm btn-primary"
-                              title="Khách gửi yêu cầu gia hạn - Bấm để duyệt"
-                              onClick={() => handleOpenRenew(c)}
-                              style={{ background: '#f59e0b', borderColor: '#f59e0b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px' }}
-                            >
-                              <Clock size={14} /> Duyệt Gia Hạn
-                            </button>
+                            <div style={{ display: 'inline-flex', gap: '4px' }}>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                title="Khách gửi yêu cầu gia hạn - Bấm để duyệt"
+                                onClick={() => handleOpenRenew(c)}
+                                style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
+                              >
+                                <Clock size={14} /> Duyệt
+                              </button>
+                              <button
+                                className="btn btn-sm btn-danger"
+                                title="Từ chối yêu cầu gia hạn"
+                                onClick={() => handleOpenRejectRenew(c)}
+                                style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
+                              >
+                                <UserX size={14} /> Từ Chối
+                              </button>
+                            </div>
                           ) : (
                             statusInfo.isActive && (
                               <button className="btn btn-sm btn-secondary" title="Gia Hạn Hợp Đồng" onClick={() => handleOpenRenew(c)} style={{ color: '#10b981' }}>
@@ -1094,7 +1137,54 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           </div>
         </div>
       )}
+
+      {/* ❌ MODAL TỪ CHỐI GIA HẠN HỢP ĐỒNG (CHỦ TRỌ) */}
+      {rejectModalOpen && rejectingContract && (
+        <div className="modal-overlay" onClick={() => setRejectModalOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '100%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '18px', color: '#f43f5e' }}>
+                <AlertTriangle size={20} color="#f43f5e" /> Từ Chối Yêu Cầu Gia Hạn Hợp Đồng
+              </h3>
+              <button className="btn-close" onClick={() => setRejectModalOpen(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveRejectRenew}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ background: 'var(--bg-dark)', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13 }}>
+                  <div>Hợp đồng: <strong style={{ color: '#6366f1' }}>{rejectingContract.contractCode}</strong> {rejectingContract.roomNumber ? `(Phòng ${rejectingContract.roomNumber})` : ''}</div>
+                  <div style={{ marginTop: 4 }}>Khách thuê: <strong>{rejectingContract.tenantName || 'Khách thuê'}</strong></div>
+                  <div style={{ marginTop: 4 }}>Số tháng khách xin gia hạn: <strong style={{ color: '#f59e0b' }}>+{rejectingContract.requestedRenewMonths || 12} tháng</strong></div>
+                  {rejectingContract.renewNotes && (
+                    <div style={{ marginTop: 4, fontStyle: 'italic', color: 'var(--text-muted)' }}>
+                      Lời nhắn của khách: "{rejectingContract.renewNotes}"
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 700 }}>Lý Do Từ Chối (gửi thông báo đến khách thuê) *</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    placeholder="Nhập lý do giải thích cho khách thuê (ví dụ: kế hoạch tu sửa phòng, tăng giá thuê mới, hoặc hết thời hạn giữ phòng...)"
+                    value={rejectReason}
+                    onChange={e => setRejectReason(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 16 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setRejectModalOpen(false)}>Hủy</button>
+                <button type="submit" className="btn btn-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <UserX size={15} /> Xác Nhận Từ Chối
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 

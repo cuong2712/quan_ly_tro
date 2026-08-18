@@ -3,6 +3,7 @@ import '../styles/main.css';
 import { Navbar } from '../components/Common/Navbar';
 import { Sidebar } from '../components/Common/Sidebar';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import {
@@ -21,6 +22,7 @@ import { TenantNotify } from '../components/Tenant/TenantNotify';
 
 export default function TenantPage() {
   const { user, logout } = useAuth();
+  const { notifications, setNotifications } = useNotification();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('tn_dashboard');
   const [theme, setTheme] = useState('dark');
@@ -31,7 +33,6 @@ export default function TenantPage() {
   const { data: contracts, setData: setContracts } = useApi(() => contractService.getContracts(), []);
   const { data: payments, setData: setPayments, refetch: refetchPayments } = useApi(() => paymentService.getPayments?.() || Promise.resolve([]), []);
   const { data: maintenanceRequests, setData: setMaintenanceRequests, refetch: refetchMaintenance } = useApi(() => maintenanceService.getRequests(), []);
-  const { data: notifications, setData: setNotifications } = useApi(() => notificationService.getNotifications(), []);
 
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';

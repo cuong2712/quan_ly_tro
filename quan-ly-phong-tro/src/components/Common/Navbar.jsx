@@ -1,23 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, Check } from 'lucide-react';
+import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, Check, CheckCheck } from 'lucide-react';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export const Navbar = ({
   currentRole,
   setCurrentRole,
   theme,
   toggleTheme,
-  notifications = [],
+  notifications: propNotifications,
   activeLandlord,
   activeTenant,
   onLogout,
   hideRoleSwitcher,
 }) => {
+  const { notifications: contextNotifications, unreadCount: contextUnreadCount, markAsRead, markAllAsRead } = useNotification();
+  const notifications = propNotifications && propNotifications.length > 0 ? propNotifications : (contextNotifications || []);
+  const unreadCount = contextUnreadCount !== undefined ? contextUnreadCount : notifications.filter(n => !n.isRead).length;
+
   const [showNotifyDropdown, setShowNotifyDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const notifyRef = useRef(null);
   const userRef = useRef(null);
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -107,9 +110,31 @@ export const Navbar = ({
 
           {showNotifyDropdown && (
             <div className="navbar-dropdown notify-dropdown">
-              <div className="dropdown-header">
-                <span>Thông báo</span>
-                {unreadCount > 0 && <span className="badge-pill">{unreadCount} mới</span>}
+              <div className="dropdown-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>Thông báo</span>
+                  {unreadCount > 0 && <span className="badge-pill">{unreadCount} mới</span>}
+                </div>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={markAllAsRead}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent-indigo, #6366f1)',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    <CheckCheck size={13} /> Đã đọc tất cả
+                  </button>
+                )}
               </div>
               <div className="dropdown-body">
                 {notifications.length === 0 ? (
@@ -119,16 +144,21 @@ export const Navbar = ({
                   </div>
                 ) : (
                   notifications.slice(0, 6).map(n => (
-                    <div key={n.id} className={`notify-item ${!n.isRead ? 'unread' : ''}`}>
+                    <div
+                      key={n.id}
+                      className={`notify-item ${!n.isRead ? 'unread' : ''}`}
+                      onClick={() => !n.isRead && markAsRead(n.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="notify-title">{n.title}</div>
                       <div className="notify-content">{n.content}</div>
-                      <div className="notify-time">{n.createdAt}</div>
+                      <div className="notify-time">{new Date(n.createdAt).toLocaleString('vi-VN')}</div>
                     </div>
                   ))
                 )}
               </div>
               {notifications.length > 6 && (
-                <div className="dropdown-footer">Xem tất cả {notifications.length} thông báo</div>
+                <div className="dropdown-footer">Tổng cộng {notifications.length} thông báo</div>
               )}
             </div>
           )}

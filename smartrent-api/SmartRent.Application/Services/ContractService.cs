@@ -6,8 +6,8 @@ using SmartRent.Infrastructure.Data;
 
 namespace SmartRent.Application.Services;
 
-// Dịch vụ quản lý Hợp đồng Thuê nhà (Tạo hợp đồng, thanh lý, gia hạn, cập nhật trạng thái phòng tự động).
-public class ContractService(AppDbContext db)
+// Dịch vụ quản lý Hợp đồng Thuê nhà (Tạo hợp đồng, thanh lý, gia hạn, cập nhật trạng thái phòng tự động & thông báo realtime).
+public class ContractService(AppDbContext db, NotificationService notificationService)
 {
     // Lấy danh sách hợp đồng thuê nhà thuộc các phòng của Chủ trọ (hỗ trợ phân trang).
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
@@ -107,17 +107,13 @@ public class ContractService(AppDbContext db)
         // Tự động tạo thông báo gửi đến app cho khách thuê khi hợp đồng mới được tạo
         if (full.TenantProfile != null)
         {
-            var notifNewContract = new Notification
-            {
-                SenderId = landlordId,
-                Title = $"Thông báo tạo mới hợp đồng phòng {full.Room.RoomNumber}",
-                Content = $"Hợp đồng mã {full.ContractCode} phòng {full.Room.RoomNumber} đã được khởi tạo thành công với thời hạn từ {full.StartDate:dd/MM/yyyy} đến {full.EndDate:dd/MM/yyyy}.",
-                Target = NotificationTarget.User,
-                TargetId = full.TenantProfile.UserId,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.Notifications.Add(notifNewContract);
-            await db.SaveChangesAsync();
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"Thông báo tạo mới hợp đồng phòng {full.Room.RoomNumber}",
+                $"Hợp đồng mã {full.ContractCode} phòng {full.Room.RoomNumber} đã được khởi tạo thành công với thời hạn từ {full.StartDate:dd/MM/yyyy} đến {full.EndDate:dd/MM/yyyy}.",
+                NotificationTarget.User,
+                full.TenantProfile.UserId
+            );
         }
 
         return MapContract(full);
@@ -185,7 +181,9 @@ public class ContractService(AppDbContext db)
     // Thanh lý hợp đồng thuê nhà (Đổi trạng thái hợp đồng thành Liquidated và phòng thành Vacant).
     public async Task TerminateAsync(Guid id, Guid landlordId)
     {
-        var c = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone)
+        var c = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
             ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
 
@@ -201,6 +199,17 @@ public class ContractService(AppDbContext db)
         var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.RoomId == c.RoomId);
         if (tenant != null) { tenant.RoomId = null; }
         await db.SaveChangesAsync();
+
+        if (c.TenantProfile != null)
+        {
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"⚠️ Thông báo thanh lý hợp đồng phòng {c.Room?.RoomNumber}",
+                $"Hợp đồng thuê phòng {c.Room?.RoomNumber} (Mã: {c.ContractCode}) đã được hoàn tất thủ tục thanh lý chấm dứt hợp đồng.",
+                NotificationTarget.User,
+                c.TenantProfile.UserId
+            );
+        }
     }
 
     // Gia hạn hợp đồng (Chủ trọ phê duyệt gia hạn hợp đồng thêm số tháng và cập nhật hạn chót mới).
@@ -222,21 +231,47 @@ public class ContractService(AppDbContext db)
         c.RenewNotes = null;
         c.RenewRequestedAt = null;
 
+        await db.SaveChangesAsync();
+
         if (c.TenantProfile != null)
         {
-            var notifRenew = new Notification
-            {
-                SenderId = landlordId,
-                Title = $"🎉 Hợp đồng phòng {c.Room?.RoomNumber} đã được gia hạn",
-                Content = $"Chủ trọ đã phê duyệt gia hạn hợp đồng {c.ContractCode} thêm {req.ExtendMonths} tháng. Thời hạn hợp đồng mới đến ngày {c.EndDate:dd/MM/yyyy}.",
-                Target = NotificationTarget.User,
-                TargetId = c.TenantProfile.UserId,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.Notifications.Add(notifRenew);
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"🎉 Hợp đồng phòng {c.Room?.RoomNumber} đã được gia hạn",
+                $"Chủ trọ đã phê duyệt gia hạn hợp đồng {c.ContractCode} thêm {req.ExtendMonths} tháng. Thời hạn hợp đồng mới đến ngày {c.EndDate:dd/MM/yyyy}.",
+                NotificationTarget.User,
+                c.TenantProfile.UserId
+            );
         }
+    }
+
+    // Chủ trọ từ chối yêu cầu gia hạn hợp đồng
+    public async Task RejectRenewAsync(Guid id, Guid landlordId, RejectRenewContractRequest req)
+    {
+        var c = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
+            ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
+
+        c.Status = ContractStatus.Active;
+        c.RequestedRenewMonths = null;
+        c.RenewNotes = null;
+        c.RenewRequestedAt = null;
 
         await db.SaveChangesAsync();
+
+        if (c.TenantProfile != null)
+        {
+            var reasonText = string.IsNullOrWhiteSpace(req?.Reason) ? "Hiện tại chủ trọ chưa thể đáp ứng gia hạn hợp đồng theo yêu cầu." : req.Reason;
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"❌ Yêu cầu gia hạn HĐ phòng {c.Room?.RoomNumber} không được chấp thuận",
+                $"Chủ trọ đã từ chối yêu cầu gia hạn hợp đồng {c.ContractCode}. Lý do: {reasonText}",
+                NotificationTarget.User,
+                c.TenantProfile.UserId
+            );
+        }
     }
 
     // Khách thuê gửi yêu cầu đăng ký gia hạn hợp đồng
@@ -253,23 +288,21 @@ public class ContractService(AppDbContext db)
         c.RenewNotes = req.Notes;
         c.RenewRequestedAt = DateTime.UtcNow;
 
+        await db.SaveChangesAsync();
+
         var landlordId = c.Room?.Zone?.LandlordId;
         if (landlordId.HasValue && landlordId.Value != Guid.Empty)
         {
             var notesText = string.IsNullOrWhiteSpace(req.Notes) ? "" : $" Lời nhắn: \"{req.Notes}\"";
-            var notif = new Notification
-            {
-                SenderId = tenantUserId,
-                Title = $"🔔 Yêu cầu gia hạn HĐ: Phòng {c.Room?.RoomNumber}",
-                Content = $"Khách thuê {c.TenantProfile?.User?.FullName} (P.{c.Room?.RoomNumber}) vừa gửi yêu cầu gia hạn hợp đồng {c.ContractCode} thêm {req.ExtendMonths} tháng.{notesText}",
-                Target = NotificationTarget.User,
-                TargetId = landlordId.Value,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.Notifications.Add(notif);
+            await notificationService.SendNotificationAsync(
+                tenantUserId,
+                $"🔔 Yêu cầu gia hạn HĐ: Phòng {c.Room?.RoomNumber}",
+                $"Khách thuê {c.TenantProfile?.User?.FullName} (Phòng {c.Room?.RoomNumber}) vừa gửi yêu cầu gia hạn hợp đồng {c.ContractCode} thêm {req.ExtendMonths} tháng.{notesText}",
+                NotificationTarget.User,
+                landlordId.Value
+            );
         }
 
-        await db.SaveChangesAsync();
         return MapContract(c);
     }
 
@@ -289,6 +322,18 @@ public class ContractService(AppDbContext db)
             c.RenewNotes = null;
             c.RenewRequestedAt = null;
             await db.SaveChangesAsync();
+
+            var landlordId = c.Room?.Zone?.LandlordId;
+            if (landlordId.HasValue)
+            {
+                await notificationService.SendNotificationAsync(
+                    tenantUserId,
+                    $"ℹ️ Khách thuê đã hủy yêu cầu gia hạn HĐ phòng {c.Room?.RoomNumber}",
+                    $"Khách thuê {c.TenantProfile?.User?.FullName} (Phòng {c.Room?.RoomNumber}) đã hủy yêu cầu gia hạn hợp đồng {c.ContractCode}.",
+                    NotificationTarget.User,
+                    landlordId.Value
+                );
+            }
         }
 
         return MapContract(c);
@@ -339,23 +384,19 @@ public class ContractService(AppDbContext db)
         };
 
         db.ContractSettlements.Add(settlement);
+        await db.SaveChangesAsync();
 
         // Tự động tạo thông báo kết quả quyết toán gửi đến khách thuê
         if (c.TenantProfile != null)
         {
-            var notifSettle = new Notification
-            {
-                SenderId = landlordId,
-                Title = $"Thông báo quyết toán cọc phòng {c.Room?.RoomNumber}",
-                Content = $"Hợp đồng phòng {c.Room?.RoomNumber} đã hoàn tất quyết toán thanh lý. Số tiền cọc thực tế hoàn lại: {refundAmount:N0} VNĐ.",
-                Target = NotificationTarget.User,
-                TargetId = c.TenantProfile.UserId,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.Notifications.Add(notifSettle);
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"Thông báo quyết toán cọc phòng {c.Room?.RoomNumber}",
+                $"Hợp đồng phòng {c.Room?.RoomNumber} đã hoàn tất quyết toán thanh lý. Số tiền cọc thực tế hoàn lại: {refundAmount:N0} VNĐ.",
+                NotificationTarget.User,
+                c.TenantProfile.UserId
+            );
         }
-
-        await db.SaveChangesAsync();
 
         return new ContractSettlementDto(
             settlement.Id,
@@ -402,24 +443,17 @@ public class ContractService(AppDbContext db)
             if (!alreadyNotified)
             {
                 var daysRemaining = (contract.EndDate.Date - DateTime.UtcNow.Date).Days;
-                var notif = new Notification
-                {
-                    SenderId = landlordId,
-                    Title = $"Hợp đồng phòng {contract.Room?.RoomNumber} sắp hết hạn",
-                    Content = $"Hợp đồng {contract.ContractCode} của khách {contract.TenantProfile?.User?.FullName} sẽ hết hạn vào ngày {contract.EndDate:dd/MM/yyyy} (còn {Math.Max(0, daysRemaining)} ngày). Vui lòng liên hệ chủ trọ để gia hạn.",
-                    Target = NotificationTarget.User,
-                    TargetId = contract.TenantProfile?.UserId ?? Guid.Empty,
-                    CreatedAt = DateTime.UtcNow
-                };
-                db.Notifications.Add(notif);
+                await notificationService.SendNotificationAsync(
+                    landlordId,
+                    $"Hợp đồng phòng {contract.Room?.RoomNumber} sắp hết hạn",
+                    $"Hợp đồng {contract.ContractCode} của khách {contract.TenantProfile?.User?.FullName} sẽ hết hạn vào ngày {contract.EndDate:dd/MM/yyyy} (còn {Math.Max(0, daysRemaining)} ngày). Vui lòng liên hệ chủ trọ để gia hạn.",
+                    NotificationTarget.User,
+                    contract.TenantProfile.UserId
+                );
                 count++;
             }
         }
 
-        if (count > 0)
-        {
-            await db.SaveChangesAsync();
-        }
         return count;
     }
 

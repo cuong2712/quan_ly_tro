@@ -6,8 +6,8 @@ using SmartRent.Infrastructure.Data;
 
 namespace SmartRent.Application.Services;
 
-// Dịch vụ quản lý Giao dịch Thanh toán & Duyệt minh chứng biên lai (ProofImageUrl).
-public class PaymentService(AppDbContext db)
+// Dịch vụ quản lý Giao dịch Thanh toán & Duyệt minh chứng biên lai (ProofImageUrl) & thông báo realtime.
+public class PaymentService(AppDbContext db, NotificationService notificationService)
 {
     // Lấy danh sách giao dịch thanh toán thuộc quyền quản lý của Chủ trọ (hỗ trợ phân trang).
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
@@ -98,20 +98,21 @@ public class PaymentService(AppDbContext db)
         };
 
         db.Payments.Add(pay);
+        await db.SaveChangesAsync();
 
         // Tự động tạo thông báo gửi đến Chủ trọ khi Khách thuê gửi minh chứng thanh toán
-        var notifLandlord = new Notification
+        var landlordId = inv.Room?.Zone?.LandlordId;
+        if (landlordId.HasValue && landlordId.Value != Guid.Empty)
         {
-            SenderId = tenantUserId,
-            Title = $"Khách thuê gửi minh chứng thanh toán hóa đơn {inv.InvoiceCode}",
-            Content = $"Phòng {inv.Room?.RoomNumber}: Khách thuê đã gửi minh chứng thanh toán số tiền {pay.Amount:N0} VNĐ. Vui lòng kiểm tra và duyệt.",
-            Target = NotificationTarget.User,
-            TargetId = inv.Room?.Zone?.LandlordId ?? Guid.Empty,
-            CreatedAt = DateTime.UtcNow
-        };
-        db.Notifications.Add(notifLandlord);
+            await notificationService.SendNotificationAsync(
+                tenantUserId,
+                $"Khách thuê gửi minh chứng thanh toán hóa đơn {inv.InvoiceCode}",
+                $"Phòng {inv.Room?.RoomNumber}: Khách thuê đã gửi minh chứng thanh toán số tiền {pay.Amount:N0} VNĐ cho hóa đơn {inv.InvoiceCode}. Vui lòng kiểm tra và duyệt.",
+                NotificationTarget.User,
+                landlordId.Value
+            );
+        }
 
-        await db.SaveChangesAsync();
         pay.Invoice = inv;
         return MapPayment(pay);
     }
@@ -145,27 +146,24 @@ public class PaymentService(AppDbContext db)
             pay.Note = req.Note;
         }
 
+        await db.SaveChangesAsync();
+
         // Tự động tạo thông báo kết quả duyệt thanh toán gửi đến Khách thuê
         if (pay.Invoice?.TenantProfile != null)
         {
-            var notifTenant = new Notification
-            {
-                SenderId = landlordId,
-                Title = req.Approve ? $"Duyệt thanh toán thành công hóa đơn {pay.Invoice.InvoiceCode}" : $"Từ chối thanh toán hóa đơn {pay.Invoice.InvoiceCode}",
-                Content = req.Approve 
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                req.Approve ? $"Duyệt thanh toán thành công hóa đơn {pay.Invoice.InvoiceCode}" : $"Từ chối thanh toán hóa đơn {pay.Invoice.InvoiceCode}",
+                req.Approve 
                     ? $"Chủ trọ đã xác nhận thanh toán thành công số tiền {pay.Amount:N0} VNĐ cho hóa đơn tháng {pay.Invoice.Month} (Phòng {pay.Invoice.Room?.RoomNumber})."
                     : $"Chủ trọ đã từ chối xác nhận thanh toán hóa đơn {pay.Invoice.InvoiceCode}. Lý do: {req.Note ?? "Minh chứng không hợp lệ"}.",
-                Target = NotificationTarget.User,
-                TargetId = pay.Invoice.TenantProfile.UserId,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.Notifications.Add(notifTenant);
+                NotificationTarget.User,
+                pay.Invoice.TenantProfile.UserId
+            );
         }
 
-        await db.SaveChangesAsync();
         return MapPayment(pay);
     }
-
 
     private static PaymentDto MapPayment(Payment p) => new(
         p.Id,

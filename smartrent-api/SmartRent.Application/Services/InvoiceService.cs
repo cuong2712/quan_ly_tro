@@ -6,8 +6,8 @@ using SmartRent.Infrastructure.Data;
 
 namespace SmartRent.Application.Services;
 
-// Dịch vụ quản lý Hóa đơn tiền nhà (tạo mới hóa đơn, xem danh sách hóa đơn, cập nhật trạng thái thanh toán).
-public class InvoiceService(AppDbContext db)
+// Dịch vụ quản lý Hóa đơn tiền nhà (tạo mới hóa đơn, xem danh sách hóa đơn, cập nhật trạng thái thanh toán & thông báo realtime).
+public class InvoiceService(AppDbContext db, NotificationService notificationService)
 {
     // Lấy danh sách hóa đơn của Chủ trọ (hỗ trợ phân trang và lọc theo trạng thái/tháng).
     public async Task<object> GetByLandlordAsync(Guid landlordId, string? status = null, string? month = null, int? page = null, int? pageSize = null)
@@ -95,7 +95,6 @@ public class InvoiceService(AppDbContext db)
         var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.RoomId == req.RoomId) 
             ?? throw new KeyNotFoundException("Không có khách thuê trong phòng này");
 
-        // Kiểm tra xem phòng này trong tháng đã có hóa đơn chưa (ngăn trùng lặp hóa đơn 2 lần trong 1 tháng)
         var existingInvoice = await db.Invoices.FirstOrDefaultAsync(i => i.RoomId == req.RoomId && i.Month == req.Month);
         if (existingInvoice != null)
         {
@@ -165,20 +164,17 @@ public class InvoiceService(AppDbContext db)
         };
 
         db.Invoices.Add(inv);
-        
-        // Tự động tạo thông báo gửi đến app cho khách thuê khi hóa đơn tiền nhà được phát hành
-        var notif = new Notification
-        {
-            SenderId = landlordId,
-            Title = $"Thông báo hóa đơn tiền nhà tháng {req.Month}",
-            Content = $"Phòng {room.RoomNumber}: Hóa đơn mã {code} với tổng số tiền {totalAmount:N0} VNĐ đã được phát hành. Hạn đóng: {req.DueDate:dd/MM/yyyy}.",
-            Target = NotificationTarget.User,
-            TargetId = tenant.UserId,
-            CreatedAt = DateTime.UtcNow
-        };
-        db.Notifications.Add(notif);
-
         await db.SaveChangesAsync();
+
+        // Tự động tạo thông báo gửi đến app cho khách thuê khi hóa đơn tiền nhà được phát hành
+        await notificationService.SendNotificationAsync(
+            landlordId,
+            $"Thông báo hóa đơn tiền nhà tháng {req.Month}",
+            $"Phòng {room.RoomNumber}: Hóa đơn mã {code} với tổng số tiền {totalAmount:N0} VNĐ đã được phát hành. Hạn đóng: {req.DueDate:dd/MM/yyyy}.",
+            NotificationTarget.User,
+            tenant.UserId
+        );
+
         inv.Room = room; 
         inv.TenantProfile = tenant;
         return MapInvoice(inv);
@@ -194,7 +190,6 @@ public class InvoiceService(AppDbContext db)
 
         if (inv == null) return false;
 
-        // Xóa các thanh toán liên quan nếu có
         var payments = await db.Payments.Where(p => p.InvoiceId == id).ToListAsync();
         if (payments.Count > 0)
         {
@@ -245,6 +240,19 @@ public class InvoiceService(AppDbContext db)
         if (svcItem != null) svcItem.Amount = req.ServiceFee;
 
         await db.SaveChangesAsync();
+
+        // Gửi thông báo cập nhật hóa đơn cho khách thuê
+        if (inv.TenantProfile != null)
+        {
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"Thông báo cập nhật hóa đơn {inv.InvoiceCode}",
+                $"Hóa đơn tháng {inv.Month} (Phòng {inv.Room?.RoomNumber}) đã được chủ trọ cập nhật lại thông tin. Tổng tiền: {inv.TotalAmount:N0} VNĐ. Hạn đóng: {inv.DueDate:dd/MM/yyyy}.",
+                NotificationTarget.User,
+                inv.TenantProfile.UserId
+            );
+        }
+
         return MapInvoice(inv);
     }
 
@@ -266,16 +274,13 @@ public class InvoiceService(AppDbContext db)
             // Tự động tạo thông báo xác nhận đã đóng tiền nhà thành công
             if (inv.TenantProfile != null)
             {
-                var notifPaid = new Notification
-                {
-                    SenderId = landlordId,
-                    Title = $"Xác nhận thanh toán hóa đơn {inv.InvoiceCode}",
-                    Content = $"Hóa đơn tiền nhà tháng {inv.Month} (Phòng {inv.Room?.RoomNumber}) số tiền {inv.TotalAmount:N0} VNĐ đã được xác nhận thanh toán thành công.",
-                    Target = NotificationTarget.User,
-                    TargetId = inv.TenantProfile.UserId,
-                    CreatedAt = DateTime.UtcNow
-                };
-                db.Notifications.Add(notifPaid);
+                await notificationService.SendNotificationAsync(
+                    landlordId,
+                    $"Xác nhận thanh toán hóa đơn {inv.InvoiceCode}",
+                    $"Hóa đơn tiền nhà tháng {inv.Month} (Phòng {inv.Room?.RoomNumber}) số tiền {inv.TotalAmount:N0} VNĐ đã được xác nhận thanh toán thành công.",
+                    NotificationTarget.User,
+                    inv.TenantProfile.UserId
+                );
             }
         }
 
@@ -293,7 +298,6 @@ public class InvoiceService(AppDbContext db)
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new KeyNotFoundException("Hóa đơn không tồn tại.");
 
-        // Kiểm tra quyền: Hóa đơn này phải thuộc về khách thuê hiện tại
         if (inv.TenantProfile?.UserId != currentUserId && (inv.TenantProfile?.RoomId == null || inv.RoomId != inv.TenantProfile.RoomId.Value))
         {
             var myProfile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == currentUserId);
@@ -319,24 +323,7 @@ public class InvoiceService(AppDbContext db)
         inv.SuggestedElecNumber = req.SuggestedElecNumber;
         inv.SuggestedWaterNumber = req.SuggestedWaterNumber;
 
-        // 2. Tạo Notification gửi riêng cho Chủ trọ
-        var details = $"Khách thuê {senderName} (Phòng {roomNumber}) đã gửi yêu cầu kiểm tra lại hóa đơn {inv.InvoiceCode} (Kỳ {inv.Month}).\n• Lý do: {req.Reason}\n• Mô tả: {req.Description}";
-        if (req.SuggestedElecNumber.HasValue) details += $"\n• Chỉ số điện đề xuất: {req.SuggestedElecNumber.Value}";
-        if (req.SuggestedWaterNumber.HasValue) details += $"\n• Chỉ số nước đề xuất: {req.SuggestedWaterNumber.Value}";
-        if (!string.IsNullOrEmpty(req.ImageUrl)) details += $"\n• Có kèm ảnh minh chứng công tơ / biên lai.";
-
-        var notif = new Notification
-        {
-            SenderId = currentUserId,
-            Title = $"⚠️ Yêu cầu kiểm tra lại HĐ {inv.InvoiceCode} - Phòng {roomNumber}",
-            Content = details,
-            Target = NotificationTarget.User,
-            TargetId = landlordId,
-            CreatedAt = DateTime.UtcNow
-        };
-        db.Notifications.Add(notif);
-
-        // 3. Ghi nhận vào bảng Complaints để lưu vết lịch sử khiếu nại của hệ thống
+        // 2. Ghi nhận vào bảng Complaints để lưu vết lịch sử khiếu nại của hệ thống
         var complaint = new Complaint
         {
             SenderId = currentUserId,
@@ -346,8 +333,22 @@ public class InvoiceService(AppDbContext db)
             CreatedAt = DateTime.UtcNow
         };
         db.Complaints.Add(complaint);
-
         await db.SaveChangesAsync();
+
+        // 3. Tạo Notification gửi riêng cho Chủ trọ và push realtime
+        var details = $"Khách thuê {senderName} (Phòng {roomNumber}) đã gửi yêu cầu kiểm tra lại hóa đơn {inv.InvoiceCode} (Kỳ {inv.Month}).\n• Lý do: {req.Reason}\n• Mô tả: {req.Description}";
+        if (req.SuggestedElecNumber.HasValue) details += $"\n• Chỉ số điện đề xuất: {req.SuggestedElecNumber.Value}";
+        if (req.SuggestedWaterNumber.HasValue) details += $"\n• Chỉ số nước đề xuất: {req.SuggestedWaterNumber.Value}";
+        if (!string.IsNullOrEmpty(req.ImageUrl)) details += $"\n• Có kèm ảnh minh chứng công tơ / biên lai.";
+
+        await notificationService.SendNotificationAsync(
+            currentUserId,
+            $"⚠️ Yêu cầu kiểm tra lại HĐ {inv.InvoiceCode} - Phòng {roomNumber}",
+            details,
+            NotificationTarget.User,
+            landlordId
+        );
+
         return MapInvoice(inv);
     }
 
@@ -376,22 +377,20 @@ public class InvoiceService(AppDbContext db)
         inv.SuggestedElecNumber = null;
         inv.SuggestedWaterNumber = null;
 
+        await db.SaveChangesAsync();
+
         var landlordId = inv.Room?.Zone?.LandlordId;
         if (landlordId.HasValue)
         {
-            var notif = new Notification
-            {
-                SenderId = currentUserId,
-                Title = $"ℹ️ Khách thuê đã hủy yêu cầu kiểm tra HĐ {inv.InvoiceCode}",
-                Content = $"Khách thuê Phòng {inv.Room?.RoomNumber} đã hủy yêu cầu kiểm tra lại hóa đơn {inv.InvoiceCode}.",
-                Target = NotificationTarget.User,
-                TargetId = landlordId.Value,
-                CreatedAt = DateTime.UtcNow
-            };
-            db.Notifications.Add(notif);
+            await notificationService.SendNotificationAsync(
+                currentUserId,
+                $"ℹ️ Khách thuê đã hủy yêu cầu kiểm tra HĐ {inv.InvoiceCode}",
+                $"Khách thuê Phòng {inv.Room?.RoomNumber} đã hủy yêu cầu kiểm tra lại hóa đơn {inv.InvoiceCode}.",
+                NotificationTarget.User,
+                landlordId.Value
+            );
         }
 
-        await db.SaveChangesAsync();
         return MapInvoice(inv);
     }
 
@@ -434,19 +433,18 @@ public class InvoiceService(AppDbContext db)
             inv.DisputeReply = !string.IsNullOrWhiteSpace(req.Reply) ? req.Reply : "Chủ trọ đã kiểm tra và điều chỉnh lại số liệu hóa đơn.";
             inv.DisputeHandledBy = landlordId;
 
+            await db.SaveChangesAsync();
+
             // Gửi thông báo xác nhận điều chỉnh cho khách thuê
             if (inv.TenantProfile != null)
             {
-                var notif = new Notification
-                {
-                    SenderId = landlordId,
-                    Title = $"✅ Đã điều chỉnh hóa đơn {inv.InvoiceCode} - Phòng {inv.Room?.RoomNumber}",
-                    Content = $"Chủ trọ đã kiểm tra và điều chỉnh hóa đơn {inv.InvoiceCode} (Kỳ {inv.Month}).\n• Tổng tiền mới: {inv.TotalAmount:N0} VNĐ (Điện: {inv.ElecFee:N0}đ, Nước: {inv.WaterFee:N0}đ, Phòng: {inv.RentFee:N0}đ, Dịch vụ: {inv.ServiceFee:N0}đ).\n• Phản hồi từ chủ trọ: {inv.DisputeReply}",
-                    Target = NotificationTarget.User,
-                    TargetId = inv.TenantProfile.UserId,
-                    CreatedAt = DateTime.UtcNow
-                };
-                db.Notifications.Add(notif);
+                await notificationService.SendNotificationAsync(
+                    landlordId,
+                    $"✅ Đã điều chỉnh hóa đơn {inv.InvoiceCode} - Phòng {inv.Room?.RoomNumber}",
+                    $"Chủ trọ đã kiểm tra và điều chỉnh hóa đơn {inv.InvoiceCode} (Kỳ {inv.Month}).\n• Tổng tiền mới: {inv.TotalAmount:N0} VNĐ (Điện: {inv.ElecFee:N0}đ, Nước: {inv.WaterFee:N0}đ, Phòng: {inv.RentFee:N0}đ, Dịch vụ: {inv.ServiceFee:N0}đ).\n• Phản hồi từ chủ trọ: {inv.DisputeReply}",
+                    NotificationTarget.User,
+                    inv.TenantProfile.UserId
+                );
             }
         }
         else
@@ -456,23 +454,21 @@ public class InvoiceService(AppDbContext db)
             inv.DisputeReply = !string.IsNullOrWhiteSpace(req.Reply) ? req.Reply : "Chủ trọ đã kiểm tra lại các chỉ số và xác nhận số liệu hóa đơn là chính xác.";
             inv.DisputeHandledBy = landlordId;
 
+            await db.SaveChangesAsync();
+
             // Gửi thông báo từ chối / giải thích cho khách thuê
             if (inv.TenantProfile != null)
             {
-                var notif = new Notification
-                {
-                    SenderId = landlordId,
-                    Title = $"ℹ️ Phản hồi kiểm tra HĐ {inv.InvoiceCode} - Phòng {inv.Room?.RoomNumber}",
-                    Content = $"Chủ trọ đã phản hồi yêu cầu kiểm tra hóa đơn {inv.InvoiceCode} (Kỳ {inv.Month}).\n• Phản hồi: {inv.DisputeReply}\n• Tổng tiền giữ nguyên: {inv.TotalAmount:N0} VNĐ.",
-                    Target = NotificationTarget.User,
-                    TargetId = inv.TenantProfile.UserId,
-                    CreatedAt = DateTime.UtcNow
-                };
-                db.Notifications.Add(notif);
+                await notificationService.SendNotificationAsync(
+                    landlordId,
+                    $"ℹ️ Phản hồi kiểm tra HĐ {inv.InvoiceCode} - Phòng {inv.Room?.RoomNumber}",
+                    $"Chủ trọ đã phản hồi yêu cầu kiểm tra hóa đơn {inv.InvoiceCode} (Kỳ {inv.Month}).\n• Phản hồi: {inv.DisputeReply}\n• Tổng tiền giữ nguyên: {inv.TotalAmount:N0} VNĐ.",
+                    NotificationTarget.User,
+                    inv.TenantProfile.UserId
+                );
             }
         }
 
-        await db.SaveChangesAsync();
         return MapInvoice(inv);
     }
 

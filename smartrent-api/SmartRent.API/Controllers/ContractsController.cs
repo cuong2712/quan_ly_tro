@@ -88,6 +88,20 @@ public class ContractsController(ContractService contractService) : ControllerBa
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
+    // Từ chối yêu cầu gia hạn hợp đồng (Chủ trọ).
+    [HttpPost("{id:guid}/reject-renew")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> RejectRenew(Guid id, [FromBody] RejectRenewContractRequest? request)
+    {
+        try
+        {
+            await contractService.RejectRenewAsync(id, CurrentUserId, request ?? new RejectRenewContractRequest());
+            return Ok(new { message = "Đã từ chối yêu cầu gia hạn hợp đồng và thông báo cho khách thuê." });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     // Khách thuê gửi yêu cầu đăng ký gia hạn hợp đồng
     [HttpPost("{id:guid}/request-renew")]
     [Authorize(Roles = "Tenant")]

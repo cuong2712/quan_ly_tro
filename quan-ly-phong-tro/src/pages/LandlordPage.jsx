@@ -4,6 +4,7 @@ import { Navbar } from '../components/Common/Navbar';
 import { Sidebar } from '../components/Common/Sidebar';
 import { TabLoader, TabError } from '../components/Common/TabLoader';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 import { useTabData } from '../hooks/useTabData';
 import {
@@ -99,6 +100,7 @@ const ACTIVE_TABS = new Set([
 
 export default function LandlordPage() {
   const { user, logout } = useAuth();
+  const { notifications, setNotifications } = useNotification();
   const navigate = useNavigate();
   const [theme, setTheme] = useState('dark');
   const [tabData, setTabData] = useState({});
@@ -151,7 +153,6 @@ export default function LandlordPage() {
   const setCurrentData = (key, value) =>
     setTabData(prev => ({ ...prev, [activeTab]: { ...prev[activeTab], [key]: value } }));
 
-  const notifications = tabData['ll_notifications']?.notifications || [];
   const d = currentData;
 
   const renderContent = () => {
@@ -257,8 +258,8 @@ export default function LandlordPage() {
         return (
           <Suspense fallback={<TabLoader />}>
             <LandlordNotify
-              notifications={d.notifications || []}
-              setNotifications={v => setCurrentData('notifications', v)}
+              notifications={notifications || []}
+              setNotifications={setNotifications}
               zones={d.zones || []}
               rooms={d.rooms || []}
               tenants={d.tenants || []}

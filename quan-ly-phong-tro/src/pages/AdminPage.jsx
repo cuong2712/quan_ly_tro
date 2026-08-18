@@ -4,6 +4,7 @@ import { Navbar } from '../components/Common/Navbar';
 import { Sidebar } from '../components/Common/Sidebar';
 import { TabLoader, TabError } from '../components/Common/TabLoader';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 import { useTabData } from '../hooks/useTabData';
 import { adminService, notificationService } from '../services';
@@ -23,6 +24,7 @@ const TAB_FETCHERS = {
 
 export default function AdminPage() {
   const { user, logout } = useAuth();
+  const { notifications, setNotifications } = useNotification();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('sa_analytics');
   const [theme, setTheme] = useState('dark');
@@ -63,8 +65,6 @@ export default function AdminPage() {
   const setCurrentData = (key, value) =>
     setTabData(prev => ({ ...prev, [activeTab]: { ...prev[activeTab], [key]: value } }));
 
-  const notifications = tabData['sa_notifications']?.notifications || [];
-
   const renderContent = () => {
     if (isLoading) return <TabLoader message="Đang tải dữ liệu..." />;
     if (error)     return <TabError message={error} onRetry={handleRefresh} />;
@@ -101,8 +101,8 @@ export default function AdminPage() {
         return (
           <Suspense fallback={<TabLoader />}>
             <SystemNotify
-              notifications={d.notifications || []}
-              setNotifications={v => setCurrentData('notifications', v)}
+              notifications={notifications || []}
+              setNotifications={setNotifications}
               onRefresh={handleRefresh}
             />
           </Suspense>

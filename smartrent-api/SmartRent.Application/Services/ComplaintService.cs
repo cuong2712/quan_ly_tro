@@ -6,8 +6,8 @@ using SmartRent.Infrastructure.Data;
 
 namespace SmartRent.Application.Services;
 
-// Dịch vụ quản lý Khiếu nại / Phản hồi của Người dùng gửi đến Ban quản trị hệ thống.
-public class ComplaintService(AppDbContext db)
+// Dịch vụ quản lý Khiếu nại / Phản hồi của Người dùng gửi đến Ban quản trị hệ thống & thông báo realtime.
+public class ComplaintService(AppDbContext db, NotificationService notificationService)
 {
     // Lấy danh sách tất cả góp ý/khiếu nại.
     public async Task<IEnumerable<ComplaintDto>> GetAllAsync()
@@ -22,7 +22,18 @@ public class ComplaintService(AppDbContext db)
         var c = new Complaint { SenderId = userId, Title = title, Content = content };
         db.Complaints.Add(c);
         await db.SaveChangesAsync();
+
         var full = await db.Complaints.Include(x => x.Sender).FirstAsync(x => x.Id == c.Id);
+
+        // Gửi thông báo đến Ban quản trị / SuperAdmin
+        await notificationService.SendNotificationAsync(
+            userId,
+            $"Khiếu nại / Góp ý mới: {title}",
+            $"Người gửi: {full.Sender?.FullName} ({full.Sender?.Role})\nNội dung: {content}",
+            NotificationTarget.SuperAdmin,
+            null
+        );
+
         return MapComplaint(full);
     }
 
@@ -30,8 +41,21 @@ public class ComplaintService(AppDbContext db)
     public async Task<ComplaintDto> ReplyAsync(Guid id, Guid adminId, string reply)
     {
         var c = await db.Complaints.Include(x => x.Sender).FirstOrDefaultAsync(x => x.Id == id) ?? throw new KeyNotFoundException();
-        c.Reply = reply; c.Status = ComplaintStatus.Resolved; c.RepliedBy = adminId; c.RepliedAt = DateTime.UtcNow;
+        c.Reply = reply; 
+        c.Status = ComplaintStatus.Resolved; 
+        c.RepliedBy = adminId; 
+        c.RepliedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+
+        // Gửi thông báo phản hồi lại cho người khiếu nại
+        await notificationService.SendNotificationAsync(
+            adminId,
+            $"Phản hồi khiếu nại / góp ý: {c.Title}",
+            $"Ban quản trị đã phản hồi yêu cầu của bạn:\n\"{reply}\"",
+            NotificationTarget.User,
+            c.SenderId
+        );
+
         return MapComplaint(c);
     }
 

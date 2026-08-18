@@ -6,8 +6,8 @@ using SmartRent.Infrastructure.Data;
 
 namespace SmartRent.Application.Services;
 
-// Dịch vụ quản lý Báo cáo Sự cố & Yêu cầu Bảo trì sửa chữa phòng trọ.
-public class MaintenanceService(AppDbContext db)
+// Dịch vụ quản lý Báo cáo Sự cố & Yêu cầu Bảo trì sửa chữa phòng trọ & thông báo realtime.
+public class MaintenanceService(AppDbContext db, NotificationService notificationService)
 {
     // Lấy danh sách sự cố bảo trì dành cho Chủ trọ (hỗ trợ phân trang).
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
@@ -108,20 +108,16 @@ public class MaintenanceService(AppDbContext db)
             ImageUrl = req.ImageUrl
         };
         db.MaintenanceRequests.Add(m);
+        await db.SaveChangesAsync();
 
         // Tự động tạo thông báo gửi đến Chủ trọ
-        var notifLandlord = new Notification
-        {
-            SenderId = tenantUserId,
-            Title = $"Báo cáo sự cố mới phòng {room.RoomNumber}",
-            Content = $"Phòng {room.RoomNumber} ({room.Zone.Name}): Khách thuê {profile.User?.FullName} đã báo cáo sự cố '{req.Title}'. Vui lòng kiểm tra và xử lý.",
-            Target = NotificationTarget.User,
-            TargetId = room.Zone.LandlordId,
-            CreatedAt = DateTime.UtcNow
-        };
-        db.Notifications.Add(notifLandlord);
-
-        await db.SaveChangesAsync();
+        await notificationService.SendNotificationAsync(
+            tenantUserId,
+            $"Báo cáo sự cố mới phòng {room.RoomNumber}",
+            $"Phòng {room.RoomNumber} ({room.Zone.Name}): Khách thuê {profile.User?.FullName} đã báo cáo sự cố '{req.Title}'. Mức độ: {priority}. Vui lòng kiểm tra và xử lý.",
+            NotificationTarget.User,
+            room.Zone.LandlordId
+        );
 
         var full = await db.MaintenanceRequests
             .Include(x => x.Room).ThenInclude(r => r.Zone)
@@ -145,22 +141,28 @@ public class MaintenanceService(AppDbContext db)
         if (req.CompletionNote != null) m.CompletionNote = req.CompletionNote;
         if (m.Status == MaintenanceStatus.Completed) m.CompletedAt = DateTime.UtcNow;
 
+        await db.SaveChangesAsync();
+
         // Tự động tạo thông báo gửi đến Khách thuê khi trạng thái được cập nhật
         if (m.TenantProfile != null)
         {
-            var notifTenant = new Notification
+            var statusLabel = m.Status switch
             {
-                SenderId = landlordId,
-                Title = $"Cập nhật sự cố phòng {m.Room?.RoomNumber}",
-                Content = $"Sự cố '{m.Title}' đã được cập nhật sang trạng thái: {m.Status}. Ghi chú: {m.CompletionNote ?? "Đang xử lý"}.",
-                Target = NotificationTarget.User,
-                TargetId = m.TenantProfile.UserId,
-                CreatedAt = DateTime.UtcNow
+                MaintenanceStatus.Completed => "✅ Đã hoàn thành",
+                MaintenanceStatus.InProgress => "⚙️ Đang xử lý",
+                MaintenanceStatus.Cancelled => "❌ Đã hủy",
+                _ => "⏳ Đang chờ xử lý"
             };
-            db.Notifications.Add(notifTenant);
+
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"Cập nhật tiến độ sự cố phòng {m.Room?.RoomNumber}",
+                $"Sự cố '{m.Title}' đã được cập nhật sang: {statusLabel}. Ghi chú từ chủ trọ: {m.CompletionNote ?? "Đang được xử lý"}.",
+                NotificationTarget.User,
+                m.TenantProfile.UserId
+            );
         }
 
-        await db.SaveChangesAsync();
         return MapReq(m);
     }
 
