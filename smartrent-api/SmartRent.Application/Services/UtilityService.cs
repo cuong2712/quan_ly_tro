@@ -55,24 +55,23 @@ public class UtilityService(AppDbContext db)
         {
             var existingInvoice = await db.Invoices.Include(i => i.Items).FirstOrDefaultAsync(i => i.RoomId == req.RoomId && i.Month == req.Month);
             
-            // Lấy danh sách Dịch vụ đang hoạt động thuộc Khu vực của phòng (hoặc Tất cả các khu)
+            // 1. Lấy danh sách Dịch vụ của Khu vực / Chủ trọ
             var activeServices = await db.Services
                 .Include(s => s.Zone)
                 .Where(s => s.LandlordId == landlordId && s.IsActive && (s.ZoneId == room.ZoneId || s.ZoneId == null))
                 .ToListAsync();
 
-            decimal serviceFee = activeServices.Count > 0 ? activeServices.Sum(s => s.Price) : 150000;
-            decimal rentFee = room.Price;
+            var roomTenants = await db.TenantProfiles.Where(t => t.RoomId == req.RoomId).ToListAsync();
+            int totalRoomVehicles = roomTenants.Sum(t => t.VehicleCount);
 
+            decimal rentFee = room.Price;
             var activeContract = await db.Contracts.FirstOrDefaultAsync(c => c.RoomId == req.RoomId && c.Status == ContractStatus.Active);
             if (activeContract != null && activeContract.RentAmount > 0)
             {
                 rentFee = activeContract.RentAmount;
             }
 
-            decimal totalAmount = rentFee + elecCost + waterCost + serviceFee;
-            var dueDate = DateTime.UtcNow.AddDays(7);
-
+            decimal serviceFee = 0;
             var itemsList = new List<InvoiceItem>
             {
                 new InvoiceItem { Name = $"Tiền thuê phòng {room.RoomNumber}", Amount = rentFee },
@@ -80,18 +79,29 @@ public class UtilityService(AppDbContext db)
                 new InvoiceItem { Name = $"Tiền nước ({waterUsed} m³ x {waterPrice:N0}đ)", Amount = waterCost },
             };
 
+            // 2. Tính tiền dịch vụ: Cả khu trọ đều dùng chung các dịch vụ đã thiết lập trong Khu (Wi-Fi, Rác, Gửi xe, Vệ sinh...)
             if (activeServices.Count > 0)
             {
                 foreach (var svc in activeServices)
                 {
+                    var isParking = svc.Name.Contains("xe", StringComparison.OrdinalIgnoreCase);
                     var zoneTag = svc.Zone != null ? $" ({svc.Zone.Name})" : "";
-                    itemsList.Add(new InvoiceItem { Name = $"{svc.Name}{zoneTag}", Amount = svc.Price });
+                    if (isParking && totalRoomVehicles > 0)
+                    {
+                        decimal parkCost = totalRoomVehicles * svc.Price;
+                        serviceFee += parkCost;
+                        itemsList.Add(new InvoiceItem { Name = $"{svc.Name} ({totalRoomVehicles} xe){zoneTag}", Amount = parkCost });
+                    }
+                    else
+                    {
+                        serviceFee += svc.Price;
+                        itemsList.Add(new InvoiceItem { Name = $"{svc.Name}{zoneTag}", Amount = svc.Price });
+                    }
                 }
             }
-            else
-            {
-                itemsList.Add(new InvoiceItem { Name = "Phí dịch vụ cố định (Wi-Fi, rác)", Amount = serviceFee });
-            }
+
+            decimal totalAmount = rentFee + elecCost + waterCost + serviceFee;
+            var dueDate = DateTime.UtcNow.AddDays(7);
 
             if (existingInvoice == null)
             {
@@ -121,11 +131,8 @@ public class UtilityService(AppDbContext db)
                 existingInvoice.ServiceFee = serviceFee;
                 existingInvoice.TotalAmount = totalAmount;
 
-                existingInvoice.Items.Clear();
-                foreach (var item in itemsList)
-                {
-                    existingInvoice.Items.Add(item);
-                }
+                db.InvoiceItems.RemoveRange(existingInvoice.Items);
+                existingInvoice.Items = itemsList;
             }
         }
 
@@ -149,6 +156,29 @@ public class UtilityService(AppDbContext db)
         else { r.ElecPrice = req.ElecPrice; r.WaterPrice = req.WaterPrice; r.UpdatedAt = DateTime.UtcNow; }
         await db.SaveChangesAsync();
         return new UtilityRateDto(r.Id, r.ElecPrice, r.WaterPrice, r.UpdatedAt);
+    }
+
+    // Xóa bản ghi lịch sử điện nước (phục vụ kiểm thử & điều chỉnh) và hoàn tác số đồng hồ cũ
+    public async Task<bool> DeleteLogAsync(Guid landlordId, Guid id)
+    {
+        var log = await db.UtilityLogs.Include(u => u.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(u => u.Id == id && u.Room.Zone.LandlordId == landlordId);
+        if (log == null) return false;
+
+        var room = log.Room;
+        if (room != null)
+        {
+            var hasNewerLog = await db.UtilityLogs.AnyAsync(u => u.RoomId == room.Id && u.Id != id && u.RecordedAt > log.RecordedAt);
+            if (!hasNewerLog)
+            {
+                room.ElecMeter = log.OldElec;
+                room.WaterMeter = log.OldWater;
+            }
+        }
+
+        db.UtilityLogs.Remove(log);
+        await db.SaveChangesAsync();
+        return true;
     }
 
     private static UtilityLogDto MapLog(UtilityLog u) => new(u.Id, u.RoomId, u.Room?.RoomNumber ?? "", u.Month, u.OldElec, u.NewElec, u.ElecUsed, u.OldWater, u.NewWater, u.WaterUsed, u.ElecCost, u.WaterCost, u.RecordedAt);

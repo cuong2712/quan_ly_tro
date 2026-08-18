@@ -72,6 +72,8 @@ export const contractService = {
   deleteContract: (id) => apiClient.delete(`/contracts/${id}`).then(r => r.data),
   terminate: (id) => apiClient.patch(`/contracts/${id}/terminate`).then(r => r.data),
   renew: (id, data) => apiClient.post(`/contracts/${id}/renew`, data).then(r => r.data),
+  requestRenew: (id, data) => apiClient.post(`/contracts/${id}/request-renew`, data).then(r => r.data),
+  cancelRenew: (id) => apiClient.post(`/contracts/${id}/cancel-renew`).then(r => r.data),
   settle: (id, data) => apiClient.post(`/contracts/${id}/settle`, data).then(r => r.data),
   settleContract: (id, data) => apiClient.post(`/contracts/${id}/settle`, data).then(r => r.data),
   checkExpiring: () => apiClient.post('/contracts/check-expiring').then(r => r.data),
@@ -82,6 +84,7 @@ export const utilityService = {
   record: (data) => apiClient.post('/utilities', data).then(r => r.data),
   getRate: () => apiClient.get('/utilities/rate').then(r => r.data),
   updateRate: (data) => apiClient.put('/utilities/rate', data).then(r => r.data),
+  deleteLog: (id) => apiClient.delete(`/utilities/${id}`).then(r => r.data),
 };
 
 export const serviceMgmtService = {
@@ -91,13 +94,39 @@ export const serviceMgmtService = {
   deleteService: (id) => apiClient.delete(`/services/${id}`).then(r => r.data),
 };
 
+export const fileService = {
+  uploadAvatar: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+  uploadPaymentProof: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-payment-proof', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+  uploadDisputeProof: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-dispute-proof', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+  uploadDocument: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-document', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+};
+
 export const invoiceService = {
   getInvoices: (params) => apiClient.get('/invoices', { params }).then(r => r.data),
   getInvoice: (id) => apiClient.get(`/invoices/${id}`).then(r => r.data),
   createInvoice: (data) => apiClient.post('/invoices', data).then(r => r.data),
   updateInvoice: (id, data) => apiClient.put(`/invoices/${id}`, data).then(r => r.data),
   updateStatus: (id, status) => apiClient.patch(`/invoices/${id}/status`, null, { params: { status } }).then(r => r.data),
+  deleteInvoice: (id) => apiClient.delete(`/invoices/${id}`).then(r => r.data),
   reportInvoice: (id, data) => apiClient.post(`/invoices/${id}/report`, data).then(r => r.data),
+  cancelReportInvoice: (id) => apiClient.post(`/invoices/${id}/report/cancel`).then(r => r.data),
+  resolveDispute: (id, data) => apiClient.post(`/invoices/${id}/resolve-dispute`, data).then(r => r.data),
   report: (id, data) => apiClient.post(`/invoices/${id}/report`, data).then(r => r.data),
 };
 

@@ -78,7 +78,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // ===== Controllers & Model Validation =====
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<SmartRent.API.Filters.ApiResponseFilter>();
+})
     .ConfigureApiBehaviorOptions(options =>
     {
         // Khi Model validation thất bại (Dữ liệu gửi lên sai định dạng), luôn trả về HTTP 200 OK kèm mã code 400

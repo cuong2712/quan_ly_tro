@@ -72,4 +72,38 @@ public class InvoicesController(InvoiceService invoiceService) : ControllerBase
         catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    // Khách thuê hủy yêu cầu kiểm tra lại hóa đơn
+    [HttpPost("{id:guid}/report/cancel")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> CancelReport(Guid id)
+    {
+        try { return Ok(await invoiceService.CancelReportInvoiceAsync(id, CurrentUserId)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Chủ trọ xử lý / phản hồi yêu cầu kiểm tra lại hóa đơn (Chấp nhận & sửa tiền, hoặc Từ chối)
+    [HttpPost("{id:guid}/resolve-dispute")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> ResolveDispute(Guid id, [FromBody] ResolveInvoiceDisputeRequest request)
+    {
+        try { return Ok(await invoiceService.ResolveDisputeAsync(id, CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Xóa một hóa đơn tiền nhà (dành riêng cho Chủ trọ)
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> DeleteInvoice(Guid id)
+    {
+        try 
+        { 
+            var deleted = await invoiceService.DeleteAsync(id, CurrentUserId);
+            return deleted ? Ok(new { message = "Xóa hóa đơn thành công." }) : NotFound(new { message = "Không tìm thấy hóa đơn hoặc bạn không có quyền xóa." });
+        }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

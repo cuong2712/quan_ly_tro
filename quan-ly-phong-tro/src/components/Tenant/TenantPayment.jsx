@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, QrCode, Upload, CheckCircle, Clock, Image as ImageIcon, Eye } from 'lucide-react';
+import { CreditCard, QrCode, Upload, CheckCircle, Clock, Image as ImageIcon, Eye, AlertTriangle } from 'lucide-react';
 import { formatVND, formatDate, getVietQRUrl } from '../../utils/formatters';
 import { paymentService } from '../../services';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5000';
+
+const getImageFullUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
 
 export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setPayments, onRefresh }) => {
   // Tìm hóa đơn chưa thanh toán đầu tiên làm mặc định
   const defaultInvoice = invoices.find(i => (i.status || '').toLowerCase() === 'unpaid') || invoices[0];
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(defaultInvoice?.id || '');
   const [submitting, setSubmitting] = useState(false);
+  const [viewingProofPayment, setViewingProofPayment] = useState(null);
 
   useEffect(() => {
     if (invoices.length > 0 && !selectedInvoiceId) {
@@ -108,7 +119,7 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
 
           <div style={{ textAlign: 'left', background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', fontSize: '13px' }}>
             <div style={{ marginBottom: '4px' }}><strong>Ngân hàng:</strong> BIDV (Nội địa)</div>
-            <div style={{ marginBottom: '4px' }}><strong>Số tài khoản:</strong> 0397181879</div>
+            <div style={{ marginBottom: '4px' }}><strong>Số tài khoản:</strong> 6531211114</div>
             <div style={{ marginBottom: '4px' }}><strong>Chủ tài khoản:</strong> NGUYEN MANH CUONG</div>
             <div style={{ marginBottom: '4px' }}><strong>Hóa đơn chọn:</strong> <span style={{ color: '#6366f1', fontWeight: 700 }}>{selectedInvoice ? selectedInvoice.invoiceCode : 'Không có'}</span></div>
             <div><strong>Số tiền cần chuyển:</strong> <strong style={{ color: '#34d399', fontSize: '16px' }}>{formatVND(amountToPay)}</strong></div>
@@ -184,7 +195,7 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
                       <ImageIcon size={14} /> Xem trước ảnh minh chứng sẽ gửi cho Chủ trọ:
                     </div>
                     <img
-                      src={proofImage}
+                      src={getImageFullUrl(proofImage)}
                       alt="Ảnh biên lai minh chứng"
                       style={{ maxHeight: '140px', maxWidth: '100%', borderRadius: '6px', objectFit: 'contain' }}
                     />
@@ -246,13 +257,29 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
                     <td><strong style={{ color: '#34d399' }}>{formatVND(p.amount)}</strong></td>
                     <td>
                       {img ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div 
+                          onClick={() => setViewingProofPayment(p)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            background: 'rgba(99, 102, 241, 0.08)',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            width: 'fit-content'
+                          }}
+                          title="Bấm để xem ảnh biên lai phóng to"
+                        >
                           <img
-                            src={img}
+                            src={getImageFullUrl(img)}
                             alt="Bill"
                             style={{ width: 34, height: 34, borderRadius: 4, objectFit: 'cover', border: '1px solid var(--border-color)' }}
                           />
-                          <a href={img} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#6366f1', textDecoration: 'underline' }}>Xem ảnh</a>
+                          <span style={{ fontSize: 12, color: '#6366f1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Eye size={13} /> Xem ảnh
+                          </span>
                         </div>
                       ) : 'Không có'}
                     </td>
@@ -269,6 +296,61 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
           </table>
         )}
       </div>
+
+      {/* 🖼️ MODAL XEM ẢNH BIÊN LAI MINH CHỨNG PHÓNG TO CHO KHÁCH THUÊ */}
+      {viewingProofPayment && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '580px', padding: 0, overflow: 'hidden' }}>
+            <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)' }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
+                <ImageIcon size={18} color="#6366f1" /> Ảnh Minh Chứng Chuyển Khoản ({viewingProofPayment.invoiceCode || viewingProofPayment.invoiceId})
+              </h3>
+              <button className="btn btn-sm btn-secondary" onClick={() => setViewingProofPayment(null)}>✕</button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '20px', textAlign: 'center', background: 'var(--bg-dark)' }}>
+              <div style={{
+                textAlign: 'left',
+                background: 'var(--bg-card)',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                border: '1px solid var(--border-color)',
+                fontSize: '13px',
+                lineHeight: '1.7'
+              }}>
+                <div><strong>Hóa đơn:</strong> <span style={{ color: '#6366f1', fontWeight: 700 }}>{viewingProofPayment.invoiceCode || viewingProofPayment.invoiceId}</span></div>
+                <div><strong>Số tiền:</strong> <span style={{ color: '#34d399', fontWeight: 800 }}>{formatVND(viewingProofPayment.amount)}</span></div>
+                <div><strong>Ghi chú:</strong> {viewingProofPayment.note || 'Không có'}</div>
+                <div><strong>Thời gian gửi:</strong> {formatDate(viewingProofPayment.createdAt)}</div>
+                <div>
+                  <strong>Trạng thái:</strong> {
+                    (viewingProofPayment.status || '').toLowerCase() === 'completed'
+                      ? '✅ Đã được chủ trọ duyệt'
+                      : (viewingProofPayment.status || '').toLowerCase() === 'rejected'
+                        ? '❌ Bị từ chối'
+                        : '⏳ Đang chờ chủ trọ duyệt'
+                  }
+                </div>
+              </div>
+
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', background: '#fff', display: 'inline-block', maxWidth: '100%' }}>
+                <img
+                  src={getImageFullUrl(viewingProofPayment.proofImageUrl || viewingProofPayment.proofUrl || viewingProofPayment.ProofImageUrl)}
+                  alt="Ảnh biên lai chuyển khoản"
+                  style={{ maxHeight: '420px', maxWidth: '100%', borderRadius: '6px', objectFit: 'contain', display: 'block' }}
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '12px 20px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setViewingProofPayment(null)}>
+                Đóng cửa sổ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

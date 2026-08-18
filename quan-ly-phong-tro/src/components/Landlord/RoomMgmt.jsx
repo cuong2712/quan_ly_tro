@@ -72,14 +72,17 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
     }
   };
 
-  const handleToggleLock = (id) => {
-    setRooms(rooms.map(r => {
-      if (r.id === id) {
-        const newStatus = r.status === 'locked' ? 'vacant' : 'locked';
-        return { ...r, status: newStatus };
-      }
-      return r;
-    }));
+  const handleToggleLock = async (id) => {
+    const r = rooms.find(room => room.id === id);
+    if (!r) return;
+    const newStatus = r.status === 'locked' ? 'vacant' : 'locked';
+    try {
+      const updated = await roomService.updateRoom(id, { ...r, status: newStatus });
+      setRooms(rooms.map(room => room.id === id ? updated : room));
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi đổi trạng thái: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const handleSave = async (e) => {
@@ -96,6 +99,7 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
         status: formData.status,
         elecMeter: Number(formData.elecMeter || 0),
         waterMeter: Number(formData.waterMeter || 0),
+        serviceFee: Number(formData.serviceFee || 0),
         description: formData.description,
         amenities: formData.amenities,
       };
@@ -189,7 +193,9 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tầng {r.floor}</div>
                   </td>
                   <td>{zone ? zone.name : 'N/A'}</td>
-                  <td><strong style={{ color: '#34d399' }}>{formatVND(r.price)}</strong></td>
+                  <td>
+                    <strong style={{ color: '#34d399' }}>{formatVND(r.price)}</strong>
+                  </td>
                   <td>{r.area} m² / Tối đa {r.maxTenants} người</td>
                   <td>
                     <div style={{ fontSize: '12px', display: 'flex', gap: '10px' }}>
@@ -263,7 +269,7 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Giá Thuê Tháng (VND)</label>
+                    <label className="form-label">Giá Thuê Phòng (VND/tháng) *</label>
                     <input
                       type="number"
                       className="form-control"
@@ -273,7 +279,9 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
                       onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
                     />
                   </div>
+                </div>
 
+                <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Tầng</label>
                     <input
@@ -285,9 +293,7 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
                       onChange={(e) => setFormData({ ...formData, floor: parseInt(e.target.value) || 1 })}
                     />
                   </div>
-                </div>
 
-                <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Diện Tích (m²)</label>
                     <input
@@ -298,6 +304,7 @@ export const RoomMgmt = ({ rooms, setRooms, zones, onRefresh }) => {
                       onChange={(e) => setFormData({ ...formData, area: parseInt(e.target.value) || 0 })}
                     />
                   </div>
+                </div>
 
                   <div className="form-group">
                     <label className="form-label">Sức Chứa Tối Đa (Người)</label>

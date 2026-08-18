@@ -21,6 +21,12 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     settlementNotes: ''
   });
 
+  const [renewModalOpen, setRenewModalOpen] = useState(false);
+  const [renewingContract, setRenewingContract] = useState(null);
+  const [renewForm, setRenewForm] = useState({
+    extendMonths: 12,
+    newRentAmount: 0
+  });
 
   const [formData, setFormData] = useState({
     contractCode: '',
@@ -42,6 +48,16 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     if (rawStatus === 'liquidated') {
       return { label: 'Đã thanh lý', className: 'liquidated', isActive: false, type: 'liquidated' };
     }
+
+    if (rawStatus === 'renewrequested' || rawStatus === 'renew_requested' || Boolean(c.requestedRenewMonths)) {
+      return { 
+        label: `⏳ Chờ gia hạn (+${c.requestedRenewMonths || 12}T)`, 
+        className: 'renew_requested', 
+        isActive: true, 
+        type: 'renew_requested', 
+        isRequested: true 
+      };
+    }
     
     if (c.endDate) {
       const endDateObj = new Date(c.endDate);
@@ -54,10 +70,6 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
     if (rawStatus === 'expired') {
       return { label: 'Đã hết hạn', className: 'expired', isActive: false, type: 'expired' };
-    }
-
-    if (rawStatus === 'renewrequested' || rawStatus === 'renew_requested') {
-      return { label: 'Chờ gia hạn', className: 'renew_requested', isActive: true, type: 'active' };
     }
 
     return { label: 'Đang hiệu lực', className: 'active', isActive: true, type: 'active' };
@@ -232,22 +244,42 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
-  const handleRenew = async (c) => {
-    const monthsStr = prompt(`Gia hạn hợp đồng ${c.contractCode}.\nNhập số tháng muốn gia hạn (VD: 6 hoặc 12):`, '12');
-    if (!monthsStr) return;
-    const months = parseInt(monthsStr);
+  const handleOpenRenew = (c) => {
+    setRenewingContract(c);
+    setRenewForm({
+      extendMonths: c.requestedRenewMonths || 12,
+      newRentAmount: c.rentAmount || 0,
+    });
+    setRenewModalOpen(true);
+  };
+
+  const handleSaveRenew = async (e) => {
+    e.preventDefault();
+    if (!renewingContract) return;
+
+    const months = parseInt(renewForm.extendMonths);
     if (isNaN(months) || months <= 0) { alert('Số tháng không hợp lệ'); return; }
 
-    const oldEnd = new Date(c.endDate);
+    const oldEnd = new Date(renewingContract.endDate);
     oldEnd.setMonth(oldEnd.getMonth() + months);
     const newEndDateStr = oldEnd.toISOString().split('T')[0];
 
     try {
-      if (contractService && contractService.renew) {
-        await contractService.renew(c.id, { extendMonths: months, newRentAmount: c.rentAmount });
-      }
-      setContracts(contracts.map(item => item.id === c.id ? { ...item, endDate: newEndDateStr, status: 'active' } : item));
-      alert(`✅ Đã gia hạn hợp đồng ${c.contractCode} thêm ${months} tháng đến ngày ${formatDate(newEndDateStr)}!`);
+      await contractService.renew(renewingContract.id, {
+        extendMonths: months,
+        newRentAmount: Number(renewForm.newRentAmount) || renewingContract.rentAmount
+      });
+      setContracts(contracts.map(item => item.id === renewingContract.id ? {
+        ...item,
+        endDate: newEndDateStr,
+        rentAmount: Number(renewForm.newRentAmount) || item.rentAmount,
+        status: 'active',
+        requestedRenewMonths: null,
+        renewNotes: null,
+        renewRequestedAt: null,
+      } : item));
+      setRenewModalOpen(false);
+      alert(`✅ Đã phê duyệt gia hạn hợp đồng ${renewingContract.contractCode} thêm ${months} tháng đến ngày ${formatDate(newEndDateStr)}!`);
       onRefresh?.();
     } catch (e) {
       alert('Lỗi gia hạn hợp đồng: ' + (e.response?.data?.message || e.message));
@@ -609,39 +641,53 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Cọc: {formatVND(c.deposit)}</div>
                       </td>
                       <td>
-                        <span className={`badge badge-${statusInfo.className}`} style={{ padding: '6px 10px', fontSize: '12px' }}>
+                        <span className={`badge badge-${statusInfo.className}`} style={{
+                          padding: '6px 10px',
+                          fontSize: '12px',
+                          ...(statusInfo.isRequested ? { background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid #f59e0b' } : {})
+                        }}>
                           {statusInfo.label}
                         </span>
+                        {c.renewNotes && (
+                          <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px', fontStyle: 'italic', maxWidth: 160 }} title={c.renewNotes}>
+                            💬 "{c.renewNotes.length > 25 ? c.renewNotes.slice(0, 25) + '...' : c.renewNotes}"
+                          </div>
+                        )}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                           <button className="btn btn-sm btn-secondary" title="In / Xem Hợp Đồng PDF" onClick={() => setViewingContract(c)}>
-                            <Printer size={14} />
+                            <Printer size={15} />
                           </button>
-                          {statusInfo.isActive && (
-                            <button className="btn btn-sm btn-primary" title="Quyết toán & Hoàn cọc" onClick={() => handleOpenSettle(c)} style={{ background: '#10b981', borderColor: '#10b981' }}>
-                              <CheckCircle size={14} /> Quyết toán
+                          
+                          {statusInfo.isRequested ? (
+                            <button
+                              className="btn btn-sm btn-primary"
+                              title="Khách gửi yêu cầu gia hạn - Bấm để duyệt"
+                              onClick={() => handleOpenRenew(c)}
+                              style={{ background: '#f59e0b', borderColor: '#f59e0b', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px' }}
+                            >
+                              <Clock size={14} /> Duyệt Gia Hạn
                             </button>
+                          ) : (
+                            statusInfo.isActive && (
+                              <button className="btn btn-sm btn-secondary" title="Gia Hạn Hợp Đồng" onClick={() => handleOpenRenew(c)} style={{ color: '#10b981' }}>
+                                <Clock size={15} />
+                              </button>
+                            )
                           )}
+
                           {statusInfo.isActive && (
-                            <button className="btn btn-sm btn-secondary" title="Gia Hạn Hợp Đồng" onClick={() => handleRenew(c)} style={{ color: '#10b981' }}>
-                              <Clock size={14} />
+                            <button className="btn btn-sm btn-secondary" title="Quyết toán cọc & thanh lý hợp đồng" onClick={() => handleOpenSettle(c)} style={{ color: '#0ea5e9' }}>
+                              <CheckCircle size={15} />
                             </button>
                           )}
 
                           <button className="btn btn-sm btn-secondary" title="Sửa điều khoản" onClick={() => handleOpenEdit(c)}>
-                            <Edit size={14} />
+                            <Edit size={15} />
                           </button>
-                          <button className="btn btn-sm btn-secondary" title="Quyết toán cọc & hoàn tiền" onClick={() => handleOpenSettle(c)} style={{ color: '#0ea5e9' }}>
-                            <CreditCard size={14} />
-                          </button>
-                          {statusInfo.isActive && (
-                            <button className="btn btn-sm btn-danger" title="Thanh lý hợp đồng" onClick={() => handleLiquidate(c.id)}>
-                              <Shield size={14} />
-                            </button>
-                          )}
-                          <button className="btn btn-sm btn-danger" title="Xóa" onClick={() => handleDelete(c.id)}>
-                            <Trash2 size={14} />
+                          <button className="btn btn-sm btn-danger" title="Xóa hợp đồng" onClick={() => handleDelete(c.id)}>
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -946,6 +992,103 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setSettleModalOpen(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary" style={{ background: '#10b981', borderColor: '#10b981' }}>Xác Nhận Quyết Toán</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🔄 MODAL GIA HẠN HỢP ĐỒNG (CHỦ TRỌ) */}
+      {renewModalOpen && renewingContract && (
+        <div className="modal-overlay" onClick={() => setRenewModalOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '18px' }}>
+                <Clock size={20} color="#10b981" /> Phê Duyệt / Gia Hạn Hợp Đồng
+              </h3>
+              <button className="btn-close" onClick={() => setRenewModalOpen(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveRenew}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ background: 'var(--bg-dark)', padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border-color)', fontSize: 13 }}>
+                  <div>Mã hợp đồng: <strong style={{ color: '#6366f1' }}>{renewingContract.contractCode || 'HĐ'}</strong> {renewingContract.roomNumber ? `(Phòng ${renewingContract.roomNumber})` : ''}</div>
+                  <div style={{ marginTop: 4 }}>Khách thuê: <strong>{renewingContract.tenantName || 'Khách thuê'}</strong> {renewingContract.tenantPhone ? `(${renewingContract.tenantPhone})` : ''}</div>
+                  <div style={{ marginTop: 4 }}>Hạn hiện tại: Đến ngày <strong>{formatDate(renewingContract.endDate)}</strong></div>
+                </div>
+
+                {renewingContract.renewNotes && (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#d97706' }}>
+                    <strong>💬 Lời nhắn từ khách thuê:</strong>
+                    <div style={{ fontStyle: 'italic', marginTop: 2, color: 'var(--text-primary)' }}>"{renewingContract.renewNotes}"</div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700 }}>Số Tháng Gia Hạn *</label>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    {[3, 6, 12, 24].map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={`btn btn-sm ${Number(renewForm.extendMonths) === m ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ flex: 1, padding: '6px 0', fontSize: 13 }}
+                        onClick={() => setRenewForm({ ...renewForm, extendMonths: m })}
+                      >
+                        +{m} tháng
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    className="form-control"
+                    required
+                    value={renewForm.extendMonths}
+                    onChange={e => setRenewForm({ ...renewForm, extendMonths: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+
+                {(() => {
+                  try {
+                    if (!renewingContract.endDate) return null;
+                    const oldD = new Date(renewingContract.endDate);
+                    if (isNaN(oldD.getTime())) return null;
+                    const months = parseInt(renewForm.extendMonths) || 0;
+                    if (months <= 0) return null;
+                    oldD.setMonth(oldD.getMonth() + months);
+                    const nextEndStr = oldD.toISOString().split('T')[0];
+                    return (
+                      <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, padding: '10px 14px', color: '#10b981', fontSize: 13 }}>
+                        <CheckCircle size={15} style={{ display: 'inline', marginRight: 6 }} />
+                        Hạn hợp đồng mới sau khi gia hạn: <strong>{formatDate(nextEndStr)}</strong>
+                      </div>
+                    );
+                  } catch (e) {
+                    return null;
+                  }
+                })()}
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700 }}>Giá Thuê Mới (VNĐ/tháng)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10000"
+                    className="form-control"
+                    required
+                    value={renewForm.newRentAmount}
+                    onChange={e => setRenewForm({ ...renewForm, newRentAmount: e.target.value })}
+                  />
+                  <small style={{ color: 'var(--text-muted)' }}>Giá hiện tại: {formatVND(renewingContract.rentAmount || 0)}</small>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 16 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setRenewModalOpen(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" style={{ background: '#10b981', borderColor: '#10b981' }}>
+                  <CheckCircle size={15} style={{ marginRight: 4 }} />
+                  Xác Nhận Gia Hạn HĐ
+                </button>
               </div>
             </form>
           </div>

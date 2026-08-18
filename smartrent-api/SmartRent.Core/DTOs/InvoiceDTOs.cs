@@ -6,7 +6,17 @@ public record InvoiceDto(
     decimal RentFee, decimal ElecFee, decimal WaterFee, decimal ServiceFee,
     decimal TotalAmount, string Status, DateTime DueDate,
     DateTime? PaidDate, DateTime CreatedAt,
-    List<InvoiceItemDto> Items
+    List<InvoiceItemDto> Items,
+    bool IsReported = false,
+    string? DisputeReason = null,
+    string? DisputeDescription = null,
+    string? DisputeImageUrl = null,
+    string? DisputeStatus = null,
+    DateTime? DisputeCreatedAt = null,
+    DateTime? DisputeResolvedAt = null,
+    string? DisputeReply = null,
+    decimal? SuggestedElecNumber = null,
+    decimal? SuggestedWaterNumber = null
 );
 
 public record InvoiceItemDto(Guid Id, string Name, decimal Amount);
@@ -24,5 +34,18 @@ public record UpdateInvoiceRequest(
 public record ReportInvoiceRequest(
     string Reason, 
     string Description, 
-    string? ImageUrl = null
+    string? ImageUrl = null,
+    decimal? SuggestedElecNumber = null,
+    decimal? SuggestedWaterNumber = null
 );
+
+public record ResolveInvoiceDisputeRequest(
+    string Action, // "Accept" or "Reject"
+    string? Reply = null,
+    decimal? RentFee = null,
+    decimal? ElecFee = null,
+    decimal? WaterFee = null,
+    decimal? ServiceFee = null,
+    DateTime? DueDate = null
+);
+

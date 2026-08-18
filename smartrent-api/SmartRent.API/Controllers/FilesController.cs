@@ -56,6 +56,21 @@ public class FilesController(FileService fileService) : ControllerBase
         }
     }
 
+    // Upload ảnh minh chứng báo sai sót hóa đơn (công tơ điện, đồng hồ nước, biên lai...)
+    [HttpPost("upload-dispute-proof")]
+    public async Task<IActionResult> UploadDisputeProof([FromForm] IFormFile file)
+    {
+        try
+        {
+            var url = await fileService.UploadImageAsync(file, "disputes");
+            return Ok(new { url, message = "Upload ảnh minh chứng báo sai thành công" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     // Upload tài liệu file hợp đồng (PDF, DOCX)
     [HttpPost("upload-document")]
     public async Task<IActionResult> UploadDocument([FromForm] IFormFile file)

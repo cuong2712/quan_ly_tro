@@ -26,8 +26,8 @@ export default function TenantPage() {
   const [theme, setTheme] = useState('dark');
 
   // ── Fetch dữ liệu từ API thật ────────────────────────────────
-  const { data: dashboard } = useApi(() => dashboardService.getTenantDashboard(), []);
-  const { data: invoices } = useApi(() => invoiceService.getInvoices(), []);
+  const { data: dashboard, refetch: refetchDashboard } = useApi(() => dashboardService.getTenantDashboard(), []);
+  const { data: invoices, setData: setInvoices, refetch: refetchInvoices } = useApi(() => invoiceService.getInvoices(), []);
   const { data: contracts, setData: setContracts } = useApi(() => contractService.getContracts(), []);
   const { data: payments, setData: setPayments, refetch: refetchPayments } = useApi(() => paymentService.getPayments?.() || Promise.resolve([]), []);
   const { data: maintenanceRequests, setData: setMaintenanceRequests, refetch: refetchMaintenance } = useApi(() => maintenanceService.getRequests(), []);
@@ -75,7 +75,7 @@ export default function TenantPage() {
       case 'tn_contract':
         return <TenantContract activeTenant={activeTenant} contracts={contracts || []} rooms={[]} setContracts={setContracts} />;
       case 'tn_invoices':
-        return <TenantInvoice activeTenant={activeTenant} invoices={invoices || []} />;
+        return <TenantInvoice activeTenant={activeTenant} invoices={invoices || []} setInvoices={setInvoices} onRefresh={refetchInvoices} />;
       case 'tn_payment':
         return <TenantPayment activeTenant={activeTenant} invoices={invoices || []} payments={payments || []} setPayments={setPayments} onRefresh={refetchPayments} />;
       case 'tn_repairs':

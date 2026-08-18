@@ -713,7 +713,7 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                         <input type="number" className="form-control" required min="0" value={form.floor} onChange={e => setForm({ ...form, floor: e.target.value })} />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Giá thuê (VNĐ/tháng) *</label>
+                        <label className="form-label">Giá thuê phòng (VNĐ/tháng) *</label>
                         <input type="number" className="form-control" required min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
                       </div>
                       <div className="form-group">
@@ -813,7 +813,10 @@ const RoomDetail = ({ room, zone, onBack }) => {
       setRoomDetail(detail);
       if (detail) {
         setMeterForm(prev => ({ ...prev, newElec: detail.elecMeter || room.elecMeter, newWater: detail.waterMeter || room.waterMeter }));
-        setInvoiceForm(prev => ({ ...prev, rentFee: detail.price || room.price }));
+        setInvoiceForm(prev => ({ 
+          ...prev, 
+          rentFee: detail.price || room.price
+        }));
         setEditForm({
           roomNumber: detail.roomNumber || room.roomNumber,
           floor: detail.floor || room.floor,
@@ -1472,11 +1475,30 @@ const RoomDetail = ({ room, zone, onBack }) => {
                         <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>Mã: {inv.invoiceCode}</div>
                         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Kỳ tháng {inv.month} • Hạn: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : ''}</div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 800, color: '#6366f1', fontSize: 16 }}>{formatVND(inv.totalAmount)}</div>
-                        <span className={`status-pill ${isPaid ? 'paid' : 'unpaid'}`} style={{ marginTop: 4 }}>
-                          {isPaid ? '✅ Đã trả' : '⏳ Chưa thanh toán'}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 800, color: '#6366f1', fontSize: 16 }}>{formatVND(inv.totalAmount)}</div>
+                          <span className={`status-pill ${isPaid ? 'paid' : 'unpaid'}`} style={{ marginTop: 4 }}>
+                            {isPaid ? '✅ Đã trả' : '⏳ Chưa thanh toán'}
+                          </span>
+                        </div>
+                        <button 
+                          className="btn btn-sm btn-danger" 
+                          title="Xóa hóa đơn để test lại"
+                          style={{ width: 32, height: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}
+                          onClick={async () => {
+                            if (!window.confirm(`Bạn có chắc muốn xóa hóa đơn ${inv.invoiceCode}?`)) return;
+                            try {
+                              await invoiceService.deleteInvoice(inv.id);
+                              showToast('Đã xóa hóa đơn thành công!');
+                              await loadDetail();
+                            } catch (e) {
+                              showToast('⚠️ Không thể xóa hóa đơn: ' + (e.response?.data?.message || e.message));
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   );
@@ -1539,7 +1561,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
       {/* ⚡ MODAL CHỐT ĐIỆN NƯỚC */}
       {showMeterModal && (
         <div className="modal-backdrop" onClick={() => setShowMeterModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Zap size={20} color="#f59e0b" /> Chốt Chỉ Số Điện / Nước
@@ -1548,9 +1570,33 @@ const RoomDetail = ({ room, zone, onBack }) => {
             </div>
             <form onSubmit={handleRecordMeter}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {(() => {
+                  const existingMeterInv = (roomDetail?.recentInvoices || []).find(i => i.month === meterForm.month);
+                  if (existingMeterInv) {
+                    return (
+                      <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 8, padding: '10px 12px', color: '#d97706', fontSize: 12.5 }}>
+                        <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <AlertTriangle size={15} /> Phòng {room.roomNumber} ĐÃ CÓ hóa đơn Tháng {meterForm.month}!
+                        </div>
+                        <div style={{ color: '#b45309', marginTop: 2, fontSize: 12 }}>
+                          Mã HĐ: <strong>{existingMeterInv.invoiceCode}</strong> ({formatVND(existingMeterInv.totalAmount)})
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2, fontStyle: 'italic' }}>
+                          * Ghi số mới sẽ tự động tính lại tiền và cập nhật vào hóa đơn này.
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, padding: '8px 12px', color: '#10b981', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <CheckCircle size={14} /> Phòng {room.roomNumber} <strong>CHƯA có hóa đơn Tháng {meterForm.month}</strong>. Khi lưu chỉ số sẽ tự động xuất HĐ mới.
+                    </div>
+                  );
+                })()}
+
                 <div>
-                  <label className="form-label">Kỳ Tháng</label>
-                  <input type="text" className="form-control" value={meterForm.month} onChange={e => setMeterForm({ ...meterForm, month: e.target.value })} required />
+                  <label className="form-label">Kỳ Tháng Chốt Số *</label>
+                  <input type="month" className="form-control" value={meterForm.month} onChange={e => setMeterForm({ ...meterForm, month: e.target.value })} required />
                 </div>
                 <div>
                   <label className="form-label">Chỉ Số Điện Mới (kWh)</label>
@@ -1566,7 +1612,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
               <div className="modal-footer" style={{ marginTop: 16 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowMeterModal(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Đang ghi nhận...' : 'Lưu Chỉ Số'}
+                  {submitting ? 'Đang ghi nhận...' : 'Lưu Chỉ Số & Xuất HĐ'}
                 </button>
               </div>
             </form>
@@ -1586,13 +1632,37 @@ const RoomDetail = ({ room, zone, onBack }) => {
             </div>
             <form onSubmit={handleCreateInvoice}>
               <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {(() => {
+                  const existingInv = (roomDetail?.recentInvoices || []).find(i => i.month === invoiceForm.month);
+                  if (existingInv) {
+                    return (
+                      <div style={{ gridColumn: 'span 2', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 8, padding: '10px 12px', color: '#d97706', fontSize: 12.5 }}>
+                        <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <AlertTriangle size={15} /> Phòng {room.roomNumber} ĐÃ CÓ hóa đơn kỳ Tháng {invoiceForm.month}!
+                        </div>
+                        <div style={{ color: '#b45309', marginTop: 2, fontSize: 12 }}>
+                          Mã HĐ: <strong>{existingInv.invoiceCode}</strong> • Tổng tiền: <strong>{formatVND(existingInv.totalAmount)}</strong>
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2, fontStyle: 'italic' }}>
+                          * Nếu tiếp tục lập, hệ thống sẽ CẬP NHẬT đè lên hóa đơn hiện tại.
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{ gridColumn: 'span 2', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, padding: '8px 12px', color: '#10b981', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <CheckCircle size={14} /> Phòng {room.roomNumber} <strong>CHƯA có hóa đơn kỳ Tháng {invoiceForm.month}</strong>.
+                    </div>
+                  );
+                })()}
+
                 <div style={{ gridColumn: 'span 2' }}>
                   <label className="form-label">Khách Thuê Nhận Hóa Đơn</label>
                   <input type="text" className="form-control" value={mainTenant ? `${mainTenant.fullName} (${mainTenant.phone})` : 'Khách phòng này'} disabled />
                 </div>
                 <div>
-                  <label className="form-label">Kỳ Tháng Hóa Đơn</label>
-                  <input type="text" className="form-control" value={invoiceForm.month} onChange={e => setInvoiceForm({ ...invoiceForm, month: e.target.value })} required />
+                  <label className="form-label">Kỳ Tháng Hóa Đơn *</label>
+                  <input type="month" className="form-control" value={invoiceForm.month} onChange={e => setInvoiceForm({ ...invoiceForm, month: e.target.value })} required />
                 </div>
                 <div>
                   <label className="form-label">Hạn Thanh Toán</label>

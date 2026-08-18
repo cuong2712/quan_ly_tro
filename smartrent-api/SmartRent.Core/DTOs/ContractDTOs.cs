@@ -9,7 +9,10 @@ public record ContractDto(
     DateTime StartDate, DateTime EndDate,
     decimal RentAmount, decimal Deposit, string Status,
     int PaymentTermDay, string? Terms, string? FileUrl,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    int? RequestedRenewMonths = null,
+    string? RenewNotes = null,
+    DateTime? RenewRequestedAt = null
 );
 
 public record CreateContractRequest(
@@ -24,6 +27,8 @@ public record UpdateContractRequest(
     decimal RentAmount, int PaymentTermDay, string? Terms,
     Guid? RoomId = null
 );
+
+public record RequestRenewContractRequest(int ExtendMonths = 12, string? Notes = null);
 
 public record RenewContractRequest(int ExtendMonths, decimal? NewRentAmount);
 

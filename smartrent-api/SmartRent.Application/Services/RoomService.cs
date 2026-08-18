@@ -56,6 +56,7 @@ public class RoomService(AppDbContext db)
             Status = status, 
             ElecMeter = req.ElecMeter, 
             WaterMeter = req.WaterMeter, 
+            ServiceFee = req.ServiceFee,
             Description = req.Description, 
             Amenities = req.Amenities 
         };
@@ -95,6 +96,7 @@ public class RoomService(AppDbContext db)
         room.Status = Enum.Parse<RoomStatus>(req.Status, ignoreCase: true);
         room.ElecMeter = req.ElecMeter; 
         room.WaterMeter = req.WaterMeter; 
+        room.ServiceFee = req.ServiceFee;
         room.Description = req.Description;
         room.Amenities = req.Amenities;
         await db.SaveChangesAsync();
@@ -192,7 +194,8 @@ public class RoomService(AppDbContext db)
             r.Status.ToString(), r.ElecMeter, r.WaterMeter,
             r.Description, r.Amenities, r.CreatedAt,
             tenantDtos, invoiceDtos, utilityDtos, activeContractDto,
-            equipmentDtos
+            equipmentDtos,
+            r.ServiceFee
         );
     }
 
@@ -243,6 +246,7 @@ public class RoomService(AppDbContext db)
         r.Id, r.ZoneId, r.Zone?.Name ?? "", r.RoomNumber, r.Floor, r.Price, r.Area, r.MaxTenants,
         r.Status.ToString(), r.ElecMeter, r.WaterMeter, r.Description, r.Amenities, r.CreatedAt,
         r.Tenants.FirstOrDefault()?.User?.FullName,
-        r.Equipments?.Select(e => new RoomEquipmentDto(e.Id, e.RoomId, e.Name, e.Brand, e.Quantity, e.Condition)).ToList()
+        r.Equipments?.Select(e => new RoomEquipmentDto(e.Id, e.RoomId, e.Name, e.Brand, e.Quantity, e.Condition)).ToList(),
+        r.ServiceFee
     );
 }

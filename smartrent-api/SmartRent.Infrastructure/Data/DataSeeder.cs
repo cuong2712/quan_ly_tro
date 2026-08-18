@@ -11,8 +11,36 @@ public static class DataSeeder
     {
         try { await context.Database.MigrateAsync(); } catch (Exception ex) { Console.WriteLine("Migrate warning: " + ex.Message); }
 
-        try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text;"); }
-        catch (Exception ex) { Console.WriteLine("Add Amenities col error: " + ex.Message); }
+        try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text; ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""ServiceFee"" numeric NOT NULL DEFAULT 0;"); }
+        catch (Exception ex) { Console.WriteLine("Add Room cols error: " + ex.Message); }
+
+        try 
+        { 
+            await context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""RequestedRenewMonths"" integer NULL;
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""RenewNotes"" text NULL;
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""RenewRequestedAt"" timestamp with time zone NULL;
+            "); 
+        }
+        catch (Exception ex) { Console.WriteLine("Add Contracts cols error: " + ex.Message); }
+
+        try 
+        { 
+            await context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""IsReported"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""DisputeReason"" text NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""DisputeDescription"" text NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""DisputeImageUrl"" text NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""DisputeStatus"" text NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""DisputeCreatedAt"" timestamp with time zone NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""DisputeResolvedAt"" timestamp with time zone NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""DisputeReply"" text NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""DisputeHandledBy"" uuid NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""SuggestedElecNumber"" numeric NULL;
+                ALTER TABLE ""Invoices"" ADD COLUMN IF NOT EXISTS ""SuggestedWaterNumber"" numeric NULL;
+            "); 
+        }
+        catch (Exception ex) { Console.WriteLine("Add Invoices dispute columns error: " + ex.Message); }
 
         try
         {

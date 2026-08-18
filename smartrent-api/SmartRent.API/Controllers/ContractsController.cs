@@ -75,7 +75,7 @@ public class ContractsController(ContractService contractService) : ControllerBa
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
-    // Gia hạn thời gian hợp đồng thuê nhà.
+    // Gia hạn thời gian hợp đồng thuê nhà (Chủ trọ).
     [HttpPost("{id:guid}/renew")]
     [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> Renew(Guid id, [FromBody] RenewContractRequest request)
@@ -86,6 +86,35 @@ public class ContractsController(ContractService contractService) : ControllerBa
             return Ok(new { message = "Gia hạn hợp đồng thành công" });
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    // Khách thuê gửi yêu cầu đăng ký gia hạn hợp đồng
+    [HttpPost("{id:guid}/request-renew")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> RequestRenew(Guid id, [FromBody] RequestRenewContractRequest request)
+    {
+        try
+        {
+            var result = await contractService.RequestRenewAsync(id, CurrentUserId, request);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Khách thuê hủy yêu cầu đăng ký gia hạn hợp đồng
+    [HttpPost("{id:guid}/cancel-renew")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> CancelRenew(Guid id)
+    {
+        try
+        {
+            var result = await contractService.CancelRenewRequestAsync(id, CurrentUserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     // Quyết toán hợp đồng & hoàn trả tiền cọc cho khách thuê

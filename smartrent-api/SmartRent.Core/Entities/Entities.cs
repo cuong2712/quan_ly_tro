@@ -52,6 +52,7 @@ public class Room
     public RoomStatus Status { get; set; } = RoomStatus.Vacant;
     public decimal ElecMeter { get; set; }
     public decimal WaterMeter { get; set; }
+    public decimal ServiceFee { get; set; } = 0;
     public string? Description { get; set; }
     public string? Amenities { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -118,6 +119,9 @@ public class Contract
     public int PaymentTermDay { get; set; } = 5;
     public string? Terms { get; set; }
     public string? FileUrl { get; set; }
+    public int? RequestedRenewMonths { get; set; }
+    public string? RenewNotes { get; set; }
+    public DateTime? RenewRequestedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation
@@ -177,6 +181,19 @@ public class Invoice
     public DateTime DueDate { get; set; }
     public DateTime? PaidDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    
+    // Dispute / Report Invoice Review
+    public bool IsReported { get; set; } = false;
+    public string? DisputeReason { get; set; }
+    public string? DisputeDescription { get; set; }
+    public string? DisputeImageUrl { get; set; }
+    public string? DisputeStatus { get; set; } // "Pending", "Resolved", "Rejected"
+    public DateTime? DisputeCreatedAt { get; set; }
+    public DateTime? DisputeResolvedAt { get; set; }
+    public string? DisputeReply { get; set; }
+    public Guid? DisputeHandledBy { get; set; }
+    public decimal? SuggestedElecNumber { get; set; }
+    public decimal? SuggestedWaterNumber { get; set; }
 
     // Navigation
     public Room Room { get; set; } = null!;

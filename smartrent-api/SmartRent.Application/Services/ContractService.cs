@@ -203,35 +203,32 @@ public class ContractService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
-    // Gia hạn hợp đồng (Thanh lý hợp đồng cũ và tạo tự động một hợp đồng mới gia hạn thêm số tháng).
+    // Gia hạn hợp đồng (Chủ trọ phê duyệt gia hạn hợp đồng thêm số tháng và cập nhật hạn chót mới).
     public async Task RenewAsync(Guid id, Guid landlordId, RenewContractRequest req)
     {
-        var c = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone).Include(c => c.TenantProfile)
+        var c = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
             ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
 
-        c.Status = ContractStatus.Liquidated;
-        var newContract = new Contract 
-        { 
-            ContractCode = c.ContractCode + "-GH", 
-            RoomId = c.RoomId, 
-            TenantProfileId = c.TenantProfileId, 
-            StartDate = c.EndDate, 
-            EndDate = c.EndDate.AddMonths(req.ExtendMonths), 
-            RentAmount = req.NewRentAmount ?? c.RentAmount, 
-            Deposit = c.Deposit, 
-            PaymentTermDay = c.PaymentTermDay, 
-            Terms = c.Terms 
-        };
-        db.Contracts.Add(newContract);
+        c.EndDate = c.EndDate.AddMonths(req.ExtendMonths);
+        if (req.NewRentAmount.HasValue && req.NewRentAmount.Value > 0)
+        {
+            c.RentAmount = req.NewRentAmount.Value;
+        }
+        c.Status = ContractStatus.Active;
+        c.RequestedRenewMonths = null;
+        c.RenewNotes = null;
+        c.RenewRequestedAt = null;
 
         if (c.TenantProfile != null)
         {
             var notifRenew = new Notification
             {
                 SenderId = landlordId,
-                Title = $"Thông báo gia hạn hợp đồng phòng {c.Room?.RoomNumber}",
-                Content = $"Hợp đồng phòng {c.Room?.RoomNumber} đã được gia hạn thêm {req.ExtendMonths} tháng thành công.",
+                Title = $"🎉 Hợp đồng phòng {c.Room?.RoomNumber} đã được gia hạn",
+                Content = $"Chủ trọ đã phê duyệt gia hạn hợp đồng {c.ContractCode} thêm {req.ExtendMonths} tháng. Thời hạn hợp đồng mới đến ngày {c.EndDate:dd/MM/yyyy}.",
                 Target = NotificationTarget.User,
                 TargetId = c.TenantProfile.UserId,
                 CreatedAt = DateTime.UtcNow
@@ -240,6 +237,61 @@ public class ContractService(AppDbContext db)
         }
 
         await db.SaveChangesAsync();
+    }
+
+    // Khách thuê gửi yêu cầu đăng ký gia hạn hợp đồng
+    public async Task<ContractDto> RequestRenewAsync(Guid contractId, Guid tenantUserId, RequestRenewContractRequest req)
+    {
+        var c = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(c => c.Id == contractId && c.TenantProfile.UserId == tenantUserId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng của bạn.");
+
+        c.Status = ContractStatus.RenewRequested;
+        c.RequestedRenewMonths = req.ExtendMonths;
+        c.RenewNotes = req.Notes;
+        c.RenewRequestedAt = DateTime.UtcNow;
+
+        var landlordId = c.Room?.Zone?.LandlordId;
+        if (landlordId.HasValue && landlordId.Value != Guid.Empty)
+        {
+            var notesText = string.IsNullOrWhiteSpace(req.Notes) ? "" : $" Lời nhắn: \"{req.Notes}\"";
+            var notif = new Notification
+            {
+                SenderId = tenantUserId,
+                Title = $"🔔 Yêu cầu gia hạn HĐ: Phòng {c.Room?.RoomNumber}",
+                Content = $"Khách thuê {c.TenantProfile?.User?.FullName} (P.{c.Room?.RoomNumber}) vừa gửi yêu cầu gia hạn hợp đồng {c.ContractCode} thêm {req.ExtendMonths} tháng.{notesText}",
+                Target = NotificationTarget.User,
+                TargetId = landlordId.Value,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Notifications.Add(notif);
+        }
+
+        await db.SaveChangesAsync();
+        return MapContract(c);
+    }
+
+    // Khách thuê hủy yêu cầu gia hạn hợp đồng
+    public async Task<ContractDto> CancelRenewRequestAsync(Guid contractId, Guid tenantUserId)
+    {
+        var c = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(c => c.Id == contractId && c.TenantProfile.UserId == tenantUserId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng của bạn.");
+
+        if (c.Status == ContractStatus.RenewRequested)
+        {
+            c.Status = ContractStatus.Active;
+            c.RequestedRenewMonths = null;
+            c.RenewNotes = null;
+            c.RenewRequestedAt = null;
+            await db.SaveChangesAsync();
+        }
+
+        return MapContract(c);
     }
 
     // Quyết toán hợp đồng & hoàn trả tiền cọc cho khách thuê
@@ -395,6 +447,9 @@ public class ContractService(AppDbContext db)
         c.PaymentTermDay,
         c.Terms,
         c.FileUrl,
-        c.CreatedAt
+        c.CreatedAt,
+        c.RequestedRenewMonths,
+        c.RenewNotes,
+        c.RenewRequestedAt
     );
 }

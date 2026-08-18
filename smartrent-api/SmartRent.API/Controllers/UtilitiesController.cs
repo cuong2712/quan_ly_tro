@@ -35,4 +35,13 @@ public class UtilitiesController(UtilityService utilityService) : ControllerBase
     [HttpPut("rate")]
     public async Task<IActionResult> UpdateRate([FromBody] UpdateUtilityRateRequest request)
         => Ok(await utilityService.UpdateRateAsync(LandlordId, request));
+
+    // Xóa bản ghi lịch sử điện nước
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteLog([FromRoute] Guid id)
+    {
+        var success = await utilityService.DeleteLogAsync(LandlordId, id);
+        if (!success) return NotFound(new { message = "Không tìm thấy bản ghi điện nước hoặc không có quyền xóa" });
+        return Ok(new { message = "Đã xóa bản ghi điện nước thành công" });
+    }
 }

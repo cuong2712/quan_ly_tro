@@ -15,21 +15,24 @@ public record RoomDto(
     string Status, decimal ElecMeter, decimal WaterMeter,
     string? Description, string? Amenities, DateTime CreatedAt,
     string? CurrentTenantName,
-    List<RoomEquipmentDto>? Equipments = null
+    List<RoomEquipmentDto>? Equipments = null,
+    decimal ServiceFee = 0
 );
 
 public record CreateRoomRequest(
     Guid ZoneId, string RoomNumber, int Floor, decimal Price,
     decimal Area, int MaxTenants, string Status, decimal ElecMeter,
     decimal WaterMeter, string? Description, string? Amenities = null,
-    List<CreateEquipmentRequest>? Equipments = null
+    List<CreateEquipmentRequest>? Equipments = null,
+    decimal ServiceFee = 0
 );
 
 public record UpdateRoomRequest(
     string RoomNumber, int Floor, decimal Price, decimal Area,
     int MaxTenants, string Status, decimal ElecMeter,
     decimal WaterMeter, string? Description, string? Amenities = null,
-    List<CreateEquipmentRequest>? Equipments = null
+    List<CreateEquipmentRequest>? Equipments = null,
+    decimal ServiceFee = 0
 );
 
 public record RoomDetailDto(
@@ -41,5 +44,6 @@ public record RoomDetailDto(
     List<InvoiceDto> RecentInvoices,
     List<UtilityLogDto> UtilityLogs,
     ContractDto? ActiveContract,
-    List<RoomEquipmentDto> Equipments
+    List<RoomEquipmentDto> Equipments,
+    decimal ServiceFee = 0
 );

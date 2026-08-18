@@ -53,6 +53,7 @@ const TAB_FETCHERS = {
     utilityRate: utilityService.getRate,
     rooms: roomService.getRooms,
     zones: zoneService.getZones,
+    invoices: invoiceService.getInvoices,
   },
   ll_services: {
     services: serviceMgmtService.getServices,
@@ -60,6 +61,9 @@ const TAB_FETCHERS = {
   },
   ll_invoices: {
     invoices: invoiceService.getInvoices,
+    rooms: roomService.getRooms,
+    zones: zoneService.getZones,
+    tenants: tenantService.getTenants,
   },
   ll_payments: {
     payments: paymentService.getPayments,
@@ -194,10 +198,11 @@ export default function LandlordPage() {
             <UtilityMgmt
               rooms={d.rooms || []} setRooms={v => setCurrentData('rooms', v)}
               zones={d.zones || []}
+              invoices={d.invoices || []} setInvoices={v => setCurrentData('invoices', v)}
               utilityLogs={d.utilityLogs || []} setUtilityLogs={v => setCurrentData('utilityLogs', v)}
               utilityRates={d.utilityRate ? [d.utilityRate] : []}
               setUtilityRates={arr => setCurrentData('utilityRate', arr[0])}
-              onRefresh={() => handleRefresh()}
+              onRefresh={() => handleRefresh(['ll_invoices', 'll_dashboard'])}
             />
           </Suspense>
         );
@@ -216,7 +221,7 @@ export default function LandlordPage() {
           <Suspense fallback={<TabLoader />}>
             <InvoiceMgmt
               invoices={d.invoices || []} setInvoices={v => setCurrentData('invoices', v)}
-              rooms={[]} tenants={[]} utilityLogs={[]} services={[]}
+              rooms={d.rooms || []} zones={d.zones || []} tenants={d.tenants || []} utilityLogs={d.utilityLogs || []} services={d.services || []}
               onRefresh={() => handleRefresh(['ll_dashboard'])}
             />
           </Suspense>
