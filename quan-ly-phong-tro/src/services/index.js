@@ -101,6 +101,11 @@ export const fileService = {
     formData.append('file', file);
     return apiClient.post('/files/upload-avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
   },
+  uploadCccd: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-cccd', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
   uploadPaymentProof: (file) => {
     const formData = new FormData();
     formData.append('file', file);

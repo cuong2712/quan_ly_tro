@@ -69,7 +69,7 @@ public class TenantService(AppDbContext db)
             throw new InvalidOperationException("Email đã tồn tại trong hệ thống");
 
         var password = string.IsNullOrWhiteSpace(req.Password) ? "Tenant@123456" : req.Password;
-        var user = new User { Email = req.Email, PasswordHash = BCrypt.Net.BCrypt.HashPassword(password), FullName = req.FullName, Phone = req.Phone, Role = UserRole.Tenant };
+        var user = new User { Email = req.Email, PasswordHash = BCrypt.Net.BCrypt.HashPassword(password), FullName = req.FullName, Phone = req.Phone, Role = UserRole.Tenant, AvatarUrl = req.AvatarUrl };
         db.Users.Add(user);
 
         var profile = new TenantProfile
@@ -93,7 +93,7 @@ public class TenantService(AppDbContext db)
         return MapTenant(profile);
     }
 
-    // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới, thông tin xe).
+    // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới, thông tin xe, avatar).
     public async Task<TenantDto> UpdateAsync(Guid id, Guid landlordId, UpdateTenantRequest req)
     {
         var t = await db.TenantProfiles.Include(t => t.User).Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts)
@@ -105,6 +105,8 @@ public class TenantService(AppDbContext db)
         if (!string.IsNullOrEmpty(req.VehicleInfo)) t.VehicleInfo = req.VehicleInfo;
         if (!string.IsNullOrEmpty(req.CccdFrontUrl)) t.CccdFrontUrl = req.CccdFrontUrl;
         if (!string.IsNullOrEmpty(req.CccdBackUrl)) t.CccdBackUrl = req.CccdBackUrl;
+        if (!string.IsNullOrEmpty(req.AvatarUrl)) t.User.AvatarUrl = req.AvatarUrl;
+        if (!string.IsNullOrEmpty(req.CCCD)) t.CCCD = req.CCCD;
 
         if (req.RoomId.HasValue && t.RoomId != req.RoomId.Value)
         {

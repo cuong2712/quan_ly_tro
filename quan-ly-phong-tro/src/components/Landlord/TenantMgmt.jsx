@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { UserCheck, Plus, Search, Edit, Trash2, ArrowRightLeft, FileText, Upload, Eye, Shield, Bike } from 'lucide-react';
-import { formatVND, formatDate } from '../../utils/formatters';
+import { UserCheck, Plus, Search, Edit, Trash2, ArrowRightLeft, FileText, Upload, Eye, Shield, Bike, Image as ImageIcon } from 'lucide-react';
+import { formatVND, formatDate, getImageUrl } from '../../utils/formatters';
 import { tenantService } from '../../services';
 import { Pagination } from '../Common/Pagination';
+import { AvatarUploader, CccdCardUploader, ImageLightboxModal } from '../Common/ImageUploader';
 
 // Helper che mờ số CCCD bảo vệ thông tin cá nhân (PII Masking)
 const maskCCCD = (cccd) => {
@@ -19,12 +20,14 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
   const [viewingProfile, setViewingProfile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState('');
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     email: '',
     password: '',
+    avatarUrl: '',
     cccd: '',
     hometown: '',
     roomId: '',
@@ -63,6 +66,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       phone: '',
       email: '',
       password: '',
+      avatarUrl: '',
       cccd: '',
       hometown: '',
       roomId: initialRoom?.id || '',
@@ -83,6 +87,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
     setFormData({
       ...t,
       name: t.fullName || t.name || '',
+      avatarUrl: t.avatarUrl || '',
       cccd: t.cccd || t.CCCD || '',
       roomId: t.roomId || t.RoomId || '',
       vehicleCount: t.vehicleCount || 0,
@@ -158,6 +163,8 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             vehicleInfo: formData.vehicleInfo || '',
             cccdFrontUrl: formData.cccdFrontUrl,
             cccdBackUrl: formData.cccdBackUrl,
+            avatarUrl: formData.avatarUrl,
+            cccd: formData.cccd || formData.CCCD,
           });
         }
       } else {
@@ -176,6 +183,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             vehicleInfo: formData.vehicleInfo || '',
             cccdFrontUrl: formData.cccdFrontUrl,
             cccdBackUrl: formData.cccdBackUrl,
+            avatarUrl: formData.avatarUrl,
           });
         }
       }
@@ -261,8 +269,12 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                   <tr key={t.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#6366f1', flexShrink: 0 }}>
-                          {(t.fullName || t.name || 'K')[0].toUpperCase()}
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', border: '1.5px solid rgba(99,102,241,0.35)', background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#6366f1', flexShrink: 0 }}>
+                          {t.avatarUrl ? (
+                            <img src={getImageUrl(t.avatarUrl)} alt={t.fullName || t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            (t.fullName || t.name || 'K')[0].toUpperCase()
+                          )}
                         </div>
                         <div>
                           <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{t.fullName || t.name}</div>
@@ -333,21 +345,25 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
       {/* Profile Detail Modal */}
       {viewingProfile && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '700px' }}>
+        <div className="modal-overlay" onClick={() => setViewingProfile(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '95%' }}>
             <div className="modal-header">
               <h3 className="modal-title">Hồ Sơ Khách Thuê: {viewingProfile.fullName || viewingProfile.name}</h3>
               <button className="btn btn-sm btn-secondary" onClick={() => setViewingProfile(null)}>✕</button>
             </div>
             <div className="modal-body">
               <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', alignItems: 'center' }}>
-                <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: '#6366f1' }}>
-                  {(viewingProfile.fullName || viewingProfile.name || 'K')[0].toUpperCase()}
+                <div style={{ width: '74px', height: '74px', borderRadius: '50%', overflow: 'hidden', border: '2px solid #6366f1', background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 800, color: '#6366f1', flexShrink: 0 }}>
+                  {viewingProfile.avatarUrl ? (
+                    <img src={getImageUrl(viewingProfile.avatarUrl)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    (viewingProfile.fullName || viewingProfile.name || 'K')[0].toUpperCase()
+                  )}
                 </div>
                 <div>
                   <h3 style={{ fontSize: '18px', margin: 0 }}>{viewingProfile.fullName || viewingProfile.name}</h3>
-                  <p style={{ color: 'var(--text-secondary)', margin: '4px 0' }}>SĐT: {viewingProfile.phone} | Email: {viewingProfile.email}</p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>Số CCCD: <strong>{viewingProfile.cccd || viewingProfile.CCCD}</strong></p>
+                  <p style={{ color: 'var(--text-secondary)', margin: '4px 0' }}>SĐT: <strong>{viewingProfile.phone}</strong> | Email: {viewingProfile.email}</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>Số CCCD: <strong style={{ color: 'var(--text-primary)' }}>{viewingProfile.cccd || viewingProfile.CCCD || 'Chưa cập nhật'}</strong></p>
                   <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '2px 0' }}>Quê quán: {viewingProfile.hometown || 'Chưa cập nhật'} | Ngày nhận phòng: {formatDate(viewingProfile.moveInDate)}</p>
                   {viewingProfile.vehicleCount > 0 && (
                     <p style={{ color: '#10b981', fontSize: '13px', margin: '2px 0' }}>Xe gửi: {viewingProfile.vehicleCount} xe ({viewingProfile.vehicleInfo || 'Chưa ghi biển số'})</p>
@@ -357,20 +373,30 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
               <h4 style={{ marginBottom: '12px', fontSize: '15px' }}>Hình Ảnh Căn Cước Công Dân (CCCD 2 Mặt)</h4>
               <div className="form-row">
-                <div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Mặt Trước CCCD:</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Mặt Trước CCCD:</div>
                   {viewingProfile.cccdFrontUrl ? (
-                    <img src={viewingProfile.cccdFrontUrl} alt="CCCD Front" style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+                    <div style={{ position: 'relative', cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }} onClick={() => setLightboxImage({ url: viewingProfile.cccdFrontUrl, title: `Mặt trước CCCD - ${viewingProfile.fullName || viewingProfile.name}` })}>
+                      <img src={getImageUrl(viewingProfile.cccdFrontUrl)} alt="CCCD Front" style={{ width: '100%', height: '170px', objectFit: 'cover' }} />
+                      <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', color: '#fff', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Eye size={12} /> Bấm xem lớn
+                      </div>
+                    </div>
                   ) : (
                     <div style={{ height: '140px', background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--border-color)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
                       Chưa có ảnh mặt trước
                     </div>
                   )}
                 </div>
-                <div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Mặt Sau CCCD:</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Mặt Sau CCCD:</div>
                   {viewingProfile.cccdBackUrl ? (
-                    <img src={viewingProfile.cccdBackUrl} alt="CCCD Back" style={{ width: '100%', maxHeight: '200px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+                    <div style={{ position: 'relative', cursor: 'pointer', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }} onClick={() => setLightboxImage({ url: viewingProfile.cccdBackUrl, title: `Mặt sau CCCD - ${viewingProfile.fullName || viewingProfile.name}` })}>
+                      <img src={getImageUrl(viewingProfile.cccdBackUrl)} alt="CCCD Back" style={{ width: '100%', height: '170px', objectFit: 'cover' }} />
+                      <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', color: '#fff', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Eye size={12} /> Bấm xem lớn
+                      </div>
+                    </div>
                   ) : (
                     <div style={{ height: '140px', background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--border-color)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
                       Chưa có ảnh mặt sau
@@ -396,9 +422,19 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             </div>
 
             <form onSubmit={handleSave}>
-              <div className="modal-body">
+              <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+                {/* 1. Avatar Uploader */}
+                <div style={{ marginBottom: '18px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
+                  <label className="form-label" style={{ marginBottom: '8px' }}>Ảnh Đại Diện Khách Thuê</label>
+                  <AvatarUploader
+                    value={formData.avatarUrl}
+                    onChange={(url) => setFormData({ ...formData, avatarUrl: url })}
+                    size={76}
+                  />
+                </div>
+
                 <div className="form-group">
-                  <label className="form-label">Họ và Tên Khách Thuê</label>
+                  <label className="form-label">Họ và Tên Khách Thuê *</label>
                   <input
                     type="text"
                     className="form-control"
@@ -411,7 +447,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Số Điện Thoại</label>
+                    <label className="form-label">Số Điện Thoại *</label>
                     <input
                       type="tel"
                       className="form-control"
@@ -422,7 +458,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Email Đăng Nhập</label>
+                    <label className="form-label">Email Đăng Nhập *</label>
                     <input
                       type="email"
                       className="form-control"
@@ -437,7 +473,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
                 {!editingTenant && (
                   <div className="form-group">
-                    <label className="form-label">Mật Khẩu Khởi Tạo Tài Khoản</label>
+                    <label className="form-label">Mật Khẩu Khởi Tạo Tài Khoản *</label>
                     <input
                       type="password"
                       className="form-control"
@@ -451,7 +487,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Số CCCD / CMND</label>
+                    <label className="form-label">Số CCCD / CMND *</label>
                     <input
                       type="text"
                       className="form-control"
@@ -466,9 +502,28 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                     <input
                       type="text"
                       className="form-control"
-                      placeholder="VD: Hải Phòng"
+                      placeholder="VD: Hải Phòng, Nam Định..."
                       value={formData.hometown}
                       onChange={(e) => setFormData({ ...formData, hometown: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* CCCD Image Uploader 2 Mặt */}
+                <div style={{ marginTop: '12px', marginBottom: '16px', padding: '14px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <label className="form-label" style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ImageIcon size={15} color="#6366f1" /> Ảnh Giấy Tờ Căn Cước Công Dân (CCCD 2 Mặt)
+                  </label>
+                  <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+                    <CccdCardUploader
+                      label="Mặt Trước CCCD"
+                      value={formData.cccdFrontUrl}
+                      onChange={(url) => setFormData({ ...formData, cccdFrontUrl: url })}
+                    />
+                    <CccdCardUploader
+                      label="Mặt Sau CCCD"
+                      value={formData.cccdBackUrl}
+                      onChange={(url) => setFormData({ ...formData, cccdBackUrl: url })}
                     />
                   </div>
                 </div>
@@ -493,7 +548,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Xếp Phòng Thuê</label>
+                    <label className="form-label">Xếp Phòng Thuê *</label>
                     <select
                       className="form-control"
                       required
@@ -559,12 +614,21 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Đang lưu...' : (editingTenant ? 'Cập Nhật Hồ Sơ' : 'Lưu Khách Thuê')}
+                  {saving ? '⏳ Đang lưu...' : (editingTenant ? 'Cập Nhật Hồ Sơ' : 'Lưu Khách Thuê')}
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {/* Lightbox Preview Modal */}
+      {lightboxImage && (
+        <ImageLightboxModal
+          imageUrl={lightboxImage.url}
+          title={lightboxImage.title}
+          onClose={() => setLightboxImage(null)}
+        />
       )}
     </div>
   );

@@ -64,6 +64,16 @@ export const formatRelativeTime = (dateStr) => {
   return formatDateTime(dateStr);
 };
 
+// Chuẩn hóa đường dẫn hình ảnh (Hỗ trợ URL ngoài, base64 hoặc static file tải lên từ backend /uploads)
+export const getImageUrl = (url, defaultFallback = '') => {
+  if (!url) return defaultFallback;
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+    return url;
+  }
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 // Tạo liên kết hình ảnh QR Code chuyển khoản ngân hàng VietQR
 export const getVietQRUrl = ({ bankId = 'BIDV', accountNo = '6531211114', accountName = 'NGUYEN MANH CUONG', amount = 0, addInfo = '' }) => {
   const cleanInfo = encodeURIComponent(addInfo || 'Thanh toan tien nha');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Award, User, Phone, Mail, Key, Camera, Check } from 'lucide-react';
+import { Award, User, Phone, Mail, Key, Check, ShieldCheck, CreditCard } from 'lucide-react';
 import { profileService } from '../../services';
+import { AvatarUploader, CccdCardUploader } from '../Common/ImageUploader';
 
 export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
   const [profileData, setProfileData] = useState({
@@ -8,6 +9,9 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
     phone: activeLandlord?.phone || '',
     email: activeLandlord?.email || '',
     avatarUrl: activeLandlord?.avatarUrl || activeLandlord?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    cccd: activeLandlord?.cccd || '',
+    cccdFrontUrl: activeLandlord?.cccdFrontUrl || '',
+    cccdBackUrl: activeLandlord?.cccdBackUrl || '',
     role: activeLandlord?.role || 'Landlord',
   });
   const [passwordData, setPasswordData] = useState({ oldPass: '', newPass: '', confirmPass: '' });
@@ -17,13 +21,17 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
   useEffect(() => {
     profileService.getProfile().then(p => {
       if (p) {
-        setProfileData({
-          fullName: p.fullName || '',
-          phone: p.phone || '',
-          email: p.email || '',
-          avatarUrl: p.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        setProfileData(prev => ({
+          ...prev,
+          fullName: p.fullName || prev.fullName,
+          phone: p.phone || prev.phone,
+          email: p.email || prev.email,
+          avatarUrl: p.avatarUrl || prev.avatarUrl,
+          cccd: p.cccd || prev.cccd,
+          cccdFrontUrl: p.cccdFrontUrl || prev.cccdFrontUrl,
+          cccdBackUrl: p.cccdBackUrl || prev.cccdBackUrl,
           role: p.role || 'Landlord',
-        });
+        }));
       }
     }).catch(err => console.warn('Get profile error:', err));
   }, []);
@@ -36,9 +44,14 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
         fullName: profileData.fullName,
         phone: profileData.phone,
         avatarUrl: profileData.avatarUrl,
+        cccd: profileData.cccd,
+        cccdFrontUrl: profileData.cccdFrontUrl,
+        cccdBackUrl: profileData.cccdBackUrl,
       });
-      setActiveLandlord({ ...profileData, ...updated });
-      setSuccessMsg('✅ Đã cập nhật thông tin hồ sơ cá nhân thành công!');
+      if (setActiveLandlord) {
+        setActiveLandlord(prev => ({ ...prev, ...profileData, ...updated }));
+      }
+      setSuccessMsg('✅ Đã cập nhật thông tin hồ sơ và giấy tờ tùy thân thành công!');
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
       alert('Lỗi cập nhật hồ sơ: ' + (err.response?.data?.message || err.message));
@@ -71,38 +84,39 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
   };
 
   return (
-    <div style={{ maxWidth: '800px' }}>
+    <div style={{ maxWidth: '850px' }}>
       <div className="page-header">
         <div>
           <h2 className="page-title"><Award size={24} color="#6366f1" /> Quản Lý Hồ Sơ Cá Nhân</h2>
-          <p className="page-subtitle">Cập nhật thông tin chủ trọ, đổi ảnh đại diện và thay đổi mật khẩu đăng nhập</p>
+          <p className="page-subtitle">Cập nhật thông tin chủ trọ, đổi ảnh đại diện, ảnh CCCD 2 mặt và đổi mật khẩu</p>
         </div>
       </div>
 
       {successMsg && (
-        <div style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.4)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.4)', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600' }}>
           <Check size={18} /> {successMsg}
         </div>
       )}
 
-      {/* Info Card */}
+      {/* Thông tin cá nhân & Ảnh đại diện */}
       <div className="card-table-container" style={{ padding: '24px', marginBottom: '24px' }}>
+        <h3 style={{ fontSize: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <User size={18} color="#6366f1" /> Thông Tin Cơ Bản & Ảnh Đại Diện
+        </h3>
+
         <form onSubmit={handleUpdateInfo}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
-            <div style={{ position: 'relative' }}>
-              <img src={profileData.avatarUrl} alt="Avatar" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)' }} />
-              <button type="button" className="icon-btn" style={{ position: 'absolute', bottom: 0, right: 0, width: '32px', height: '32px' }} title="Đổi ảnh đại diện">
-                <Camera size={14} />
-              </button>
-            </div>
-            <div>
-              <h3 style={{ fontSize: '20px' }}>{profileData.fullName}</h3>
-              <p style={{ color: 'var(--text-secondary)' }}>Vai trò: {profileData.role === 'Landlord' ? 'Chủ Trọ' : profileData.role}</p>
-            </div>
+          {/* Avatar Component */}
+          <div style={{ marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid var(--border-color)' }}>
+            <label className="form-label" style={{ marginBottom: '10px' }}>Ảnh Đại Diện (Avatar)</label>
+            <AvatarUploader
+              value={profileData.avatarUrl}
+              onChange={(newUrl) => setProfileData({ ...profileData, avatarUrl: newUrl })}
+              size={90}
+            />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Họ và Tên</label>
+            <label className="form-label">Họ và Tên Chủ Trọ *</label>
             <input
               type="text"
               className="form-control"
@@ -114,7 +128,7 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
 
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Số Điện Thoại</label>
+              <label className="form-label">Số Điện Thoại Liên Hệ *</label>
               <input
                 type="text"
                 className="form-control"
@@ -125,7 +139,7 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Email Liên Hệ (Chỉ xem)</label>
+              <label className="form-label">Email Đăng Nhập (Chỉ xem)</label>
               <input
                 type="email"
                 className="form-control"
@@ -136,16 +150,49 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? '⏳ Đang lưu...' : 'Lưu Thay Đổi Thông Tin'}
-          </button>
+          {/* Giấy tờ tùy thân CCCD */}
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border-color)' }}>
+            <h3 style={{ fontSize: '15px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CreditCard size={18} color="#3b82f6" /> Giấy Tờ Tùy Thân (Căn Cước Công Dân)
+            </h3>
+
+            <div className="form-group">
+              <label className="form-label">Số Thẻ CCCD / CMND</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Nhập 12 chữ số CCCD"
+                value={profileData.cccd}
+                onChange={(e) => setProfileData({ ...profileData, cccd: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '12px' }}>
+              <CccdCardUploader
+                label="Mặt Trước CCCD"
+                value={profileData.cccdFrontUrl}
+                onChange={(url) => setProfileData({ ...profileData, cccdFrontUrl: url })}
+              />
+              <CccdCardUploader
+                label="Mặt Sau CCCD"
+                value={profileData.cccdBackUrl}
+                onChange={(url) => setProfileData({ ...profileData, cccdBackUrl: url })}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginTop: '24px' }}>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? '⏳ Đang lưu...' : 'Lưu Thay Đổi Thông Tin & Giấy Tờ'}
+            </button>
+          </div>
         </form>
       </div>
 
       {/* Password Change Card */}
       <div className="card-table-container" style={{ padding: '24px' }}>
         <h3 style={{ fontSize: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Key size={18} color="#f59e0b" /> Đổi Mật Khẩu
+          <Key size={18} color="#f59e0b" /> Đổi Mật Khẩu Đăng Nhập
         </h3>
         <form onSubmit={handleChangePassword}>
           <div className="form-group">

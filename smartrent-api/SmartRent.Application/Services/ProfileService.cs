@@ -30,7 +30,9 @@ public class ProfileService(AppDbContext db)
             tp?.CCCD,
             tp?.Hometown,
             tp?.Room?.RoomNumber,
-            tp?.Room?.Zone?.Name
+            tp?.Room?.Zone?.Name,
+            tp?.CccdFrontUrl,
+            tp?.CccdBackUrl
         );
     }
 
@@ -43,18 +45,39 @@ public class ProfileService(AppDbContext db)
         return new UpdateVehicleRequest(tp.VehicleCount, tp.VehicleInfo);
     }
 
-    // Cập nhật thông tin cá nhân (Họ tên, Số điện thoại, Ảnh đại diện).
+    // Cập nhật thông tin cá nhân (Họ tên, Số điện thoại, Ảnh đại diện, CCCD).
     public async Task<UserProfileDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest req)
     {
         var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
         u.FullName = req.FullName;
         u.Phone = req.Phone;
         u.AvatarUrl = req.AvatarUrl;
-        await db.SaveChangesAsync();
 
         var tp = await db.TenantProfiles
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .FirstOrDefaultAsync(t => t.UserId == userId);
+
+        if (tp == null && u.Role == Core.Enums.UserRole.Tenant)
+        {
+            tp = new Core.Entities.TenantProfile
+            {
+                UserId = userId,
+                CCCD = req.Cccd ?? string.Empty,
+                Hometown = req.Hometown,
+                CccdFrontUrl = req.CccdFrontUrl,
+                CccdBackUrl = req.CccdBackUrl
+            };
+            db.TenantProfiles.Add(tp);
+        }
+        else if (tp != null)
+        {
+            if (req.Cccd != null) tp.CCCD = req.Cccd;
+            if (req.Hometown != null) tp.Hometown = req.Hometown;
+            if (req.CccdFrontUrl != null) tp.CccdFrontUrl = req.CccdFrontUrl;
+            if (req.CccdBackUrl != null) tp.CccdBackUrl = req.CccdBackUrl;
+        }
+
+        await db.SaveChangesAsync();
 
         return new UserProfileDto(
             u.Id,
@@ -69,7 +92,9 @@ public class ProfileService(AppDbContext db)
             tp?.CCCD,
             tp?.Hometown,
             tp?.Room?.RoomNumber,
-            tp?.Room?.Zone?.Name
+            tp?.Room?.Zone?.Name,
+            tp?.CccdFrontUrl,
+            tp?.CccdBackUrl
         );
     }
 

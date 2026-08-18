@@ -14,14 +14,17 @@ public record CreateTenantRequest(
     string CCCD, string? Hometown, Guid RoomId,
     DateTime MoveInDate, decimal Deposit,
     string? CccdFrontUrl, string? CccdBackUrl,
-    int VehicleCount = 0, string? VehicleInfo = null
+    int VehicleCount = 0, string? VehicleInfo = null,
+    string? AvatarUrl = null
 );
 
 public record UpdateTenantRequest(
     string FullName, string Phone, string? Hometown,
     string? CccdFrontUrl = null, string? CccdBackUrl = null,
     Guid? RoomId = null,
-    int VehicleCount = 0, string? VehicleInfo = null
+    int VehicleCount = 0, string? VehicleInfo = null,
+    string? AvatarUrl = null,
+    string? CCCD = null
 );
 
 public record TransferRoomRequest(Guid NewRoomId, DateTime TransferDate);
