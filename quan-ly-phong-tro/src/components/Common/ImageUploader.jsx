@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, Link, Eye, Trash2, X, Check, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Camera, Upload, Eye, Trash2, X, Loader2, Image as ImageIcon } from 'lucide-react';
 import { fileService } from '../../services';
 import { getImageUrl } from '../../utils/formatters';
 
@@ -46,7 +46,7 @@ export const ImageLightboxModal = ({ imageUrl, title = 'Xem hình ảnh', onClos
   );
 };
 
-// ─── 2. AVATAR UPLOADER (ẢNH ĐẠI DIỆN) ──────────────────────────────
+// ─── 2. AVATAR UPLOADER (ẢNH ĐẠI DIỆN TRỰC TIẾP TỪ THIẾT BỊ) ─────────
 export const AvatarUploader = ({
   value,
   onChange,
@@ -56,8 +56,6 @@ export const AvatarUploader = ({
   compact = false
 }) => {
   const [uploading, setUploading] = useState(false);
-  const [showUrlInput, setShowUrlInput] = useState(false);
-  const [tempUrl, setTempUrl] = useState('');
   const [previewZoom, setPreviewZoom] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -85,14 +83,6 @@ export const AvatarUploader = ({
       alert('Lỗi tải ảnh đại diện lên: ' + (err.response?.data?.message || err.message));
     } finally {
       setUploading(false);
-    }
-  };
-
-  const handleApplyUrl = () => {
-    if (tempUrl.trim()) {
-      onChange(tempUrl.trim());
-      setTempUrl('');
-      setShowUrlInput(false);
     }
   };
 
@@ -177,29 +167,6 @@ export const AvatarUploader = ({
             >
               <Camera size={14} />
             </button>
-            <button
-              type="button"
-              onClick={() => setShowUrlInput(!showUrlInput)}
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: '#334155',
-                border: '2.5px solid #0f172a',
-                color: '#94a3b8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
-                transition: 'transform 0.15s ease'
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.color = '#94a3b8'; }}
-              title="Nhập đường link URL ảnh"
-            >
-              <Link size={13} />
-            </button>
           </div>
         )}
 
@@ -211,38 +178,6 @@ export const AvatarUploader = ({
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
-
-        {/* Direct URL Input Popup */}
-        {showUrlInput && (
-          <div style={{ position: 'absolute', top: '105%', zIndex: 50, display: 'flex', gap: '6px', background: 'rgba(15, 23, 42, 0.95)', padding: '8px', borderRadius: '10px', border: '1px solid var(--border-color)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '260px' }}>
-            <input
-              type="url"
-              className="form-control"
-              style={{ fontSize: '12px', padding: '4px 8px', height: '30px' }}
-              placeholder="Dán link ảnh https://..."
-              value={tempUrl}
-              autoFocus
-              onChange={(e) => setTempUrl(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyUrl(); } }}
-            />
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              style={{ height: '30px', padding: '0 8px' }}
-              onClick={handleApplyUrl}
-            >
-              <Check size={13} />
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-secondary"
-              style={{ height: '30px', padding: '0 8px' }}
-              onClick={() => setShowUrlInput(false)}
-            >
-              <X size={13} />
-            </button>
-          </div>
-        )}
 
         {/* Lightbox Preview */}
         {previewZoom && (
@@ -326,23 +261,25 @@ export const AvatarUploader = ({
               >
                 <Upload size={14} /> Tải ảnh từ máy
               </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-secondary"
-                onClick={() => setShowUrlInput(!showUrlInput)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Link size={14} /> Nhập link ảnh
-              </button>
               {value && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setPreviewZoom(true)}
-                  title="Xem ảnh đầy đủ"
-                >
-                  <Eye size={14} />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={() => setPreviewZoom(true)}
+                    title="Xem ảnh đầy đủ"
+                  >
+                    <Eye size={14} /> Xem
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-danger"
+                    onClick={() => onChange('')}
+                    title="Gỡ ảnh"
+                  >
+                    <Trash2 size={14} /> Gỡ ảnh
+                  </button>
+                </>
               )}
             </div>
             <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
@@ -360,35 +297,6 @@ export const AvatarUploader = ({
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
-
-      {/* Direct URL Input Popup */}
-      {showUrlInput && (
-        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-          <input
-            type="url"
-            className="form-control"
-            style={{ fontSize: '13px', padding: '6px 12px' }}
-            placeholder="Dán link ảnh (https://...)"
-            value={tempUrl}
-            onChange={(e) => setTempUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApplyUrl(); } }}
-          />
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={handleApplyUrl}
-          >
-            <Check size={14} /> Áp dụng
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-secondary"
-            onClick={() => setShowUrlInput(false)}
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
 
       {/* Lightbox Preview */}
       {previewZoom && (
@@ -473,7 +381,7 @@ export const CccdCardUploader = ({
       <div
         style={{
           position: 'relative',
-          height: '150px',
+          height: '125px',
           borderRadius: '10px',
           border: value ? '1px solid rgba(99, 102, 241, 0.4)' : '2px dashed var(--border-color)',
           background: 'rgba(30, 41, 59, 0.4)',
