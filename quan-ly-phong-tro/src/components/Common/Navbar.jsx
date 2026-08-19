@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, Check, CheckCheck, X } from 'lucide-react';
+import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, Check, CheckCheck, X, Wrench, FileText } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { formatDateTime, formatRelativeTime, getImageUrl } from '../../utils/formatters';
 
@@ -213,29 +213,60 @@ export const Navbar = ({
                     <p>Không có thông báo nào</p>
                   </div>
                 ) : (
-                  notifications.slice(0, 8).map(n => (
-                    <div
-                      key={n.id}
-                      className={`notify-item ${!n.isRead ? 'unread' : ''}`}
-                      onClick={() => {
-                        navigateToNotification(n);
-                        setShowNotifyDropdown(false);
-                      }}
-                      style={{ cursor: 'pointer' }}
-                      title="Bấm để mở trang liên quan đến thông báo này"
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <div className="notify-title" style={{ fontWeight: !n.isRead ? '700' : '600' }}>{n.title}</div>
-                        {!n.isRead && (
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />
-                        )}
+                  notifications.slice(0, 8).map(n => {
+                    const text = `${n.title || ''} ${n.content || ''}`.toLowerCase();
+                    const isRepair = text.includes('sự cố') || text.includes('bảo trì') || text.includes('sửa chữa') || text.includes('hỏng') || text.includes('máy lạnh') || text.includes('thiết bị');
+                    const isPayment = text.includes('thanh toán') || text.includes('chuyển khoản');
+                    const isInvoice = text.includes('hóa đơn') || text.includes('tiền phòng');
+                    const isAdmin = n.target === 'SuperAdmin' || n.target === 'AllLandlords' || n.target === 'SystemAll';
+
+                    return (
+                      <div
+                        key={n.id}
+                        className={`notify-item ${!n.isRead ? 'unread' : ''}`}
+                        onClick={() => {
+                          navigateToNotification(n);
+                          setShowNotifyDropdown(false);
+                        }}
+                        style={{ cursor: 'pointer', display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '10px 12px' }}
+                        title="Bấm để mở trang liên quan đến thông báo này"
+                      >
+                        <div style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '8px',
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
+                          background: isRepair ? 'rgba(245, 158, 11, 0.15)' : isPayment || isInvoice ? 'rgba(16, 185, 129, 0.15)' : isAdmin ? 'rgba(99, 102, 241, 0.15)' : 'rgba(148, 163, 184, 0.15)',
+                          color: isRepair ? '#f59e0b' : isPayment || isInvoice ? '#10b981' : isAdmin ? '#818cf8' : '#94a3b8'
+                        }}>
+                          {isRepair ? <Wrench size={16} /> : isPayment || isInvoice ? <FileText size={16} /> : isAdmin ? <Shield size={16} /> : <Bell size={16} />}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px', gap: '6px' }}>
+                            <div className="notify-title" style={{ fontWeight: !n.isRead ? '700' : '600', color: isRepair ? '#f59e0b' : 'var(--text-primary)', fontSize: '13px' }}>
+                              {n.title}
+                            </div>
+                            {!n.isRead && (
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />
+                            )}
+                          </div>
+                          <div className="notify-content" style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                            {n.content}
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                            <span title={formatDateTime(n.createdAt)}>
+                              {n.createdAt ? formatRelativeTime(n.createdAt) : 'Vừa xong'}
+                            </span>
+                            {n.senderName && n.senderName !== 'Hệ thống' && (
+                              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>👤 {n.senderName}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="notify-content" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{n.content}</div>
-                      <div className="notify-time" style={{ fontSize: '10.5px', marginTop: '4px', color: 'var(--text-muted)' }} title={formatDateTime(n.createdAt)}>
-                        {n.createdAt ? formatRelativeTime(n.createdAt) : 'Vừa xong'}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
               {notifications.length > 8 && (

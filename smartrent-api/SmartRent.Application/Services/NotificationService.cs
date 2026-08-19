@@ -13,10 +13,11 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
     // Lấy danh sách thông báo phù hợp chuẩn xác với tài khoản và vai trò của người dùng.
     public async Task<IEnumerable<NotificationDto>> GetForUserAsync(Guid userId, string role)
     {
+        var normalizedRole = (role ?? "").Trim().ToLower();
         Guid? landlordIdOfTenant = null;
         Guid? zoneIdOfTenant = null;
         Guid? roomIdOfTenant = null;
-        if (role == "Tenant")
+        if (normalizedRole == "tenant")
         {
             var tp = await db.TenantProfiles
                 .Include(t => t.Room).ThenInclude(r => r!.Zone)
@@ -34,21 +35,21 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
             .Include(n => n.Reads.Where(r => r.UserId == userId))
             .Where(n => 
                 // 1. SuperAdmin: Quản lý các thông báo hệ thống do Admin tạo hoặc gửi tới Admin
-                (role == "SuperAdmin" && (
+                (normalizedRole == "superadmin" && (
                     n.Sender.Role == UserRole.SuperAdmin || 
                     n.SenderId == userId || 
                     n.Target == NotificationTarget.SuperAdmin || 
                     (n.Target == NotificationTarget.User && n.TargetId == userId)
                 )) ||
-                // 2. Landlord: Xem thông báo do chính mình phát hành + Thông báo hệ thống gửi cho Landlords / All
-                (role == "Landlord" && (
+                // 2. Landlord: Xem thông báo do chính mình phát hành + Thông báo hệ thống gửi cho Landlords / All + Thông báo gửi đích danh cho mình (từ khách thuê hoặc admin)
+                (normalizedRole == "landlord" && (
                     n.SenderId == userId || 
                     n.Target == NotificationTarget.AllLandlords || 
                     n.Target == NotificationTarget.SystemAll || 
                     (n.Target == NotificationTarget.User && n.TargetId == userId)
                 )) ||
                 // 3. Tenant: Xem thông báo toàn sàn (Admin) + Thông báo từ Chủ trọ của mình (AllTenants/Zone/Room) + Cá nhân
-                (role == "Tenant" && (
+                (normalizedRole == "tenant" && (
                     n.Target == NotificationTarget.SystemAll ||
                     (n.Target == NotificationTarget.AllTenants && (n.Sender.Role == UserRole.SuperAdmin || (landlordIdOfTenant.HasValue && n.SenderId == landlordIdOfTenant.Value))) ||
                     (n.Target == NotificationTarget.Zone && zoneIdOfTenant.HasValue && n.TargetId == zoneIdOfTenant.Value) ||

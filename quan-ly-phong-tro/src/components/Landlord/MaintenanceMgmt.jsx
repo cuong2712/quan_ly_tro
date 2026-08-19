@@ -83,6 +83,7 @@ export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceReques
                 const statusLower = (r.status || '').toLowerCase();
                 const isDone = statusLower === 'completed' || statusLower === 'resolved';
                 const isDoing = statusLower === 'in_progress' || statusLower === 'inprogress';
+                const isCancelled = statusLower === 'cancelled' || statusLower === 'canceled';
 
                 return (
                   <tr key={r.id}>
@@ -118,8 +119,8 @@ export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceReques
                     </td>
                     <td>{r.assignedTo || 'Chưa phân công'}</td>
                     <td>
-                      <span className={`status-pill ${isDone ? 'occupied' : isDoing ? 'renew_requested' : 'vacant'}`}>
-                        {isDone ? '✅ Hoàn thành' : isDoing ? '⚙️ Đang sửa' : '⏳ Chờ tiếp nhận'}
+                      <span className={`status-pill ${isDone ? 'occupied' : isDoing ? 'renew_requested' : isCancelled ? 'overdue' : 'pending'}`}>
+                        {isDone ? '✅ Hoàn thành' : isDoing ? '⚙️ Đang sửa' : isCancelled ? '❌ Đã hủy' : '⏳ Chờ tiếp nhận'}
                       </span>
                     </td>
                     <td>

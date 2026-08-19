@@ -44,4 +44,15 @@ public class MaintenanceController(MaintenanceService maintenanceService) : Cont
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    // Khách thuê hủy yêu cầu bảo trì khi đang ở trạng thái Chờ xử lý (Pending).
+    [HttpPatch("{id:guid}/cancel")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> Cancel(Guid id)
+    {
+        try { return Ok(await maintenanceService.CancelAsync(id, CurrentUserId)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

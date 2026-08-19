@@ -58,9 +58,17 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
     }
   };
 
-  const handleCancelReq = (id) => {
-    if (confirm('Bạn có chắc chắn muốn hủy yêu cầu sửa chữa này?')) {
-      setMaintenanceRequests(myRequests.map(r => r.id === id ? { ...r, status: 'cancelled' } : r));
+  const handleCancelReq = async (id) => {
+    if (!confirm('Bạn có chắc chắn muốn hủy yêu cầu sửa chữa này?')) return;
+    try {
+      const updated = await maintenanceService.cancel(id);
+      if (setMaintenanceRequests) {
+        setMaintenanceRequests(prev => (Array.isArray(prev) ? prev : []).map(r => r.id === id ? { ...r, ...updated, status: 'Cancelled' } : r));
+      }
+      alert('✅ Đã hủy yêu cầu sửa chữa thành công!');
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi hủy yêu cầu: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -100,9 +108,9 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
               myRequests.map((r) => {
                 const img = r.imageUrl || r.ImageUrl;
                 const statusLower = (r.status || '').toLowerCase();
-                const isDone = statusLower === 'completed';
+                const isDone = statusLower === 'completed' || statusLower === 'resolved';
                 const isDoing = statusLower === 'in_progress' || statusLower === 'inprogress';
-                const isCancelled = statusLower === 'cancelled';
+                const isCancelled = statusLower === 'cancelled' || statusLower === 'canceled';
 
                 return (
                   <tr key={r.id}>
@@ -134,12 +142,12 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
                     </td>
                     <td>{r.assignedTo || 'Chưa phân công'}</td>
                     <td>
-                      <span className={`status-pill ${isDone ? 'occupied' : isDoing ? 'renew_requested' : isCancelled ? 'vacant' : 'pending'}`}>
+                      <span className={`status-pill ${isDone ? 'occupied' : isDoing ? 'renew_requested' : isCancelled ? 'overdue' : 'pending'}`}>
                         {isDone ? '✅ Đã sửa xong' : isDoing ? '⚙️ Đang sửa' : isCancelled ? '❌ Đã hủy' : '⏳ Chờ chủ trọ xử lý'}
                       </span>
                     </td>
                     <td>
-                      {(!r.status || r.status === 'pending' || r.status === 'Pending') && (
+                      {(!r.status || statusLower === 'pending') && (
                         <button className="btn btn-sm btn-danger" onClick={() => handleCancelReq(r.id)}>
                           <Trash2 size={14} /> Hủy Yêu Cầu
                         </button>

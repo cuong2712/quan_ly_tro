@@ -14,9 +14,10 @@ public class RealtimeNotifier(IHubContext<NotificationHub> hubContext, ILogger<R
         {
             var strId = userId.ToString();
             var strLower = strId.ToLower();
+            var strUpper = strId.ToUpper();
             // Gửi cả qua User ID và qua group của user để đảm bảo 100% nhận được
-            await hubContext.Clients.Users(strId, strLower).SendAsync("ReceiveNotification", notification);
-            await hubContext.Clients.Groups(strId, strLower, $"user_{strLower}").SendAsync("ReceiveNotification", notification);
+            await hubContext.Clients.Users(strId, strLower, strUpper).SendAsync("ReceiveNotification", notification);
+            await hubContext.Clients.Groups(strId, strLower, strUpper, $"user_{strLower}", $"user_{strId}").SendAsync("ReceiveNotification", notification);
         }
         catch (Exception ex)
         {

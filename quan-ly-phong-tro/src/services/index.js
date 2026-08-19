@@ -148,6 +148,8 @@ export const maintenanceService = {
   create: (data) => apiClient.post('/maintenance', data).then(r => r.data),
   createRequest: (data) => apiClient.post('/maintenance', data).then(r => r.data),
   update: (id, data) => apiClient.put(`/maintenance/${id}`, data).then(r => r.data),
+  cancel: (id) => apiClient.patch(`/maintenance/${id}/cancel`).then(r => r.data),
+  cancelRequest: (id) => apiClient.patch(`/maintenance/${id}/cancel`).then(r => r.data),
 };
 
 export const notificationService = {

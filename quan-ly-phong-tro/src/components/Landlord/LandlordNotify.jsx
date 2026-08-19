@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import {
   BellRing, Plus, Send, Trash2, Users, Home, Building2,
   Search, Eye, Sparkles, Filter, CheckCircle2,
-  Calendar, Layers, DoorOpen, User, X
+  Calendar, Layers, DoorOpen, User, X, Wrench, Shield, ArrowRight, Inbox
 } from 'lucide-react';
 import { notificationService } from '../../services';
-import { formatDateTime } from '../../utils/formatters';
+import { formatDateTime, formatRelativeTime } from '../../utils/formatters';
+import { Pagination } from '../Common/Pagination';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const LandlordNotify = ({
@@ -21,7 +22,10 @@ export const LandlordNotify = ({
   const [viewingNotif, setViewingNotif] = useState(null);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sourceTab, setSourceTab] = useState('inbox'); // 'inbox' | 'repairs' | 'outbox' | 'all'
   const [targetFilter, setTargetFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 7;
 
   const [formData, setFormData] = useState({
     title: '',
@@ -74,6 +78,11 @@ export const LandlordNotify = ({
       targetId: targetValue,
     });
     setIsModalOpen(true);
+  };
+
+  const handleNavigateToRepairs = (e, notif) => {
+    e?.stopPropagation();
+    window.dispatchEvent(new CustomEvent('smartrent:switch-tab', { detail: { tab: 'll_maintenance' } }));
   };
 
   const handleSave = async (e) => {
@@ -129,8 +138,60 @@ export const LandlordNotify = ({
     }
   };
 
-  // Helper hiển thị tên và icon của Target
+  const isRepairNotif = (n) => {
+    const text = `${n.title || ''} ${n.content || ''}`.toLowerCase();
+    return text.includes('sự cố') || text.includes('bảo trì') || text.includes('sửa chữa') || text.includes('hỏng') || text.includes('máy lạnh') || text.includes('thiết bị') || text.includes('cống') || text.includes('khóa');
+  };
+
+  const isIncomingNotif = (n) => {
+    if (isRepairNotif(n)) return true;
+    if (n.target === 'AllLandlords' || n.target === 'SystemAll' || n.target === 'All') return true;
+    if (n.target === 'User' && (n.targetId === user?.id || n.targetId === user?.userId)) return true;
+    if (n.senderId && user?.id && n.senderId !== user.id) return true;
+    return false;
+  };
+
+  // Helper hiển thị tên và icon của Target / Nguồn
   const getTargetBadge = (n) => {
+    if (isRepairNotif(n)) {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b',
+          border: '1px solid rgba(245, 158, 11, 0.35)',
+          padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 700
+        }}>
+          <Wrench size={13} /> 🛠️ Khách Báo Sự Cố
+        </span>
+      );
+    }
+
+    if (n.target === 'AllLandlords' || n.target === 'SystemAll' || n.target === 'All') {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8',
+          border: '1px solid rgba(99, 102, 241, 0.3)',
+          padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600
+        }}>
+          <Shield size={13} /> 🛡️ Ban Quản Trị Hệ Thống
+        </span>
+      );
+    }
+
+    if (isIncomingNotif(n)) {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          background: 'rgba(16, 185, 129, 0.12)', color: '#34d399',
+          border: '1px solid rgba(16, 185, 129, 0.25)',
+          padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600
+        }}>
+          <User size={13} /> Từ: {n.senderName || 'Khách thuê'}
+        </span>
+      );
+    }
+
     if (n.target === 'AllTenants') {
       return (
         <span style={{
@@ -139,7 +200,7 @@ export const LandlordNotify = ({
           border: '1px solid rgba(99, 102, 241, 0.25)',
           padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600
         }}>
-          <Home size={13} /> Toàn bộ hệ thống ({tenants.length} khách)
+          <Home size={13} /> Gửi: Toàn bộ hệ thống
         </span>
       );
     }
@@ -153,7 +214,7 @@ export const LandlordNotify = ({
           border: '1px solid rgba(245, 158, 11, 0.25)',
           padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600
         }}>
-          <Building2 size={13} /> Khu: {zone ? zone.name : 'Khu trọ'}
+          <Building2 size={13} /> Gửi Khu: {zone ? zone.name : 'Khu trọ'}
         </span>
       );
     }
@@ -168,7 +229,7 @@ export const LandlordNotify = ({
           border: '1px solid rgba(168, 85, 247, 0.25)',
           padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600
         }}>
-          <DoorOpen size={13} /> Phòng: {room ? room.roomNumber : 'Phòng'} {zone ? `(${zone.name})` : ''}
+          <DoorOpen size={13} /> Gửi Phòng: {room ? room.roomNumber : 'Phòng'} {zone ? `(${zone.name})` : ''}
         </span>
       );
     }
@@ -182,20 +243,7 @@ export const LandlordNotify = ({
           border: '1px solid rgba(16, 185, 129, 0.25)',
           padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600
         }}>
-          <User size={13} /> Khách: {tenant ? (tenant.fullName || tenant.name) : 'Cá nhân'}
-        </span>
-      );
-    }
-
-    if (n.target === 'AllLandlords' || n.target === 'SystemAll' || n.target === 'All') {
-      return (
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8',
-          border: '1px solid rgba(99, 102, 241, 0.3)',
-          padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600
-        }}>
-          <Layers size={13} /> 🛡️ Ban Quản Trị Hệ Thống
+          <User size={13} /> Gửi Khách: {tenant ? (tenant.fullName || tenant.name) : 'Cá nhân'}
         </span>
       );
     }
@@ -204,10 +252,10 @@ export const LandlordNotify = ({
   };
 
   // Thống kê nhanh
-  const totalNotifs = notifications.length;
-  const allTenantsNotifs = notifications.filter(n => n.target === 'AllTenants').length;
-  const zoneNotifs = notifications.filter(n => n.target === 'Zone').length;
-  const specificNotifs = notifications.filter(n => n.target === 'Room' || n.target === 'User').length;
+  const incomingNotifs = notifications.filter(isIncomingNotif);
+  const repairNotifs = notifications.filter(isRepairNotif);
+  const outgoingNotifs = notifications.filter(n => !isIncomingNotif(n));
+  const systemNotifs = notifications.filter(n => n.target === 'AllLandlords' || n.target === 'SystemAll' || n.target === 'All');
 
   // Lọc danh sách
   const filteredNotifications = notifications.filter(n => {
@@ -215,175 +263,326 @@ export const LandlordNotify = ({
                           (n.content || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (n.senderName || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    let matchesTarget = true;
-    if (targetFilter === 'AllTenants') matchesTarget = n.target === 'AllTenants';
-    else if (targetFilter === 'Zone') matchesTarget = n.target === 'Zone';
-    else if (targetFilter === 'Room') matchesTarget = n.target === 'Room';
-    else if (targetFilter === 'User') matchesTarget = n.target === 'User';
+    if (sourceTab === 'inbox' && !isIncomingNotif(n)) return false;
+    if (sourceTab === 'repairs' && !isRepairNotif(n)) return false;
+    if (sourceTab === 'outbox' && isIncomingNotif(n)) return false;
 
-    return matchesSearch && matchesTarget;
+    if (sourceTab === 'outbox' && targetFilter !== 'all') {
+      if (targetFilter === 'AllTenants' && n.target !== 'AllTenants') return false;
+      if (targetFilter === 'Zone' && n.target !== 'Zone') return false;
+      if (targetFilter === 'Room' && n.target !== 'Room') return false;
+      if (targetFilter === 'User' && n.target !== 'User') return false;
+    }
+
+    return matchesSearch;
   });
+
+  // Phân trang 7 thông báo 1 trang
+  const totalPages = Math.ceil(filteredNotifications.length / pageSize);
+  const paginatedNotifications = filteredNotifications.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const handleTabChange = (tab) => {
+    setSourceTab(tab);
+    setCurrentPage(1);
+  };
 
   return (
     <div>
       {/* Page Header */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 className="page-title"><BellRing size={24} color="#6366f1" /> Quản Lý Thông Báo Cho Khách Thuê</h2>
-          <p className="page-subtitle">Tạo và phát thông báo tới toàn bộ hệ thống trọ, từng khu trọ, từng phòng hoặc riêng từng khách thuê</p>
+          <h2 className="page-title"><BellRing size={24} color="#6366f1" /> Trung Tâm Thông Báo</h2>
+          <p className="page-subtitle">Xem thông báo sự cố từ khách thuê, thông báo hệ thống và phát thông báo tới các phòng trọ</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button className="btn btn-primary" onClick={() => handleOpenCreateModal('AllTenants')}>
-            <Plus size={18} /> Gửi Thông Báo Mới
+            <Plus size={18} /> Gửi Thông Báo Cho Khách
           </button>
         </div>
       </div>
 
-      {/* Stats Cards Overview */}
+      {/* Stats Cards Overview - Bo góc mềm mại, hiển thị hiện đại */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(99, 102, 241, 0.15)', display: 'grid', placeItems: 'center', color: '#6366f1' }}>
+        <div
+          className="card"
+          style={{
+            padding: '16px 20px',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            background: 'var(--card-bg)',
+            cursor: 'pointer',
+            border: sourceTab === 'inbox' ? '1.5px solid #6366f1' : '1px solid var(--border-color)',
+            boxShadow: sourceTab === 'inbox' ? '0 4px 16px rgba(99, 102, 241, 0.15)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+          onClick={() => handleTabChange('inbox')}
+        >
+          <div style={{ width: 46, height: 46, borderRadius: '14px', background: 'rgba(99, 102, 241, 0.15)', display: 'grid', placeItems: 'center', color: '#6366f1', flexShrink: 0 }}>
+            <Inbox size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Hộp Thư Đến</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{incomingNotifs.length}</div>
+          </div>
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: '16px 20px',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            background: 'var(--card-bg)',
+            cursor: 'pointer',
+            border: sourceTab === 'repairs' ? '1.5px solid #f59e0b' : '1px solid var(--border-color)',
+            boxShadow: sourceTab === 'repairs' ? '0 4px 16px rgba(245, 158, 11, 0.15)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+          onClick={() => handleTabChange('repairs')}
+        >
+          <div style={{ width: 46, height: 46, borderRadius: '14px', background: 'rgba(245, 158, 11, 0.15)', display: 'grid', placeItems: 'center', color: '#f59e0b', flexShrink: 0 }}>
+            <Wrench size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Sự Cố & Báo Sửa Chữa</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#f59e0b', marginTop: '2px' }}>{repairNotifs.length}</div>
+          </div>
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: '16px 20px',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            background: 'var(--card-bg)',
+            cursor: 'pointer',
+            border: sourceTab === 'outbox' ? '1.5px solid #10b981' : '1px solid var(--border-color)',
+            boxShadow: sourceTab === 'outbox' ? '0 4px 16px rgba(16, 185, 129, 0.15)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+          onClick={() => handleTabChange('outbox')}
+        >
+          <div style={{ width: 46, height: 46, borderRadius: '14px', background: 'rgba(16, 185, 129, 0.15)', display: 'grid', placeItems: 'center', color: '#10b981', flexShrink: 0 }}>
+            <Send size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Thông Báo Đã Gửi Đi</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>{outgoingNotifs.length}</div>
+          </div>
+        </div>
+
+        <div
+          className="card"
+          style={{
+            padding: '16px 20px',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            background: 'var(--card-bg)',
+            cursor: 'pointer',
+            border: sourceTab === 'all' ? '1.5px solid #3b82f6' : '1px solid var(--border-color)',
+            boxShadow: sourceTab === 'all' ? '0 4px 16px rgba(59, 130, 246, 0.15)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+          onClick={() => handleTabChange('all')}
+        >
+          <div style={{ width: 46, height: 46, borderRadius: '14px', background: 'rgba(59, 130, 246, 0.15)', display: 'grid', placeItems: 'center', color: '#3b82f6', flexShrink: 0 }}>
             <BellRing size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tổng Thông Báo Đã Gửi</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{totalNotifs}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'grid', placeItems: 'center', color: '#3b82f6' }}>
-            <Home size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Toàn Bộ Hệ Thống</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: '#3b82f6', marginTop: '2px' }}>{allTenantsNotifs}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(245, 158, 11, 0.15)', display: 'grid', placeItems: 'center', color: '#f59e0b' }}>
-            <Building2 size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Theo Từng Khu Trọ</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: '#f59e0b', marginTop: '2px' }}>{zoneNotifs}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', display: 'grid', placeItems: 'center', color: '#10b981' }}>
-            <Users size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Phòng / Cá Nhân</div>
-            <div style={{ fontSize: '20px', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>{specificNotifs}</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tất Cả Thông Báo</div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: '#3b82f6', marginTop: '2px' }}>{notifications.length}</div>
           </div>
         </div>
       </div>
 
       {/* Main Table & Filter Toolbar */}
       <div className="card-table-container">
-        <div className="table-toolbar">
-          <div className="search-input-group">
-            <Search size={18} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Tìm theo tiêu đề, nội dung thông báo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="table-toolbar" style={{ flexWrap: 'wrap', gap: '12px' }}>
+          {/* Quick Source Tabs */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              className={`btn btn-sm ${sourceTab === 'inbox' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => handleTabChange('inbox')}
+            >
+              <Inbox size={14} /> Hộp Thư Đến ({incomingNotifs.length})
+            </button>
+            <button
+              className={`btn btn-sm ${sourceTab === 'repairs' ? 'btn-primary' : 'btn-secondary'}`}
+              style={sourceTab !== 'repairs' && repairNotifs.length > 0 ? { color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', background: 'rgba(245, 158, 11, 0.08)' } : {}}
+              onClick={() => handleTabChange('repairs')}
+            >
+              <Wrench size={14} /> 🛠️ Báo Sự Cố ({repairNotifs.length})
+            </button>
+            <button
+              className={`btn btn-sm ${sourceTab === 'outbox' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => handleTabChange('outbox')}
+            >
+              <Send size={14} /> Đã Phát Hành ({outgoingNotifs.length})
+            </button>
+            <button
+              className={`btn btn-sm ${sourceTab === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => handleTabChange('all')}
+            >
+              Tất Cả ({notifications.length})
+            </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <Filter size={16} color="var(--text-muted)" />
-            <select
-              className="filter-select"
-              value={targetFilter}
-              onChange={(e) => setTargetFilter(e.target.value)}
-            >
-              <option value="all">Tất cả phạm vi gửi</option>
-              <option value="AllTenants">🏠 Toàn bộ hệ thống trọ</option>
-              <option value="Zone">🏢 Theo từng Khu Trọ</option>
-              <option value="Room">🚪 Theo từng Phòng</option>
-              <option value="User">👤 Riêng từng Khách Thuê</option>
-            </select>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1, justifyContent: 'flex-end', minWidth: '280px' }}>
+            <div className="search-input-group" style={{ flex: 1, maxWidth: '320px' }}>
+              <Search size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                placeholder="Tìm tiêu đề, nội dung, người gửi..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            {sourceTab === 'outbox' && (
+              <select
+                className="filter-select"
+                value={targetFilter}
+                onChange={(e) => {
+                  setTargetFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{ padding: '6px 10px', fontSize: '13px' }}
+              >
+                <option value="all">Tất cả phạm vi</option>
+                <option value="AllTenants">🏠 Toàn bộ hệ thống</option>
+                <option value="Zone">🏢 Theo Khu Trọ</option>
+                <option value="Room">🚪 Theo Phòng</option>
+                <option value="User">👤 Riêng Khách Thuê</option>
+              </select>
+            )}
           </div>
         </div>
 
         <table className="custom-table">
           <thead>
             <tr>
-              <th style={{ width: '28%' }}>Tiêu Đề Thông Báo</th>
-              <th style={{ width: '32%' }}>Nội Dung Tóm Tắt</th>
-              <th style={{ width: '18%' }}>Phạm Vi Người Nhận</th>
+              <th style={{ width: '25%' }}>Tiêu Đề Thông Báo</th>
+              <th style={{ width: '31%' }}>Nội Dung Chi Tiết</th>
+              <th style={{ width: '18%' }}>Nguồn / Đối Tượng</th>
               <th style={{ width: '12%' }}>Thời Gian</th>
-              <th style={{ width: '10%' }}>Thao Tác</th>
+              <th style={{ width: '14%', minWidth: '135px' }}>Thao Tác</th>
             </tr>
           </thead>
           <tbody>
-            {filteredNotifications.length === 0 ? (
+            {paginatedNotifications.length === 0 ? (
               <tr>
                 <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   <BellRing size={36} style={{ opacity: 0.3, margin: '0 auto 10px' }} />
-                  <div>Chưa có thông báo nào phù hợp với bộ lọc.</div>
+                  <div>Chưa có thông báo nào trong mục này.</div>
                 </td>
               </tr>
             ) : (
-              filteredNotifications.map((n) => (
-                <tr key={n.id}>
-                  <td>
-                    <div
-                      style={{ fontWeight: '600', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      onClick={() => setViewingNotif(n)}
-                      title="Bấm để xem chi tiết thông báo"
-                    >
-                      <span>{n.title}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div
-                      style={{
-                        color: 'var(--text-secondary)',
-                        fontSize: '13px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        lineHeight: '1.4'
-                      }}
-                    >
-                      {n.content}
-                    </div>
-                  </td>
-                  <td>{getTargetBadge(n)}</td>
-                  <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    {formatDateTime(n.createdAt)}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        className="btn btn-sm btn-secondary"
+              paginatedNotifications.map((n) => {
+                const isRepair = isRepairNotif(n);
+                return (
+                  <tr key={n.id} style={isRepair ? { background: 'rgba(245, 158, 11, 0.03)' } : {}}>
+                    <td>
+                      <div
+                        style={{ fontWeight: '600', color: isRepair ? '#f59e0b' : 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                         onClick={() => setViewingNotif(n)}
-                        title="Xem toàn văn thông báo"
+                        title="Bấm để xem chi tiết thông báo"
                       >
-                        <Eye size={13} />
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(n.id)}
-                        title="Xóa thông báo này"
+                        {isRepair && <Wrench size={15} color="#f59e0b" style={{ flexShrink: 0 }} />}
+                        <span>{n.title}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div
+                        style={{
+                          color: 'var(--text-secondary)',
+                          fontSize: '13px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          lineHeight: '1.4'
+                        }}
                       >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        {n.content}
+                      </div>
+                    </td>
+                    <td>{getTargetBadge(n)}</td>
+                    <td style={{ fontSize: '12.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }} title={formatDateTime(n.createdAt)}>
+                      {n.createdAt ? formatRelativeTime(n.createdAt) : 'Vừa xong'}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
+                        {isRepair && (
+                          <button
+                            className="btn btn-sm"
+                            style={{
+                              padding: '5px 10px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              background: '#f59e0b',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
+                              cursor: 'pointer'
+                            }}
+                            onClick={(e) => handleNavigateToRepairs(e, n)}
+                            title="Đi đến mục Bảo Trì để sắp xếp thợ sửa chữa"
+                          >
+                            <Wrench size={13} style={{ flexShrink: 0 }} />
+                            <span>Xử lý</span>
+                          </button>
+                        )}
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          style={{ padding: '5px 8px', borderRadius: '6px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={() => setViewingNotif(n)}
+                          title="Xem toàn văn thông báo"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          style={{ padding: '5px 8px', borderRadius: '6px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={() => handleDelete(n.id)}
+                          title="Xóa thông báo này"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
+
+        {/* Phân trang 7 thông báo 1 trang */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredNotifications.length}
+          pageSize={pageSize}
+        />
       </div>
 
       {/* Modal Soạn & Phát Hành Thông Báo Mới (Khung rộng rãi, thoáng đẹp, chữ hiển thị đầy đủ không bị che) */}
@@ -674,6 +873,11 @@ export const LandlordNotify = ({
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Calendar size={13} /> {formatDateTime(viewingNotif.createdAt)}
                 </div>
+                {viewingNotif.senderName && (
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <User size={13} /> Người gửi: <strong>{viewingNotif.senderName}</strong>
+                  </div>
+                )}
               </div>
 
               <div style={{
@@ -684,10 +888,41 @@ export const LandlordNotify = ({
                 color: 'var(--text-secondary)',
                 fontSize: '14px',
                 lineHeight: '1.6',
-                whiteSpace: 'pre-line'
+                whiteSpace: 'pre-line',
+                marginBottom: isRepairNotif(viewingNotif) ? '16px' : 0
               }}>
                 {viewingNotif.content}
               </div>
+
+              {isRepairNotif(viewingNotif) && (
+                <div style={{
+                  background: 'rgba(245, 158, 11, 0.1)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Wrench size={16} />
+                    <span>Yêu cầu sửa chữa cần xếp thợ xử lý sớm</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ background: '#f59e0b', borderColor: '#f59e0b', padding: '6px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    onClick={(e) => {
+                      setViewingNotif(null);
+                      handleNavigateToRepairs(e, viewingNotif);
+                    }}
+                  >
+                    <Wrench size={14} /> Chuyển Tới Mục Bảo Trì & Sửa Chữa
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="modal-footer" style={{ padding: '14px 22px', display: 'flex', justifyContent: 'space-between' }}>

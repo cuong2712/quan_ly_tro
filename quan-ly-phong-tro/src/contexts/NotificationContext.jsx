@@ -186,29 +186,29 @@ export function NotificationProvider({ children }) {
     const role = user?.role || '';
     let targetTab = '';
 
-    if (role === 'Landlord') {
-      if (fullText.includes('hợp đồng') || fullText.includes('gia hạn') || fullText.includes('hạn hđ') || fullText.includes('contract') || fullText.includes('cọc') || fullText.includes('quyết toán')) {
+    if (role === 'Landlord' || role?.toLowerCase() === 'landlord') {
+      if (fullText.includes('bảo trì') || fullText.includes('sự cố') || fullText.includes('sửa chữa') || fullText.includes('hỏng') || fullText.includes('thiết bị') || fullText.includes('máy lạnh') || fullText.includes('cống') || fullText.includes('rò rỉ') || fullText.includes('khóa')) {
+        targetTab = 'll_maintenance';
+      } else if (fullText.includes('hợp đồng') || fullText.includes('gia hạn') || fullText.includes('hạn hđ') || fullText.includes('contract') || fullText.includes('cọc') || fullText.includes('quyết toán')) {
         targetTab = 'll_contracts';
-      } else if (fullText.includes('hóa đơn') || fullText.includes('tiền nhà') || fullText.includes('tiền phòng') || fullText.includes('invoice')) {
+      } else if (fullText.includes('khiếu nại') || fullText.includes('hóa đơn') || fullText.includes('tiền nhà') || fullText.includes('tiền phòng') || fullText.includes('invoice')) {
         targetTab = 'll_invoices';
       } else if (fullText.includes('thanh toán') || fullText.includes('chuyển khoản') || fullText.includes('minh chứng') || fullText.includes('payment')) {
         targetTab = 'll_payments';
-      } else if (fullText.includes('bảo trì') || fullText.includes('sự cố') || fullText.includes('sửa chữa') || fullText.includes('thiết bị')) {
-        targetTab = 'll_maintenance';
       } else if (fullText.includes('điện') || fullText.includes('nước') || fullText.includes('chỉ số')) {
         targetTab = 'll_utilities';
       } else {
         targetTab = 'll_notifications';
       }
-    } else if (role === 'Tenant') {
-      if (fullText.includes('hợp đồng') || fullText.includes('gia hạn') || fullText.includes('hạn hđ') || fullText.includes('contract') || fullText.includes('cọc') || fullText.includes('quyết toán')) {
+    } else if (role === 'Tenant' || role?.toLowerCase() === 'tenant') {
+      if (fullText.includes('bảo trì') || fullText.includes('sự cố') || fullText.includes('sửa chữa') || fullText.includes('hỏng') || fullText.includes('thiết bị')) {
+        targetTab = 'tn_repairs';
+      } else if (fullText.includes('hợp đồng') || fullText.includes('gia hạn') || fullText.includes('hạn hđ') || fullText.includes('contract') || fullText.includes('cọc') || fullText.includes('quyết toán')) {
         targetTab = 'tn_contract';
       } else if (fullText.includes('hóa đơn') || fullText.includes('tiền nhà') || fullText.includes('tiền phòng') || fullText.includes('invoice')) {
         targetTab = 'tn_invoices';
       } else if (fullText.includes('thanh toán') || fullText.includes('chuyển khoản') || fullText.includes('payment')) {
         targetTab = 'tn_payment';
-      } else if (fullText.includes('bảo trì') || fullText.includes('sự cố') || fullText.includes('sửa chữa') || fullText.includes('thiết bị')) {
-        targetTab = 'tn_repairs';
       } else {
         targetTab = 'tn_notifications';
       }

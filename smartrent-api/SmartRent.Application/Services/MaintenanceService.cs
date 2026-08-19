@@ -110,14 +110,25 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
         db.MaintenanceRequests.Add(m);
         await db.SaveChangesAsync();
 
-        // Tự động tạo thông báo gửi đến Chủ trọ
-        await notificationService.SendNotificationAsync(
-            tenantUserId,
-            $"Báo cáo sự cố mới phòng {room.RoomNumber}",
-            $"Phòng {room.RoomNumber} ({room.Zone.Name}): Khách thuê {profile.User?.FullName} đã báo cáo sự cố '{req.Title}'. Mức độ: {priority}. Vui lòng kiểm tra và xử lý.",
-            NotificationTarget.User,
-            room.Zone.LandlordId
-        );
+        // Tự động tạo thông báo gửi đến Chủ trọ quản lý khu này
+        Guid landlordId = room.Zone?.LandlordId ?? Guid.Empty;
+        if (landlordId == Guid.Empty && room.ZoneId != Guid.Empty)
+        {
+            landlordId = await db.Zones.Where(z => z.Id == room.ZoneId).Select(z => z.LandlordId).FirstOrDefaultAsync();
+        }
+
+        if (landlordId != Guid.Empty)
+        {
+            var senderName = profile.User?.FullName ?? "Khách thuê";
+            var zoneName = room.Zone?.Name ?? "Khu trọ";
+            await notificationService.SendNotificationAsync(
+                tenantUserId,
+                $"🛠️ Báo cáo sự cố: Phòng P.{room.RoomNumber} - {req.Title}",
+                $"Khách thuê {senderName} (Phòng P.{room.RoomNumber} - {zoneName}) vừa gửi báo cáo sự cố '{req.Title}' (Loại: {req.IssueType}, Mức độ: {priority}). Vui lòng vào mục Bảo trì để kiểm tra và xử lý.",
+                NotificationTarget.User,
+                landlordId
+            );
+        }
 
         var full = await db.MaintenanceRequests
             .Include(x => x.Room).ThenInclude(r => r.Zone)
@@ -160,6 +171,50 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
                 $"Sự cố '{m.Title}' đã được cập nhật sang: {statusLabel}. Ghi chú từ chủ trọ: {m.CompletionNote ?? "Đang được xử lý"}.",
                 NotificationTarget.User,
                 m.TenantProfile.UserId
+            );
+        }
+
+        return MapReq(m);
+    }
+
+    // Khách thuê hủy yêu cầu báo sự cố (chỉ hủy được khi trạng thái đang là Pending)
+    public async Task<MaintenanceRequestDto> CancelAsync(Guid id, Guid tenantUserId)
+    {
+        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        if (profile == null)
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            if (user != null)
+            {
+                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
+            }
+        }
+
+        var m = await db.MaintenanceRequests
+            .Include(x => x.Room).ThenInclude(r => r.Zone)
+            .Include(x => x.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(x => x.Id == id && (x.TenantProfileId == (profile != null ? profile.Id : Guid.Empty) || x.TenantProfile.UserId == tenantUserId))
+            ?? throw new KeyNotFoundException("Không tìm thấy yêu cầu bảo trì hoặc bạn không có quyền thao tác.");
+
+        if (m.Status != MaintenanceStatus.Pending)
+        {
+            throw new InvalidOperationException("Chỉ có thể hủy yêu cầu khi đang ở trạng thái 'Chờ xử lý'.");
+        }
+
+        m.Status = MaintenanceStatus.Cancelled;
+        await db.SaveChangesAsync();
+
+        // Tự động thông báo cho Chủ trọ biết khách đã hủy yêu cầu
+        Guid landlordId = m.Room?.Zone?.LandlordId ?? Guid.Empty;
+        if (landlordId != Guid.Empty)
+        {
+            var senderName = m.TenantProfile?.User?.FullName ?? "Khách thuê";
+            await notificationService.SendNotificationAsync(
+                tenantUserId,
+                $"[Hủy Yêu Cầu] Khách thuê hủy báo hỏng phòng P.{m.Room?.RoomNumber}",
+                $"Khách thuê {senderName} (Phòng P.{m.Room?.RoomNumber}) đã hủy yêu cầu sự cố '{m.Title}'.",
+                NotificationTarget.User,
+                landlordId
             );
         }
 
