@@ -58,13 +58,17 @@ public class RealtimeNotifier(IHubContext<NotificationHub> hubContext, ILogger<R
         {
             await SendToRoleAsync("Landlord", notification);
         }
-        else if (notification.Target == "AllTenants" || notification.Target == "Zone" || notification.Target == "Room")
-        {
-            await SendToRoleAsync("Tenant", notification);
-        }
         else if (notification.Target == "SuperAdmin")
         {
             await SendToRoleAsync("SuperAdmin", notification);
+        }
+        else if (notification.Target == "SystemAll" || notification.Target == "All")
+        {
+            await SendToAllAsync(notification);
+        }
+        else if (notification.Target == "AllTenants" || notification.Target == "Zone" || notification.Target == "Room")
+        {
+            await SendToRoleAsync("Tenant", notification);
         }
         else
         {

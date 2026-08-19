@@ -187,15 +187,15 @@ export const LandlordNotify = ({
       );
     }
 
-    if (n.target === 'AllLandlords') {
+    if (n.target === 'AllLandlords' || n.target === 'SystemAll' || n.target === 'All') {
       return (
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
-          background: 'rgba(239, 68, 68, 0.12)', color: '#f87171',
-          border: '1px solid rgba(239, 68, 68, 0.25)',
+          background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8',
+          border: '1px solid rgba(99, 102, 241, 0.3)',
           padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600
         }}>
-          <Layers size={13} /> Ban Quản Trị Hệ Thống
+          <Layers size={13} /> 🛡️ Ban Quản Trị Hệ Thống
         </span>
       );
     }

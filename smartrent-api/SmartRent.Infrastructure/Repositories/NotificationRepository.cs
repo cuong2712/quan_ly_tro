@@ -14,6 +14,7 @@ public class NotificationRepository(AppDbContext db) : INotificationRepository
             .Include(n => n.Sender)
             .Include(n => n.Reads.Where(r => r.UserId == userId))
             .Where(n =>
+                n.Target == Core.Enums.NotificationTarget.SystemAll ||
                 n.Target == Core.Enums.NotificationTarget.AllLandlords && role == "Landlord" ||
                 n.Target == Core.Enums.NotificationTarget.AllTenants && role == "Tenant" ||
                 n.Target == Core.Enums.NotificationTarget.User && n.TargetId == userId)

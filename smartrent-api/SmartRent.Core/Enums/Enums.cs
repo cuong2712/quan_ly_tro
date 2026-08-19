@@ -62,6 +62,7 @@ public enum MaintenanceStatus
 
 public enum NotificationTarget
 {
+    SystemAll = 0,
     AllLandlords = 1,
     AllTenants = 2,
     Zone = 3,
