@@ -795,13 +795,18 @@ const RoomDetail = ({ room, zone, onBack }) => {
   const [meterForm, setMeterForm] = useState({ month: '08/2026', newElec: room.elecMeter || 0, newWater: room.waterMeter || 0 });
 
   // Invoice form state
-  const [invoiceForm, setInvoiceForm] = useState({
-    month: '08/2026',
-    rentFee: room.price || 0,
-    elecFee: 350000,
-    waterFee: 100000,
-    serviceFee: 50000,
-    dueDate: '2026-08-31'
+  const [invoiceForm, setInvoiceForm] = useState(() => {
+    const now = new Date();
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const defaultDue = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+    return {
+      month: curMonth,
+      rentFee: room.price || 0,
+      elecFee: 0,
+      waterFee: 0,
+      serviceFee: 0,
+      dueDate: defaultDue
+    };
   });
 
   // Edit room form state
@@ -825,6 +830,35 @@ const RoomDetail = ({ room, zone, onBack }) => {
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [maintForm, setMaintForm] = useState({ title: '', description: '', priority: 'Medium' });
 
+  const handleOpenInvoiceModal = () => {
+    const now = new Date();
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const defaultDue = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+    // Tự động tính tiền dịch vụ theo số xe và dịch vụ của khu trọ
+    let calculatedSvc = 0;
+    if (Array.isArray(zoneServices) && zoneServices.length > 0) {
+      zoneServices.forEach(s => {
+        if (s.name?.toLowerCase().includes('xe')) {
+          const vehCount = (roomDetail?.tenants || []).reduce((acc, t) => acc + (t.vehicleCount || 0), 0);
+          calculatedSvc += (vehCount > 0 ? vehCount * (s.price || 0) : (s.price || 0));
+        } else {
+          calculatedSvc += (s.price || 0);
+        }
+      });
+    }
+
+    setInvoiceForm({
+      month: curMonth,
+      rentFee: roomDetail?.price || room.price || 0,
+      elecFee: 0,
+      waterFee: 0,
+      serviceFee: calculatedSvc,
+      dueDate: defaultDue
+    });
+    setShowInvoiceModal(true);
+  };
+
   const loadDetail = useCallback(async () => {
     setLoading(true);
     try {
@@ -832,10 +866,6 @@ const RoomDetail = ({ room, zone, onBack }) => {
       setRoomDetail(detail);
       if (detail) {
         setMeterForm(prev => ({ ...prev, newElec: detail.elecMeter || room.elecMeter, newWater: detail.waterMeter || room.waterMeter }));
-        setInvoiceForm(prev => ({
-          ...prev,
-          rentFee: detail.price || room.price
-        }));
         setEditForm({
           roomNumber: detail.roomNumber || room.roomNumber,
           floor: detail.floor || room.floor,
@@ -916,25 +946,35 @@ const RoomDetail = ({ room, zone, onBack }) => {
   // Submit API create invoice
   const handleCreateInvoice = async (e) => {
     e.preventDefault();
+    if (!invoiceForm.month) {
+      alert('Vui lòng chọn tháng thu tiền!');
+      return;
+    }
+    if (!invoiceForm.dueDate) {
+      alert('Vui lòng chọn hạn thanh toán!');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const mainTenantId = roomDetail?.tenants?.[0]?.id;
-      await invoiceService.createInvoice({
+      const payload = {
         roomId: room.id,
-        tenantProfileId: mainTenantId || null,
         month: invoiceForm.month,
-        rentFee: Number(invoiceForm.rentFee),
-        elecFee: Number(invoiceForm.elecFee),
-        waterFee: Number(invoiceForm.waterFee),
-        serviceFee: Number(invoiceForm.serviceFee),
-        dueDate: invoiceForm.dueDate
-      });
-      showToast('Tạo và gửi hóa đơn thành công!');
+        rentFee: Number(invoiceForm.rentFee || 0),
+        elecFee: Number(invoiceForm.elecFee || 0),
+        waterFee: Number(invoiceForm.waterFee || 0),
+        serviceFee: Number(invoiceForm.serviceFee || 0),
+        dueDate: new Date(invoiceForm.dueDate).toISOString()
+      };
+
+      await invoiceService.createInvoice(payload);
+      showToast('✅ Tạo và phát hành hóa đơn thành công!');
       setShowInvoiceModal(false);
       await loadDetail();
     } catch (err) {
       console.error('Lỗi tạo hóa đơn:', err);
-      showToast('⚠️ Lỗi lập hóa đơn. Kiểm tra dữ liệu đầu vào!');
+      const errMsg = err.response?.data?.message || err.message || 'Lỗi lập hóa đơn';
+      alert('⚠️ ' + errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -1079,9 +1119,6 @@ const RoomDetail = ({ room, zone, onBack }) => {
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
-            <Download size={15} /> Xuất PDF
-          </button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowEditModal(true)}>
             <Edit3 size={15} /> Sửa thông tin
           </button>
@@ -1113,11 +1150,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={() => setShowInvoiceModal(true)}>
+            <button className="btn btn-primary" onClick={handleOpenInvoiceModal}>
               <FilePlus size={16} /> Lập Hóa Đơn Tháng
-            </button>
-            <button className="btn btn-secondary" onClick={() => setShowMeterModal(true)}>
-              <Zap size={16} /> Chốt Điện/Nước
             </button>
           </div>
         </div>
@@ -1598,137 +1632,125 @@ const RoomDetail = ({ room, zone, onBack }) => {
           )}
         </div>
       )}
-      {/* ⚡ MODAL CHỐT ĐIỆN NƯỚC */}
-      {showMeterModal && (
-        <div className="modal-backdrop" onClick={() => setShowMeterModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Zap size={20} color="#f59e0b" /> Chốt Chỉ Số Điện / Nước
-              </h3>
-              <button className="btn-close" onClick={() => setShowMeterModal(false)}>✕</button>
-            </div>
-            <form onSubmit={handleRecordMeter}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {(() => {
-                  const existingMeterInv = (roomDetail?.recentInvoices || []).find(i => i.month === meterForm.month);
-                  if (existingMeterInv) {
-                    return (
-                      <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 8, padding: '10px 12px', color: '#d97706', fontSize: 12.5 }}>
-                        <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <AlertTriangle size={15} /> Phòng {room.roomNumber} ĐÃ CÓ hóa đơn Tháng {meterForm.month}!
-                        </div>
-                        <div style={{ color: '#b45309', marginTop: 2, fontSize: 12 }}>
-                          Mã HĐ: <strong>{existingMeterInv.invoiceCode}</strong> ({formatVND(existingMeterInv.totalAmount)})
-                        </div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2, fontStyle: 'italic' }}>
-                          * Ghi số mới sẽ tự động tính lại tiền và cập nhật vào hóa đơn này.
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, padding: '8px 12px', color: '#10b981', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <CheckCircle size={14} /> Phòng {room.roomNumber} <strong>CHƯA có hóa đơn Tháng {meterForm.month}</strong>. Khi lưu chỉ số sẽ tự động xuất HĐ mới.
-                    </div>
-                  );
-                })()}
-
-                <div>
-                  <label className="form-label">Kỳ Tháng Chốt Số *</label>
-                  <input type="month" className="form-control" value={meterForm.month} onChange={e => setMeterForm({ ...meterForm, month: e.target.value })} required />
-                </div>
-                <div>
-                  <label className="form-label">Chỉ Số Điện Mới (kWh)</label>
-                  <input type="number" step="1" className="form-control" value={meterForm.newElec} onChange={e => setMeterForm({ ...meterForm, newElec: e.target.value })} required />
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Hiện tại: {currentElec} kWh</span>
-                </div>
-                <div>
-                  <label className="form-label">Chỉ Số Nước Mới (m³)</label>
-                  <input type="number" step="1" className="form-control" value={meterForm.newWater} onChange={e => setMeterForm({ ...meterForm, newWater: e.target.value })} required />
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Hiện tại: {currentWater} m³</span>
-                </div>
-              </div>
-              <div className="modal-footer" style={{ marginTop: 16 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowMeterModal(false)}>Hủy</button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Đang ghi nhận...' : 'Lưu Chỉ Số & Xuất HĐ'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 📄 MODAL LẬP HÓA ĐƠN */}
+      {/* 🧾 MODAL LẬP HÓA ĐƠN THÁNG */}
       {showInvoiceModal && (
         <div className="modal-backdrop" onClick={() => setShowInvoiceModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 540, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FilePlus size={20} color="#10b981" /> Lập Hóa Đơn Tháng Mới
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 580, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
+            <div className="modal-header" style={{ padding: '16px 22px' }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '18px' }}>
+                <FilePlus size={20} color="#10b981" /> Lập Hóa Đơn Tiền Nhà - Phòng P.{roomDetail?.roomNumber || room.roomNumber}
               </h3>
               <button className="btn-close" onClick={() => setShowInvoiceModal(false)}>✕</button>
             </div>
             <form onSubmit={handleCreateInvoice}>
-              <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                {(() => {
-                  const existingInv = (roomDetail?.recentInvoices || []).find(i => i.month === invoiceForm.month);
-                  if (existingInv) {
-                    return (
-                      <div style={{ gridColumn: 'span 2', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: 8, padding: '10px 12px', color: '#d97706', fontSize: 12.5 }}>
-                        <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <AlertTriangle size={15} /> Phòng {room.roomNumber} ĐÃ CÓ hóa đơn kỳ Tháng {invoiceForm.month}!
-                        </div>
-                        <div style={{ color: '#b45309', marginTop: 2, fontSize: 12 }}>
-                          Mã HĐ: <strong>{existingInv.invoiceCode}</strong> • Tổng tiền: <strong>{formatVND(existingInv.totalAmount)}</strong>
-                        </div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2, fontStyle: 'italic' }}>
-                          * Nếu tiếp tục lập, hệ thống sẽ CẬP NHẬT đè lên hóa đơn hiện tại.
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div style={{ gridColumn: 'span 2', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8, padding: '8px 12px', color: '#10b981', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <CheckCircle size={14} /> Phòng {room.roomNumber} <strong>CHƯA có hóa đơn kỳ Tháng {invoiceForm.month}</strong>.
-                    </div>
-                  );
-                })()}
+              <div className="modal-body" style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                
+                {/* Thông tin phòng & khách */}
+                <div style={{ background: 'var(--bg-dark)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Khu trọ: </span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{zone.name}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Khách đại diện: </span>
+                    <strong style={{ color: '#10b981' }}>{mainTenant?.fullName || 'Chưa xếp khách'}</strong>
+                  </div>
+                </div>
 
-                <div style={{ gridColumn: 'span 2' }}>
-                  <label className="form-label">Khách Thuê Nhận Hóa Đơn</label>
-                  <input type="text" className="form-control" value={mainTenant ? `${mainTenant.fullName} (${mainTenant.phone})` : 'Khách phòng này'} disabled />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Tháng Thu Tiền *</label>
+                    <input
+                      type="month"
+                      className="form-control"
+                      value={invoiceForm.month}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, month: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Hạn Thanh Toán *</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={invoiceForm.dueDate}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="form-label">Kỳ Tháng Hóa Đơn *</label>
-                  <input type="month" className="form-control" value={invoiceForm.month} onChange={e => setInvoiceForm({ ...invoiceForm, month: e.target.value })} required />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Tiền Thuê Phòng (VNĐ) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      className="form-control"
+                      value={invoiceForm.rentFee}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, rentFee: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Tiền Điện (VNĐ)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      className="form-control"
+                      value={invoiceForm.elecFee}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, elecFee: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="form-label">Hạn Thanh Toán</label>
-                  <input type="date" className="form-control" value={invoiceForm.dueDate} onChange={e => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} required />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Tiền Nước (VNĐ)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      className="form-control"
+                      value={invoiceForm.waterFee}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, waterFee: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Phí Dịch Vụ / Xe (VNĐ)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      className="form-control"
+                      value={invoiceForm.serviceFee}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, serviceFee: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="form-label">Tiền Thuê Phòng (đ)</label>
-                  <input type="number" className="form-control" value={invoiceForm.rentFee} onChange={e => setInvoiceForm({ ...invoiceForm, rentFee: e.target.value })} required />
-                </div>
-                <div>
-                  <label className="form-label">Tiền Điện (đ)</label>
-                  <input type="number" className="form-control" value={invoiceForm.elecFee} onChange={e => setInvoiceForm({ ...invoiceForm, elecFee: e.target.value })} required />
-                </div>
-                <div>
-                  <label className="form-label">Tiền Nước (đ)</label>
-                  <input type="number" className="form-control" value={invoiceForm.waterFee} onChange={e => setInvoiceForm({ ...invoiceForm, waterFee: e.target.value })} required />
-                </div>
-                <div>
-                  <label className="form-label">Phí Dịch Vụ & Rác (đ)</label>
-                  <input type="number" className="form-control" value={invoiceForm.serviceFee} onChange={e => setInvoiceForm({ ...invoiceForm, serviceFee: e.target.value })} required />
+
+                {/* Tổng Tiền Preview */}
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '14px 18px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>Tổng tiền hóa đơn:</span>
+                  <span style={{ fontSize: '18px', fontWeight: 800, color: '#10b981' }}>
+                    {formatVND(
+                      Number(invoiceForm.rentFee || 0) +
+                      Number(invoiceForm.elecFee || 0) +
+                      Number(invoiceForm.waterFee || 0) +
+                      Number(invoiceForm.serviceFee || 0)
+                    )}
+                  </span>
                 </div>
               </div>
-              <div className="modal-footer" style={{ marginTop: 20 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowInvoiceModal(false)}>Hủy</button>
+
+              <div className="modal-footer" style={{ padding: '14px 22px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowInvoiceModal(false)}>
+                  Hủy
+                </button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Đang tạo...' : 'Tạo & Gửi Hóa Đơn'}
+                  <FilePlus size={16} /> {submitting ? 'Đang tạo...' : 'Xác Nhận & Phát Hành Hóa Đơn'}
                 </button>
               </div>
             </form>
