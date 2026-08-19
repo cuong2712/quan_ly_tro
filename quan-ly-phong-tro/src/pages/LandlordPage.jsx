@@ -25,7 +25,6 @@ const ServiceMgmt       = lazy(() => import('../components/Landlord/ServiceMgmt'
 const InvoiceMgmt       = lazy(() => import('../components/Landlord/InvoiceMgmt').then(m => ({ default: m.InvoiceMgmt })));
 const PaymentMgmt       = lazy(() => import('../components/Landlord/PaymentMgmt').then(m => ({ default: m.PaymentMgmt })));
 const MaintenanceMgmt   = lazy(() => import('../components/Landlord/MaintenanceMgmt').then(m => ({ default: m.MaintenanceMgmt })));
-const LandlordReports   = lazy(() => import('../components/Landlord/LandlordReports').then(m => ({ default: m.LandlordReports })));
 const LandlordNotify    = lazy(() => import('../components/Landlord/LandlordNotify').then(m => ({ default: m.LandlordNotify })));
 const LandlordProfile   = lazy(() => import('../components/Landlord/LandlordProfile').then(m => ({ default: m.LandlordProfile })));
 
@@ -74,12 +73,6 @@ const TAB_FETCHERS = {
     maintenanceRequests: maintenanceService.getRequests,
     rooms: roomService.getRooms,
   },
-  ll_reports: {
-    invoices: invoiceService.getInvoices,
-    rooms: roomService.getRooms,
-    zones: zoneService.getZones,
-    tenants: tenantService.getTenants,
-  },
   ll_notifications: {
     notifications: notificationService.getNotifications,
     zones: zoneService.getZones,
@@ -95,7 +88,7 @@ const TAB_KEY = 'landlord_active_tab';
 const ACTIVE_TABS = new Set([
   'll_dashboard', 'll_zones', 'll_tenants', 'll_contracts',
   'll_invoices', 'll_payments', 'll_maintenance', 'll_utilities', 
-  'll_services', 'll_reports', 'll_notifications', 'll_profile'
+  'll_services', 'll_notifications', 'll_profile'
 ]);
 
 export default function LandlordPage() {
@@ -264,12 +257,6 @@ export default function LandlordPage() {
               rooms={d.rooms || []}
               onRefresh={() => handleRefresh()}
             />
-          </Suspense>
-        );
-      case 'll_reports':
-        return (
-          <Suspense fallback={<TabLoader />}>
-            <LandlordReports data={{ invoices: d.invoices || [], rooms: d.rooms || [], tenants: d.tenants || [], zones: d.zones || [] }} />
           </Suspense>
         );
       case 'll_notifications':

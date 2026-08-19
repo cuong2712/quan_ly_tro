@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { 
   Receipt, Plus, Search, Edit, Trash2, Printer, Mail, 
   CheckCircle, Clock, Zap, AlertCircle, AlertTriangle, 
-  MessageSquare, Check, X, Eye, ArrowRight 
+  MessageSquare, Check, X, Eye, ArrowRight, DollarSign,
+  Home, BarChart3, FileSpreadsheet, Download, Building2, Filter
 } from 'lucide-react';
-import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
+import { formatVND, formatDate, exportToPDF, exportToExcel } from '../../utils/formatters';
 import { invoiceService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
@@ -22,6 +23,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'disputed' | 'Unpaid' | 'Paid' | 'Overdue'
   const [monthFilter, setMonthFilter] = useState(''); // '' or 'YYYY-MM'
+  const [zoneFilter, setZoneFilter] = useState('all'); // 'all' or zoneId
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [viewingInvoice, setViewingInvoice] = useState(null);
@@ -56,8 +58,18 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   const pendingDisputesCount = invoices.filter(i => i.isReported && i.disputeStatus === 'Pending').length;
 
   const currentMonthKey = monthFilter || new Date().toISOString().slice(0, 7);
-  const occupiedRooms = rooms.filter(r => (r.status || '').toLowerCase() === 'occupied');
-  const targetRooms = occupiedRooms.length > 0 ? occupiedRooms : rooms;
+
+  // Lọc theo Khu trọ
+  const roomMatchesZone = (roomId, zId) => {
+    if (zId === 'all') return true;
+    const r = rooms.find(room => room.id === roomId);
+    return r && (r.zoneId === zId || r.ZoneId === zId);
+  };
+
+  const relevantRooms = zoneFilter === 'all' ? rooms : rooms.filter(r => r.zoneId === zoneFilter || r.ZoneId === zoneFilter);
+  const occupiedRooms = relevantRooms.filter(r => (r.status || '').toLowerCase() === 'occupied');
+  const targetRooms = occupiedRooms.length > 0 ? occupiedRooms : relevantRooms;
+
   const billedRoomsThisMonth = targetRooms.filter(r => 
     invoices.some(i => (i.roomId === r.id || (r.roomNumber && i.roomNumber === r.roomNumber)) && i.month === currentMonthKey)
   );
@@ -65,18 +77,42 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
     !invoices.some(i => (i.roomId === r.id || (r.roomNumber && i.roomNumber === r.roomNumber)) && i.month === currentMonthKey)
   );
 
+  // Bộ lọc hóa đơn tổng hợp
   const filteredInvoices = invoices.filter(inv => {
     const code = (inv.invoiceCode || '').toLowerCase();
     const roomNum = (inv.roomNumber || inv.roomId || '').toLowerCase();
-    const matchesSearch = code.includes(searchTerm.toLowerCase()) || roomNum.includes(searchTerm.toLowerCase());
+    const tenantName = (inv.tenantName || '').toLowerCase();
+    const matchesSearch = code.includes(searchTerm.toLowerCase()) || roomNum.includes(searchTerm.toLowerCase()) || tenantName.includes(searchTerm.toLowerCase());
     const matchesMonth = !monthFilter || inv.month === monthFilter;
+    const matchesZone = zoneFilter === 'all' || roomMatchesZone(inv.roomId, zoneFilter);
 
     if (statusFilter === 'disputed') {
-      return matchesSearch && matchesMonth && (inv.isReported && inv.disputeStatus === 'Pending');
+      return matchesSearch && matchesMonth && matchesZone && (inv.isReported && inv.disputeStatus === 'Pending');
     }
     const matchesStatus = statusFilter === 'all' || (inv.status || '').toLowerCase() === statusFilter.toLowerCase();
-    return matchesSearch && matchesMonth && matchesStatus;
+    return matchesSearch && matchesMonth && matchesZone && matchesStatus;
   });
+
+  // KPI Calculations dựa trên khu trọ và tháng đã chọn
+  const relevantInvoices = invoices.filter(inv => {
+    const matchesMonth = !monthFilter || inv.month === monthFilter;
+    const matchesZone = zoneFilter === 'all' || roomMatchesZone(inv.roomId, zoneFilter);
+    return matchesMonth && matchesZone;
+  });
+
+  const totalCollected = relevantInvoices
+    .filter(i => (i.status || '').toLowerCase() === 'paid')
+    .reduce((sum, i) => sum + (Number(i.totalAmount) || 0), 0);
+
+  const totalPending = relevantInvoices
+    .filter(i => (i.status || '').toLowerCase() !== 'paid')
+    .reduce((sum, i) => sum + (Number(i.totalAmount) || 0), 0);
+
+  const totalRoomsCount = relevantRooms.length;
+  const occupiedRoomsCount = relevantRooms.filter(r => (r.status || '').toLowerCase() === 'occupied').length;
+  const occupancyPercentage = totalRoomsCount > 0 ? Math.round((occupiedRoomsCount / totalRoomsCount) * 100) : (relevantInvoices.length > 0 ? 100 : 0);
+
+  const totalElecWater = relevantInvoices.reduce((sum, i) => sum + (Number(i.elecFee) || 0) + (Number(i.waterFee) || 0), 0);
 
   const totalPages = Math.ceil(filteredInvoices.length / pageSize);
   const paginatedInvoices = filteredInvoices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -128,6 +164,70 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
     } catch (err) {
       alert('Lỗi xóa hóa đơn: ' + (err.response?.data?.message || err.message));
     }
+  };
+
+  // Xuất Báo Cáo Excel (.xlsx)
+  const handleExportExcel = () => {
+    if (filteredInvoices.length === 0) {
+      alert('Không có dữ liệu hóa đơn để xuất Excel!');
+      return;
+    }
+
+    const reportData = filteredInvoices.map(inv => {
+      const room = rooms.find(r => r.id === inv.roomId);
+      const isPaid = (inv.status || '').toLowerCase() === 'paid';
+      return {
+        'Mã Hóa Đơn': inv.invoiceCode || '',
+        'Kỳ Tháng': inv.month || '',
+        'Phòng': inv.roomNumber || (room ? room.roomNumber : inv.roomId),
+        'Khách Thuê': inv.tenantName || 'Khách thuê',
+        'Tiền Thuê Phòng': inv.rentFee || 0,
+        'Tiền Điện': inv.elecFee || 0,
+        'Tiền Nước': inv.waterFee || 0,
+        'Phí Dịch Vụ': inv.serviceFee || 0,
+        'Tổng Tiền (VNĐ)': inv.totalAmount || 0,
+        'Trạng Thái': isPaid ? 'Đã thanh toán' : (inv.status === 'Overdue' ? 'Quá hạn' : 'Chưa thanh toán'),
+        'Hạn Thanh Toán': inv.dueDate ? formatDate(inv.dueDate) : '',
+      };
+    });
+
+    exportToExcel(reportData, `Bao_Cao_Doanh_Thu_SmartRent_${monthFilter || 'Tat_Ca'}.xlsx`, 'Doanh Thu');
+  };
+
+  // Xuất Báo Cáo CSV (.csv)
+  const handleExportCSV = () => {
+    if (filteredInvoices.length === 0) {
+      alert('Không có dữ liệu hóa đơn để xuất CSV!');
+      return;
+    }
+    const headers = ['Mã Hóa Đơn', 'Kỳ Tháng', 'Phòng', 'Khách Thuê', 'Tiền Thuê Phòng', 'Tiền Điện', 'Tiền Nước', 'Phí Dịch Vụ', 'Tổng Tiền (VNĐ)', 'Trạng Thái', 'Hạn Thanh Toán'];
+    const rows = filteredInvoices.map(inv => {
+      const room = rooms.find(r => r.id === inv.roomId);
+      const isPaid = (inv.status || '').toLowerCase() === 'paid';
+      return [
+        `"${inv.invoiceCode || ''}"`,
+        `"${inv.month || ''}"`,
+        `"P.${inv.roomNumber || (room ? room.roomNumber : '')}"`,
+        `"${inv.tenantName || 'Khách thuê'}"`,
+        inv.rentFee || 0,
+        inv.elecFee || 0,
+        inv.waterFee || 0,
+        inv.serviceFee || 0,
+        inv.totalAmount || 0,
+        `"${isPaid ? 'Đã thanh toán' : (inv.status === 'Overdue' ? 'Quá hạn' : 'Chưa thanh toán')}"`,
+        `"${inv.dueDate ? formatDate(inv.dueDate) : ''}"`
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Bao_Cao_Hoa_Don_SmartRent_${monthFilter || 'Tat_Ca'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleSave = async (e) => {
@@ -221,46 +321,97 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
   return (
     <div>
-      {/* Header */}
-      <div className="page-header">
+      {/* Header with Title & Export Actions */}
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 className="page-title"><Receipt size={24} color="#6366f1" /> Quản Lý Hóa Đơn Thu Tiền Nhà</h2>
-          <p className="page-subtitle">Xem danh sách hóa đơn, chỉnh sửa số tiền điện nước và xử lý các báo cáo sai sót từ khách thuê</p>
+          <h2 className="page-title"><Receipt size={24} color="#6366f1" /> Quản Lý Hóa Đơn & Doanh Thu</h2>
+          <p className="page-subtitle">Theo dõi tổng quan tài chính, công nợ, quản lý thanh toán hóa đơn và xuất báo cáo kế toán</p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={handleExportExcel} title="Xuất dữ liệu hóa đơn ra file Excel">
+            <FileSpreadsheet size={16} color="#10b981" /> Xuất Excel (.xlsx)
+          </button>
+          <button className="btn btn-secondary" onClick={handleExportCSV} title="Tải file CSV cho kế toán">
+            <Download size={16} color="#0ea5e9" /> Xuất CSV (.csv)
+          </button>
         </div>
       </div>
 
-      {/* ⚡ THÔNG BÁO HƯỚNG DẪN QUY TRÌNH CHUẨN */}
-      <div style={{
-        background: 'rgba(99, 102, 241, 0.1)',
-        border: '1px solid rgba(99, 102, 241, 0.3)',
-        borderRadius: '12px',
-        padding: '14px 20px',
-        marginBottom: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Zap size={22} color="#6366f1" />
-          <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
-            <strong>Quy trình tự động hóa:</strong> Hóa đơn được tự động lập khi chốt số điện nước tại mục <strong>"Điện Nước"</strong>. Nếu khách thuê báo sai sót số liệu, bạn có thể xem minh chứng và điều chỉnh trực tiếp tại đây!
+      {/* 4 Thẻ KPI Doanh Thu & Hiệu Suất (Tích hợp từ Báo Cáo) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', display: 'grid', placeItems: 'center', color: '#10b981' }}>
+            <DollarSign size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tổng Thu Đã Thu</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>{formatVND(totalCollected)}</div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(239, 68, 68, 0.15)', display: 'grid', placeItems: 'center', color: '#ef4444' }}>
+            <AlertCircle size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Công Nợ Chưa Thu</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>{formatVND(totalPending)}</div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'grid', placeItems: 'center', color: '#3b82f6' }}>
+            <Home size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tỷ Lệ Phòng Thuê</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#3b82f6', marginTop: '2px' }}>
+              {occupancyPercentage}% <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)' }}>({occupiedRoomsCount}/{totalRoomsCount})</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(245, 158, 11, 0.15)', display: 'grid', placeItems: 'center', color: '#f59e0b' }}>
+            <Zap size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tổng Tiền Điện & Nước</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#f59e0b', marginTop: '2px' }}>{formatVND(totalElecWater)}</div>
           </div>
         </div>
       </div>
 
       <div className="card-table-container">
-        <div className="table-toolbar">
-          <div className="search-input-group">
+        <div className="table-toolbar" style={{ flexWrap: 'wrap', gap: '12px' }}>
+          <div className="search-input-group" style={{ minWidth: 260 }}>
             <Search size={18} color="var(--text-muted)" />
             <input
               type="text"
-              placeholder="Tìm mã hóa đơn, số phòng..."
+              placeholder="Tìm mã hóa đơn, số phòng,..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          {/* Bộ lọc Khu Trọ */}
+          {zones.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Building2 size={16} color="var(--text-muted)" />
+              <select
+                className="filter-select"
+                value={zoneFilter}
+                onChange={(e) => setZoneFilter(e.target.value)}
+                style={{ padding: '6px 12px', fontSize: '13px' }}
+              >
+                <option value="all">🏢 Tất cả khu trọ</option>
+                {zones.map(z => (
+                  <option key={z.id} value={z.id}>{z.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button
               className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
