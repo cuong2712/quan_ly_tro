@@ -58,7 +58,7 @@ public class RealtimeNotifier(IHubContext<NotificationHub> hubContext, ILogger<R
         {
             await SendToRoleAsync("Landlord", notification);
         }
-        else if (notification.Target == "AllTenants")
+        else if (notification.Target == "AllTenants" || notification.Target == "Zone" || notification.Target == "Room")
         {
             await SendToRoleAsync("Tenant", notification);
         }

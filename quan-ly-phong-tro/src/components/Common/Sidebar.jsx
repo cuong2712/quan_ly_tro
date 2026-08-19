@@ -20,6 +20,8 @@ const NAV_ITEMS = {
     { id: 'll_invoices', label: 'Hóa đơn', icon: Receipt },
     { id: 'll_payments', label: 'Thanh toán', icon: CreditCard },
     { id: 'll_maintenance', label: 'Bảo trì', icon: Wrench },
+    { id: 'll_notifications', label: 'Thông báo', icon: BellRing },
+    { id: 'll_reports', label: 'Báo cáo', icon: BarChart3 },
   ],
   tenant: [
     { id: 'tn_dashboard', label: 'Tổng quan', icon: LayoutDashboard },

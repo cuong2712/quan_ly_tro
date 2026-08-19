@@ -14,21 +14,36 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
     public async Task<IEnumerable<NotificationDto>> GetForUserAsync(Guid userId, string role)
     {
         Guid? landlordIdOfTenant = null;
+        Guid? zoneIdOfTenant = null;
+        Guid? roomIdOfTenant = null;
         if (role == "Tenant")
         {
-            landlordIdOfTenant = await db.TenantProfiles
-                .Where(t => t.UserId == userId && t.Room != null)
-                .Select(t => (Guid?)t.Room!.Zone.LandlordId)
-                .FirstOrDefaultAsync();
+            var tp = await db.TenantProfiles
+                .Include(t => t.Room).ThenInclude(r => r!.Zone)
+                .FirstOrDefaultAsync(t => t.UserId == userId);
+            if (tp?.Room != null)
+            {
+                landlordIdOfTenant = tp.Room.Zone.LandlordId;
+                zoneIdOfTenant = tp.Room.ZoneId;
+                roomIdOfTenant = tp.RoomId;
+            }
         }
 
         var notifications = await db.Notifications
             .Include(n => n.Sender)
             .Include(n => n.Reads.Where(r => r.UserId == userId))
             .Where(n => 
-                (n.Target == NotificationTarget.AllLandlords && role == "Landlord") ||
-                (n.Target == NotificationTarget.AllTenants && role == "Tenant" && (n.Sender.Role == UserRole.SuperAdmin || (landlordIdOfTenant.HasValue && n.SenderId == landlordIdOfTenant.Value))) ||
-                (n.Target == NotificationTarget.User && n.TargetId == userId) ||
+                (role == "Landlord" && (
+                    n.SenderId == userId || 
+                    n.Target == NotificationTarget.AllLandlords || 
+                    (n.Target == NotificationTarget.User && n.TargetId == userId)
+                )) ||
+                (role == "Tenant" && (
+                    (n.Target == NotificationTarget.AllTenants && (n.Sender.Role == UserRole.SuperAdmin || (landlordIdOfTenant.HasValue && n.SenderId == landlordIdOfTenant.Value))) ||
+                    (n.Target == NotificationTarget.Zone && zoneIdOfTenant.HasValue && n.TargetId == zoneIdOfTenant.Value) ||
+                    (n.Target == NotificationTarget.Room && roomIdOfTenant.HasValue && n.TargetId == roomIdOfTenant.Value) ||
+                    (n.Target == NotificationTarget.User && n.TargetId == userId)
+                )) ||
                 role == "SuperAdmin")
             .OrderByDescending(n => n.CreatedAt).ToListAsync();
 
