@@ -14,11 +14,13 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
     notes: '',
   });
 
-  const isRenewPending = myContract && (
+  const isRenewPending = myContract && !((myContract.status || '').toLowerCase() === 'liquidated') && (
     (myContract.status || '').toLowerCase() === 'renewrequested' ||
     (myContract.status || '').toLowerCase() === 'renew_requested' ||
     Boolean(myContract.requestedRenewMonths)
   );
+
+  const isLiquidated = myContract && (myContract.status || '').toLowerCase() === 'liquidated';
 
   const calculateNewEndDate = (currentEnd, months) => {
     try {
@@ -35,6 +37,7 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
   };
 
   const handleOpenRenewModal = () => {
+    if (isLiquidated) return;
     setRenewForm({
       extendMonths: myContract?.requestedRenewMonths || 12,
       notes: myContract?.renewNotes || '',
@@ -44,7 +47,7 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
 
   const handleSubmitRenew = async (e) => {
     e.preventDefault();
-    if (!myContract) return;
+    if (!myContract || isLiquidated) return;
     setSubmitting(true);
     try {
       const updated = await contractService.requestRenew(myContract.id, {
@@ -88,7 +91,7 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
           <h2 className="page-title"><FileText size={24} color="#6366f1" /> Hợp Đồng Thuê Nhà Của Tôi</h2>
           <p className="page-subtitle">Xem thông tin hợp đồng pháp lý, tải file PDF và gửi yêu cầu gia hạn hợp đồng</p>
         </div>
-        {myContract && (
+        {myContract && !isLiquidated && (
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             {isRenewPending ? (
               <button 
@@ -110,8 +113,27 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
         )}
       </div>
 
+      {/* ⚠️ BANNER NẾU HỢP ĐỒNG ĐÃ THANH LÝ */}
+      {isLiquidated && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <AlertTriangle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            <strong style={{ color: '#ef4444' }}>Hợp đồng đã thanh lý:</strong> Hợp đồng thuê nhà này đã hoàn tất thủ tục thanh lý và quyết toán tiền cọc. Dữ liệu hợp đồng được lưu trữ phục vụ mục đích tra cứu lịch sử của bạn.
+          </div>
+        </div>
+      )}
+
       {/* 🔔 BANNER TRẠNG THÁI NẾU ĐANG CHỜ CHỦ TRỌ DUYỆT GIA HẠN */}
-      {isRenewPending && (
+      {!isLiquidated && isRenewPending && (
         <div style={{
           background: 'rgba(245, 158, 11, 0.12)',
           border: '1px solid rgba(245, 158, 11, 0.4)',
@@ -149,7 +171,11 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
             <div>
               <h3 style={{ fontSize: '20px', color: 'var(--primary)' }}>{myContract.contractCode}</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
-                Trạng thái: {isRenewPending ? (
+                Trạng thái: {isLiquidated ? (
+                  <span className="status-pill liquidated" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: '#ef4444' }}>
+                    🔒 Đã thanh lý
+                  </span>
+                ) : isRenewPending ? (
                   <span className="status-pill renew_requested" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: '#f59e0b' }}>
                     ⏳ Chờ Chủ Trọ Phê Duyệt Gia Hạn
                   </span>

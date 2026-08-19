@@ -52,15 +52,15 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
   // ─── 1. Tính toán Trạng thái & Thống kê ──────────────────────
   const getContractStatusInfo = (c) => {
-    const rawStatus = (c.status || '').toLowerCase();
+    const rawStatus = String(c?.status || '').trim().toLowerCase();
 
-    if (rawStatus === 'liquidated') {
+    if (rawStatus === 'liquidated' || rawStatus === '4' || c?.status === 4) {
       return { label: 'Đã thanh lý', className: 'liquidated', isActive: false, type: 'liquidated' };
     }
 
-    if (rawStatus === 'renewrequested' || rawStatus === 'renew_requested' || Boolean(c.requestedRenewMonths)) {
+    if (rawStatus === 'renewrequested' || rawStatus === 'renew_requested' || rawStatus === '3' || c?.status === 3 || Boolean(c?.requestedRenewMonths)) {
       return {
-        label: `⏳ Chờ gia hạn (+${c.requestedRenewMonths || 12}T)`,
+        label: `⏳ Chờ gia hạn (+${c?.requestedRenewMonths || 12}T)`,
         className: 'renew_requested',
         isActive: true,
         type: 'renew_requested',
@@ -68,17 +68,17 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       };
     }
 
-    if (c.endDate) {
+    if (rawStatus === 'expired' || rawStatus === '2' || c?.status === 2) {
+      return { label: 'Đã hết hạn', className: 'expired', isActive: false, type: 'expired' };
+    }
+
+    if (c?.endDate) {
       const endDateObj = new Date(c.endDate);
       endDateObj.setHours(23, 59, 59, 999);
       const now = new Date();
       if (endDateObj < now) {
         return { label: 'Đã hết hạn', className: 'expired', isActive: false, type: 'expired' };
       }
-    }
-
-    if (rawStatus === 'expired') {
-      return { label: 'Đã hết hạn', className: 'expired', isActive: false, type: 'expired' };
     }
 
     return { label: 'Đang hiệu lực', className: 'active', isActive: true, type: 'active' };
@@ -302,11 +302,14 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   };
 
   const handleLiquidate = async (id) => {
-    if (confirm('Xác nhận thanh lý hợp đồng này? Trạng thái sẽ chuyển thành Đã thanh lý.')) {
+    if (confirm('Xác nhận thanh lý hợp đồng này? Trạng thái sẽ chuyển thành Đã thanh lý và hủy liên kết phòng của khách thuê.')) {
       try {
         await contractService.terminate(id);
-        setContracts(contracts.map(c => c.id === id ? { ...c, status: 'liquidated' } : c));
-        alert('✅ Đã thanh lý hợp đồng thành công!');
+        setContracts(contracts.map(c => c.id === id ? { ...c, status: 'Liquidated' } : c));
+        if (viewingContract?.id === id) {
+          setViewingContract(prev => prev ? { ...prev, status: 'Liquidated' } : null);
+        }
+        alert('✅ Đã thanh lý hợp đồng thành công! Phòng đã được giải phóng và hủy liên kết với người thuê.');
         onRefresh?.();
       } catch (err) {
         alert('Lỗi thanh lý hợp đồng: ' + (err.response?.data?.message || err.message));
@@ -1580,18 +1583,10 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           className="modal-overlay"
           onClick={() => !isDeleting && handleCloseDeleteModal()}
           style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: '20px'
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 10000, padding: '20px'
           }}
         >
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '100%' }}>
@@ -1617,6 +1612,28 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
             </div>
 
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Cảnh báo đặc biệt khi hợp đồng đã thanh lý */}
+              {(deletingContract.status || '').toLowerCase() === 'liquidated' && (
+                <div style={{
+                  background: 'rgba(245, 158, 11, 0.10)',
+                  border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                  borderRadius: 10, padding: '13px 16px',
+                  display: 'flex', gap: 12, alignItems: 'flex-start'
+                }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>🔒</span>
+                  <div style={{ fontSize: 13, lineHeight: 1.55 }}>
+                    <strong style={{ color: '#f59e0b', display: 'block', marginBottom: 4 }}>
+                      Hợp đồng đã được Quyết Toán &amp; Thanh Lý
+                    </strong>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                      Hợp đồng này đã có bản ghi quyết toán cọc trong hệ thống.
+                      Xóa hợp đồng sẽ <strong style={{ color: '#f59e0b' }}>bị từ chối</strong> để bảo toàn lịch sử kiểm toán.
+                      Nếu cần xóa, hãy liên hệ quản trị viên hệ thống.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', lineHeight: 1.5 }}>
                 Bạn có chắc chắn muốn xóa vĩnh viễn hợp đồng này không? Dữ liệu hợp đồng sẽ bị gỡ bỏ khỏi hệ thống.
               </p>
@@ -1625,6 +1642,14 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Mã hợp đồng:</span>
                   <strong style={{ color: '#6366f1' }}>{deletingContract.contractCode}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Trạng thái:</span>
+                  <strong style={{ color: (deletingContract.status || '').toLowerCase() === 'liquidated' ? '#f59e0b' : 'var(--text-primary)' }}>
+                    {(deletingContract.status || '').toLowerCase() === 'liquidated' ? '🔒 Đã thanh lý' :
+                     (deletingContract.status || '').toLowerCase() === 'active' ? '🟢 Đang hiệu lực' :
+                     (deletingContract.status || '').toLowerCase() === 'expired' ? '⏰ Hết hạn' : deletingContract.status}
+                  </strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Phòng thuê:</span>
@@ -1644,9 +1669,11 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(244, 63, 94, 0.08)', border: '1px solid rgba(244, 63, 94, 0.25)', borderRadius: 8, padding: '12px 14px', fontSize: 12.5, color: '#f43f5e' }}>
-                <strong>⚠️ Lưu ý:</strong> Nếu khách thuê dọn đi và cần hoàn lại tiền cọc, vui lòng sử dụng tính năng <strong>"Quyết toán cọc & Thanh lý"</strong> thay vì xóa hợp đồng để lưu lại lịch sử thu chi.
-              </div>
+              {(deletingContract.status || '').toLowerCase() !== 'liquidated' && (
+                <div style={{ background: 'rgba(244, 63, 94, 0.08)', border: '1px solid rgba(244, 63, 94, 0.25)', borderRadius: 8, padding: '12px 14px', fontSize: 12.5, color: '#f43f5e' }}>
+                  <strong>⚠️ Lưu ý:</strong> Nếu khách thuê dọn đi và cần hoàn lại tiền cọc, vui lòng sử dụng tính năng <strong>"Quyết toán cọc &amp; Thanh lý"</strong> thay vì xóa hợp đồng để lưu lại lịch sử thu chi.
+                </div>
+              )}
             </div>
 
             <div className="modal-footer" style={{ marginTop: 16 }}>

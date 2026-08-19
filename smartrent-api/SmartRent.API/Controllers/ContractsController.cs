@@ -60,7 +60,17 @@ public class ContractsController(ContractService contractService) : ControllerBa
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Landlord")]
     public async Task<IActionResult> DeleteContract(Guid id)
-        => await contractService.DeleteAsync(id, CurrentUserId) ? NoContent() : NotFound(new { message = "Không tìm thấy hợp đồng hoặc không có quyền xóa." });
+    {
+        try
+        {
+            var deleted = await contractService.DeleteAsync(id, CurrentUserId);
+            return deleted ? NoContent() : NotFound(new { message = "Không tìm thấy hợp đồng hoặc không có quyền xóa." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 
     // Thanh lý hợp đồng thuê nhà trước hoặc đúng hạn.
     [HttpPatch("{id:guid}/terminate")]

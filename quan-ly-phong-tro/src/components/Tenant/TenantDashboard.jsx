@@ -5,7 +5,16 @@ import { formatVND, formatDate } from '../../utils/formatters';
 export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], notifications = [], setActiveTab, dashboard }) => {
   const currentInvoice = invoices.find(i => (i.status || '').toLowerCase() === 'unpaid') || invoices[0];
   const myContract = contracts[0];
-  const roomNum = dashboard?.roomNumber || activeTenant?.roomNumber || 'P.101';
+  const hasActiveContract = contracts.some(c => {
+    const s = (c.status || '').toLowerCase();
+    return s === 'active' || s === 'renewrequested' || s === 'renew_requested';
+  });
+  const isLiquidated = !hasActiveContract && (
+    contracts.some(c => (c.status || '').toLowerCase() === 'liquidated') || 
+    (!dashboard?.roomNumber && !activeTenant?.roomNumber)
+  );
+
+  const roomNum = dashboard?.roomNumber || activeTenant?.roomNumber || (isLiquidated ? 'Đã trả phòng' : 'Chưa gán phòng');
   const zoneName = dashboard?.zoneName || activeTenant?.zoneName || '';
 
   return (
@@ -17,13 +26,41 @@ export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], n
         </div>
       </div>
 
+      {/* ⚠️ BANNER THÔNG BÁO NẾU HỢP ĐỒNG ĐÃ THANH LÝ */}
+      {isLiquidated && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px'
+        }}>
+          <div style={{ background: 'rgba(239, 68, 68, 0.15)', padding: '10px', borderRadius: '50%', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertTriangle size={24} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#ef4444', margin: 0 }}>
+              Hợp đồng phòng trọ của bạn đã được thanh lý
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '13px', lineHeight: 1.5 }}>
+              Tài khoản của bạn đã được hủy liên kết phòng trọ. Bạn vẫn có thể tra cứu lịch sử hóa đơn, biên lai thanh toán và hợp đồng cũ bất cứ lúc nào.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Overview KPI Cards */}
       <div className="kpi-grid">
         <div className="kpi-card">
           <div className="kpi-icon indigo"><Home /></div>
           <div className="kpi-info">
             <h3>Phòng Đang Ở</h3>
-            <div className="value">{roomNum.startsWith('Phòng') || roomNum.startsWith('P.') ? roomNum : `Phòng ${roomNum}`}</div>
+            <div className="value" style={{ fontSize: isLiquidated ? '16px' : undefined, color: isLiquidated ? 'var(--text-muted)' : undefined }}>
+              {isLiquidated ? 'Đã trả phòng' : (roomNum.startsWith('Phòng') || roomNum.startsWith('P.') ? roomNum : `Phòng ${roomNum}`)}
+            </div>
           </div>
         </div>
 
@@ -31,7 +68,7 @@ export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], n
           <div className="kpi-icon amber"><Receipt /></div>
           <div className="kpi-info">
             <h3>Hóa Đơn Kỳ Hiện Tại</h3>
-            <div className="value" style={{ color: (currentInvoice?.status || '').toLowerCase() === 'paid' ? '#34d399' : '#fbbf24' }}>
+            <div className="value" style={{ color: (currentInvoice?.status || '').toLowerCase() === 'paid' ? '#34d399' : (currentInvoice?.status || '').toLowerCase() === 'unpaid' ? '#fbbf24' : 'var(--text-muted)' }}>
               {currentInvoice ? formatVND(currentInvoice.totalAmount) : 'Không có'}
             </div>
           </div>
@@ -41,7 +78,7 @@ export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], n
           <div className="kpi-icon emerald"><CreditCard /></div>
           <div className="kpi-info">
             <h3>Trạng Thái Thanh Toán</h3>
-            <div className="value" style={{ fontSize: '16px', color: (currentInvoice?.status || '').toLowerCase() === 'paid' ? '#34d399' : '#fbbf24' }}>
+            <div className="value" style={{ fontSize: '16px', color: (currentInvoice?.status || '').toLowerCase() === 'paid' ? '#34d399' : (currentInvoice?.status || '').toLowerCase() === 'unpaid' ? '#fbbf24' : 'var(--text-muted)' }}>
               {!currentInvoice ? '✅ Không có nợ' : (currentInvoice?.status || '').toLowerCase() === 'paid' ? '✅ Đã Thanh Toán' : '⏳ Chưa Thanh Toán'}
             </div>
           </div>
@@ -51,8 +88,8 @@ export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], n
           <div className="kpi-icon cyan"><FileText /></div>
           <div className="kpi-info">
             <h3>Thời Hạn Hợp Đồng</h3>
-            <div className="value" style={{ fontSize: '15px' }}>
-              {dashboard?.contractEndDate ? formatDate(dashboard.contractEndDate) : (myContract?.endDate ? formatDate(myContract.endDate) : 'Còn hiệu lực')}
+            <div className="value" style={{ fontSize: '15px', color: isLiquidated ? '#ef4444' : undefined }}>
+              {isLiquidated ? '🔒 Đã thanh lý' : dashboard?.contractEndDate ? formatDate(dashboard.contractEndDate) : (myContract?.endDate ? formatDate(myContract.endDate) : 'Còn hiệu lực')}
             </div>
           </div>
         </div>

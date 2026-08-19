@@ -72,6 +72,8 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
     }
   };
 
+  const isLiquidated = !activeTenant?.roomNumber && !activeTenant?.roomId;
+
   return (
     <div>
       <div className="page-header">
@@ -79,10 +81,31 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
           <h2 className="page-title"><Wrench size={24} color="#6366f1" /> Báo Sự Cố & Sửa Chữa Thiết Bị</h2>
           <p className="page-subtitle">Gửi ảnh chụp sự cố máy lạnh, điện nước... cho chủ trọ để sắp xếp thợ sửa chữa</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} /> Tạo Báo Sửa Chữa Mới
-        </button>
+        {!isLiquidated && (
+          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+            <Plus size={18} /> Tạo Báo Sửa Chữa Mới
+          </button>
+        )}
       </div>
+
+      {/* ⚠️ BANNER NẾU HỢP ĐỒNG ĐÃ THANH LÝ */}
+      {isLiquidated && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '10px',
+          padding: '14px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <AlertTriangle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            <strong style={{ color: '#ef4444' }}>Hợp đồng phòng trọ đã thanh lý:</strong> Bạn không còn phòng đang ở nên không thể gửi yêu cầu bảo trì mới. Danh sách dưới đây lưu lại lịch sử các yêu cầu sửa chữa trước đây của bạn.
+          </div>
+        </div>
+      )}
 
       <div className="card-table-container">
         <table className="custom-table">
@@ -101,7 +124,9 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
             {myRequests.length === 0 ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                  Bạn chưa có báo cáo sửa chữa nào. Nhấn "+ Tạo Báo Sửa Chữa Mới" để gửi cho chủ trọ.
+                  {isLiquidated 
+                    ? 'Bạn không có lịch sử báo cáo sửa chữa nào.' 
+                    : 'Bạn chưa có báo cáo sửa chữa nào. Nhấn "+ Tạo Báo Sửa Chữa Mới" để gửi cho chủ trọ.'}
                 </td>
               </tr>
             ) : (

@@ -12,6 +12,34 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
     // Lấy danh sách hợp đồng thuê nhà thuộc các phòng của Chủ trọ (hỗ trợ phân trang).
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
+        // Tự động kiểm tra & đồng bộ: giải phóng RoomId của người thuê nếu hợp đồng duy nhất đã Liquidated
+        try
+        {
+            var liquidatedContracts = await db.Contracts
+                .Include(c => c.TenantProfile)
+                .Where(c => c.Room.Zone.LandlordId == landlordId && c.Status == ContractStatus.Liquidated && c.TenantProfile.RoomId != null)
+                .ToListAsync();
+
+            if (liquidatedContracts.Count != 0)
+            {
+                bool modified = false;
+                foreach (var lc in liquidatedContracts)
+                {
+                    var hasOtherActive = await db.Contracts.AnyAsync(other => other.TenantProfileId == lc.TenantProfileId && other.Id != lc.Id && other.Status == ContractStatus.Active);
+                    if (!hasOtherActive && lc.TenantProfile != null && lc.TenantProfile.RoomId != null)
+                    {
+                        lc.TenantProfile.RoomId = null;
+                        modified = true;
+                    }
+                }
+                if (modified)
+                {
+                    await db.SaveChangesAsync();
+                }
+            }
+        }
+        catch { /* Bỏ qua lỗi nền nếu có để không ảnh hưởng truy vấn dữ liệu */ }
+
         var query = db.Contracts
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
@@ -158,11 +186,23 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
     }
 
     // Xóa một hợp đồng và cập nhật trạng thái phòng nếu không còn hợp đồng active khác.
+    // Không cho phép xóa nếu hợp đồng đã được quyết toán cọc (có bản ghi ContractSettlement).
     public async Task<bool> DeleteAsync(Guid id, Guid landlordId)
     {
         var c = await db.Contracts.Include(c => c.Room).ThenInclude(r => r.Zone)
             .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId);
         if (c is null) return false;
+
+        // Kiểm tra: nếu hợp đồng đã có bản ghi quyết toán cọc thì không cho phép xóa
+        // để bảo toàn lịch sử thu chi và kiểm toán
+        var hasSettlement = await db.ContractSettlements.AnyAsync(s => s.ContractId == id);
+        if (hasSettlement)
+        {
+            throw new InvalidOperationException(
+                $"Hợp đồng {c.ContractCode} đã được quyết toán cọc và lưu lịch sử thanh lý. " +
+                "Không thể xóa để bảo toàn dữ liệu kiểm toán. " +
+                "Nếu vẫn muốn xóa, vui lòng liên hệ quản trị viên hệ thống.");
+        }
 
         if (c.Status == ContractStatus.Active && c.Room != null)
         {
@@ -178,7 +218,7 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
         return true;
     }
 
-    // Thanh lý hợp đồng thuê nhà (Đổi trạng thái hợp đồng thành Liquidated và phòng thành Vacant).
+    // Thanh lý hợp đồng thuê nhà (Đổi trạng thái hợp đồng thành Liquidated, hủy liên kết phòng của khách thuê và phòng thành Vacant).
     public async Task TerminateAsync(Guid id, Guid landlordId)
     {
         var c = await db.Contracts
@@ -188,16 +228,29 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
             ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
 
         c.Status = ContractStatus.Liquidated;
+
+        // 1. Hủy liên kết phòng của người thuê chính trong hợp đồng này
+        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == c.TenantProfileId);
+        if (tenant != null) 
+        { 
+            tenant.RoomId = null; 
+        }
+
+        // 2. Nếu phòng không còn hợp đồng active nào, đổi trạng thái phòng thành Trống và gỡ toàn bộ người ở còn lại
         if (c.Room != null)
         {
             var activeContracts = await db.Contracts.CountAsync(other => other.RoomId == c.RoomId && other.Id != c.Id && other.Status == ContractStatus.Active);
             if (activeContracts == 0)
             {
                 c.Room.Status = RoomStatus.Vacant;
+                var remainingTenants = await db.TenantProfiles.Where(t => t.RoomId == c.RoomId).ToListAsync();
+                foreach (var rt in remainingTenants)
+                {
+                    rt.RoomId = null;
+                }
             }
         }
-        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.RoomId == c.RoomId);
-        if (tenant != null) { tenant.RoomId = null; }
+
         await db.SaveChangesAsync();
 
         if (c.TenantProfile != null)
@@ -283,6 +336,11 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
             .FirstOrDefaultAsync(c => c.Id == contractId && c.TenantProfile.UserId == tenantUserId)
             ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng của bạn.");
 
+        if (c.Status == ContractStatus.Liquidated)
+        {
+            throw new InvalidOperationException("Hợp đồng này đã được thanh lý, không thể gửi yêu cầu gia hạn.");
+        }
+
         c.Status = ContractStatus.RenewRequested;
         c.RequestedRenewMonths = req.ExtendMonths;
         c.RenewNotes = req.Notes;
@@ -314,6 +372,11 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .FirstOrDefaultAsync(c => c.Id == contractId && c.TenantProfile.UserId == tenantUserId)
             ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng của bạn.");
+
+        if (c.Status == ContractStatus.Liquidated)
+        {
+            throw new InvalidOperationException("Hợp đồng này đã được thanh lý.");
+        }
 
         if (c.Status == ContractStatus.RenewRequested)
         {
@@ -356,17 +419,28 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
         var refundAmount = Math.Max(0, c.Deposit - totalDeductions);
 
         c.Status = ContractStatus.Liquidated;
+
+        // 1. Hủy liên kết phòng của người thuê chính trong hợp đồng này
+        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == c.TenantProfileId);
+        if (tenant != null) 
+        { 
+            tenant.RoomId = null; 
+        }
+
+        // 2. Nếu phòng không còn hợp đồng active nào, đổi trạng thái phòng thành Trống và gỡ toàn bộ người ở còn lại
         if (c.Room != null)
         {
             var activeContracts = await db.Contracts.CountAsync(other => other.RoomId == c.RoomId && other.Id != c.Id && other.Status == ContractStatus.Active);
             if (activeContracts == 0)
             {
                 c.Room.Status = RoomStatus.Vacant;
+                var remainingTenants = await db.TenantProfiles.Where(t => t.RoomId == c.RoomId).ToListAsync();
+                foreach (var rt in remainingTenants)
+                {
+                    rt.RoomId = null;
+                }
             }
         }
-
-        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == c.TenantProfileId);
-        if (tenant != null) { tenant.RoomId = null; }
 
         var settlement = new ContractSettlement
         {

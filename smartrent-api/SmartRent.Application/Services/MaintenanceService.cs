@@ -90,7 +90,7 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
 
         if (roomId == Guid.Empty)
         {
-            throw new InvalidOperationException("Bạn chưa được gán phòng trọ nên không thể tạo yêu cầu bảo trì.");
+            throw new InvalidOperationException("Hợp đồng phòng trọ của bạn đã kết thúc hoặc bạn chưa được gán phòng nên không thể gửi yêu cầu bảo trì mới.");
         }
 
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == roomId)

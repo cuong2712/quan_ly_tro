@@ -265,9 +265,17 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
               paginatedTenants.map(t => {
                 const room = rooms.find(r => r.id === (t.roomId || t.RoomId));
                 const zone = zones.find(z => z.id === room?.zoneId || z.id === room?.ZoneId);
-                const roomNumber = t.roomNumber || (room ? room.roomNumber : 'Chưa xếp');
+                const hasRoom = Boolean(t.roomId || t.RoomId);
+                const roomNumber = t.roomNumber || (room ? room.roomNumber : null);
                 const zoneName = t.zoneName || (zone ? zone.name : '');
-                const contractCode = t.contractCode || t.ContractCode;
+
+                const tenantContracts = contracts.filter(c => (c.tenantId === t.id || c.TenantProfileId === t.id || c.tenantProfileId === t.id));
+                const hasActiveContract = tenantContracts.some(c => {
+                  const s = String(c.status || '').toLowerCase();
+                  return s === 'active' || s === 'renewrequested' || s === 'renew_requested';
+                });
+                const isLiquidated = !hasActiveContract && tenantContracts.some(c => String(c.status || '').toLowerCase() === 'liquidated');
+                const contractCode = t.contractCode || t.ContractCode || tenantContracts[0]?.contractCode;
 
                 return (
                   <tr key={t.id}>
@@ -298,15 +306,19 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                       )}
                     </td>
                     <td>
-                      <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                        {roomNumber !== 'Chưa xếp' ? `Phòng ${roomNumber}` : 'Chưa xếp phòng'}
+                      <div style={{ fontWeight: '700', color: hasRoom ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {hasRoom && roomNumber ? `Phòng ${roomNumber}` : isLiquidated ? '🔒 Đã trả phòng' : 'Chưa xếp phòng'}
                       </div>
-                      {zoneName && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🏢 {zoneName}</div>}
+                      {hasRoom && zoneName && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🏢 {zoneName}</div>}
                     </td>
                     <td>
-                      {contractCode ? (
+                      {hasActiveContract && contractCode ? (
                         <span style={{ fontSize: '12px', fontWeight: '700', color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '4px 8px', borderRadius: '6px', display: 'inline-block' }}>
                           {contractCode}
+                        </span>
+                      ) : isLiquidated ? (
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#ef4444', background: 'rgba(239,68,68,0.12)', padding: '4px 8px', borderRadius: '6px', display: 'inline-block' }}>
+                          🔒 Đã thanh lý
                         </span>
                       ) : (
                         <span style={{ fontSize: '11px', fontWeight: '600', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '4px 8px', borderRadius: '6px', display: 'inline-block' }}>
