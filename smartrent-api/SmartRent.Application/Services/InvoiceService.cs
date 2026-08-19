@@ -12,7 +12,11 @@ public class InvoiceService(AppDbContext db, NotificationService notificationSer
     // Lấy danh sách hóa đơn của Chủ trọ (hỗ trợ phân trang và lọc theo trạng thái/tháng).
     public async Task<object> GetByLandlordAsync(Guid landlordId, string? status = null, string? month = null, int? page = null, int? pageSize = null)
     {
-        var query = db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone).Include(i => i.TenantProfile).ThenInclude(t => t.User).Include(i => i.Items)
+        var query = db.Invoices
+            .AsNoTracking()
+            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.TenantProfile).ThenInclude(t => t.User)
+            .Include(i => i.Items)
             .Where(i => i.Room.Zone.LandlordId == landlordId).AsQueryable();
         if (!string.IsNullOrEmpty(status)) query = query.Where(i => i.Status.ToString() == status);
         if (!string.IsNullOrEmpty(month)) query = query.Where(i => i.Month == month);
@@ -34,7 +38,10 @@ public class InvoiceService(AppDbContext db, NotificationService notificationSer
     // Lấy danh sách hóa đơn của Khách thuê theo ID hồ sơ (TenantProfileId).
     public async Task<IEnumerable<InvoiceDto>> GetByTenantAsync(Guid tenantProfileId)
     {
-        var invoices = await db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone).Include(i => i.Items)
+        var invoices = await db.Invoices
+            .AsNoTracking()
+            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.Items)
             .Where(i => i.TenantProfileId == tenantProfileId).OrderByDescending(i => i.CreatedAt).ToListAsync();
         return invoices.Select(MapInvoice);
     }
@@ -42,19 +49,20 @@ public class InvoiceService(AppDbContext db, NotificationService notificationSer
     // Lấy danh sách hóa đơn của Khách thuê theo ID tài khoản (UserId).
     public async Task<IEnumerable<InvoiceDto>> GetByTenantUserIdAsync(Guid tenantUserId)
     {
-        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        var profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == tenantUserId);
         if (profile == null)
         {
-            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == tenantUserId);
             if (user != null)
             {
-                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
+                profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.User.Email == user.Email);
             }
         }
 
         if (profile == null) return [];
 
         var invoices = await db.Invoices
+            .AsNoTracking()
             .Include(i => i.Room).ThenInclude(r => r.Zone)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
@@ -69,6 +77,7 @@ public class InvoiceService(AppDbContext db, NotificationService notificationSer
     public async Task<InvoiceDto?> GetByIdAsync(Guid id, Guid currentUserId, string role)
     {
         var query = db.Invoices
+            .AsNoTracking()
             .Include(i => i.Room).ThenInclude(r => r.Zone)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)

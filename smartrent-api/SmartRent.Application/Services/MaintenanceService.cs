@@ -13,6 +13,7 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
         var query = db.MaintenanceRequests
+            .AsNoTracking()
             .Include(m => m.Room).ThenInclude(r => r.Zone)
             .Include(m => m.TenantProfile).ThenInclude(t => t.User)
             .Where(m => m.Room.Zone.LandlordId == landlordId || (m.TenantProfile != null && m.TenantProfile.Room != null && m.TenantProfile.Room.Zone.LandlordId == landlordId));
@@ -35,19 +36,20 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
     // Lấy danh sách các báo cáo sự cố do chính Khách thuê tạo (theo UserId).
     public async Task<IEnumerable<MaintenanceRequestDto>> GetByTenantUserIdAsync(Guid tenantUserId)
     {
-        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        var profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == tenantUserId);
         if (profile == null)
         {
-            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == tenantUserId);
             if (user != null)
             {
-                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
+                profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.User.Email == user.Email);
             }
         }
 
         if (profile == null) return [];
 
         var list = await db.MaintenanceRequests
+            .AsNoTracking()
             .Include(m => m.Room)
             .Include(m => m.TenantProfile).ThenInclude(t => t.User)
             .Where(m => m.TenantProfileId == profile.Id)

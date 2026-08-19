@@ -14,17 +14,20 @@ public class ReportService(AppDbContext db)
     {
         // 1. Lấy danh sách các phòng thuộc quyền quản lý của Landlord
         var landlordZoneIds = await db.Zones
+            .AsNoTracking()
             .Where(z => z.LandlordId == landlordId)
             .Select(z => z.Id)
             .ToListAsync();
 
         var roomIds = await db.Rooms
+            .AsNoTracking()
             .Where(r => landlordZoneIds.Contains(r.ZoneId))
             .Select(r => r.Id)
             .ToListAsync();
 
         // 2. Doanh thu thực tế đã thu (từ các Invoice có trạng thái Paid)
         var paidInvoices = await db.Invoices
+            .AsNoTracking()
             .Where(i => roomIds.Contains(i.RoomId) && i.Status == InvoiceStatus.Paid)
             .ToListAsync();
 
@@ -32,6 +35,7 @@ public class ReportService(AppDbContext db)
 
         // 3. Tổng tiền nợ chưa thu (Invoices trạng thái Unpaid hoặc Overdue)
         var unpaidInvoices = await db.Invoices
+            .AsNoTracking()
             .Where(i => roomIds.Contains(i.RoomId) && (i.Status == InvoiceStatus.Unpaid || i.Status == InvoiceStatus.Overdue))
             .ToListAsync();
 
@@ -39,6 +43,7 @@ public class ReportService(AppDbContext db)
 
         // 4. Chi phí bảo trì sửa chữa đã hoàn thành
         var maintenanceCount = await db.MaintenanceRequests
+            .AsNoTracking()
             .Where(m => roomIds.Contains(m.RoomId) && m.Status == MaintenanceStatus.Completed)
             .CountAsync();
 
@@ -74,11 +79,13 @@ public class ReportService(AppDbContext db)
     public async Task<byte[]> ExportFinancialCsvAsync(Guid landlordId)
     {
         var landlordZoneIds = await db.Zones
+            .AsNoTracking()
             .Where(z => z.LandlordId == landlordId)
             .Select(z => z.Id)
             .ToListAsync();
 
         var invoices = await db.Invoices
+            .AsNoTracking()
             .Include(i => i.Room)
             .Include(i => i.TenantProfile).ThenInclude(t => t!.User)
             .Where(i => db.Rooms.Where(r => landlordZoneIds.Contains(r.ZoneId)).Select(r => r.Id).Contains(i.RoomId))

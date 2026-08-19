@@ -13,6 +13,7 @@ public class TenantService(AppDbContext db)
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
         var query = db.TenantProfiles
+            .AsNoTracking()
             .Include(t => t.User)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .Include(t => t.Contracts)
@@ -37,6 +38,7 @@ public class TenantService(AppDbContext db)
     public async Task<TenantDto?> GetByIdAsync(Guid id, Guid landlordId)
     {
         var t = await db.TenantProfiles
+            .AsNoTracking()
             .Include(t => t.User)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .Include(t => t.Contracts)
@@ -47,8 +49,12 @@ public class TenantService(AppDbContext db)
     // Lấy thông tin hồ sơ người thuê theo ID tài khoản đăng nhập (UserId).
     public async Task<TenantDto?> GetByUserIdAsync(Guid userId)
     {
-        var t = await db.TenantProfiles.Include(t => t.User).Include(t => t.Room).ThenInclude(r => r!.Zone)
-            .Include(t => t.Contracts).FirstOrDefaultAsync(t => t.UserId == userId);
+        var t = await db.TenantProfiles
+            .AsNoTracking()
+            .Include(t => t.User)
+            .Include(t => t.Room).ThenInclude(r => r!.Zone)
+            .Include(t => t.Contracts)
+            .FirstOrDefaultAsync(t => t.UserId == userId);
         return t is null ? null : MapTenant(t);
     }
 

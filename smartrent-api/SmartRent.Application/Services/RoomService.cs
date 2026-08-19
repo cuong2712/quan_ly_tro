@@ -12,7 +12,7 @@ public class RoomService(AppDbContext db)
     // Lấy danh sách các phòng trọ của Chủ trọ (hỗ trợ phân trang và lọc theo khu trọ).
     public async Task<object> GetByLandlordAsync(Guid landlordId, Guid? zoneId = null, int? page = null, int? pageSize = null)
     {
-        var query = db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).AsSplitQuery()
+        var query = db.Rooms.AsNoTracking().Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).AsSplitQuery()
             .Where(r => r.Zone.LandlordId == landlordId);
         if (zoneId.HasValue) query = query.Where(r => r.ZoneId == zoneId);
         var totalItems = await query.CountAsync();
@@ -34,7 +34,7 @@ public class RoomService(AppDbContext db)
     // Lấy thông tin cơ bản của phòng trọ theo ID (đảm bảo thuộc quyền quản lý của chủ trọ).
     public async Task<RoomDto?> GetByIdAsync(Guid id, Guid landlordId)
     {
-        var r = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).AsSplitQuery()
+        var r = await db.Rooms.AsNoTracking().Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments).AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == id && r.Zone.LandlordId == landlordId);
         return r is null ? null : MapRoom(r);
     }
@@ -117,6 +117,7 @@ public class RoomService(AppDbContext db)
     public async Task<RoomDetailDto?> GetRoomDetailAsync(Guid roomId, Guid landlordId)
     {
         var r = await db.Rooms
+            .AsNoTracking()
             .Include(r => r.Zone)
             .Include(r => r.Tenants).ThenInclude(t => t.User)
             .Include(r => r.Tenants).ThenInclude(t => t.Contracts)
@@ -128,6 +129,7 @@ public class RoomService(AppDbContext db)
 
         var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
         var recentInvoices = await db.Invoices
+            .AsNoTracking()
             .Include(i => i.Room)
             .Include(i => i.TenantProfile!).ThenInclude(t => t.User)
             .Include(i => i.Items)
@@ -136,6 +138,7 @@ public class RoomService(AppDbContext db)
             .ToListAsync();
 
         var utilityLogs = await db.UtilityLogs
+            .AsNoTracking()
             .Include(u => u.Room)
             .Where(u => u.RoomId == roomId)
             .OrderByDescending(u => u.RecordedAt)
@@ -143,6 +146,7 @@ public class RoomService(AppDbContext db)
             .ToListAsync();
 
         var activeContract = await db.Contracts
+            .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile!).ThenInclude(t => t.User)
             .FirstOrDefaultAsync(c => c.RoomId == roomId && c.Status == ContractStatus.Active);

@@ -37,7 +37,7 @@ public class DashboardController(AppDbContext db) : ControllerBase
     [Authorize(Roles = "Tenant")]
     public async Task<IActionResult> GetTenantDashboard()
     {
-        var profile = await db.TenantProfiles.Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts).FirstOrDefaultAsync(t => t.UserId == CurrentUserId);
+        var profile = await db.TenantProfiles.AsNoTracking().Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts).FirstOrDefaultAsync(t => t.UserId == CurrentUserId);
         if (profile is null) return NotFound();
         var unpaidInvoices = await db.Invoices.CountAsync(i => i.TenantProfileId == profile.Id && i.Status == InvoiceStatus.Unpaid);
         var totalPaid = await db.Payments.Where(p => p.Invoice.TenantProfileId == profile.Id && p.Status == PaymentStatus.Completed).SumAsync(p => p.Amount);

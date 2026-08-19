@@ -12,7 +12,10 @@ public class UtilityService(AppDbContext db)
     // Lấy nhật ký chỉ số điện nước (hỗ trợ phân trang và lọc theo phòng).
     public async Task<object> GetByLandlordAsync(Guid landlordId, Guid? roomId = null, int? page = null, int? pageSize = null)
     {
-        var query = db.UtilityLogs.Include(u => u.Room).ThenInclude(r => r.Zone).Where(u => u.Room.Zone.LandlordId == landlordId).AsQueryable();
+        var query = db.UtilityLogs
+            .AsNoTracking()
+            .Include(u => u.Room).ThenInclude(r => r.Zone)
+            .Where(u => u.Room.Zone.LandlordId == landlordId).AsQueryable();
         if (roomId.HasValue) query = query.Where(u => u.RoomId == roomId);
         var totalItems = await query.CountAsync();
         if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
@@ -144,7 +147,7 @@ public class UtilityService(AppDbContext db)
     // Lấy đơn giá điện nước hiện tại của Chủ trọ.
     public async Task<UtilityRateDto?> GetRateAsync(Guid landlordId)
     {
-        var r = await db.UtilityRates.FirstOrDefaultAsync(r => r.LandlordId == landlordId);
+        var r = await db.UtilityRates.AsNoTracking().FirstOrDefaultAsync(r => r.LandlordId == landlordId);
         return r is null ? null : new UtilityRateDto(r.Id, r.ElecPrice, r.WaterPrice, r.UpdatedAt);
     }
 

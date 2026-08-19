@@ -41,6 +41,7 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
         catch { /* Bỏ qua lỗi nền nếu có để không ảnh hưởng truy vấn dữ liệu */ }
 
         var query = db.Contracts
+            .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .Where(c => c.Room.Zone.LandlordId == landlordId);
@@ -64,6 +65,7 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
     public async Task<IEnumerable<ContractDto>> GetByTenantAsync(Guid tenantProfileId)
     {
         var contracts = await db.Contracts
+            .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .Where(c => c.TenantProfileId == tenantProfileId).ToListAsync();
@@ -74,6 +76,7 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
     public async Task<ContractDto?> GetByIdAsync(Guid id, Guid currentUserId, string role)
     {
         var query = db.Contracts
+            .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
             .AsQueryable();

@@ -13,6 +13,7 @@ public class PaymentService(AppDbContext db, NotificationService notificationSer
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
         var query = db.Payments
+            .AsNoTracking()
             .Include(p => p.Invoice).ThenInclude(i => i.Room).ThenInclude(r => r.Zone)
             .Include(p => p.Invoice).ThenInclude(i => i.TenantProfile).ThenInclude(t => t.User)
             .Where(p => p.Invoice.Room.Zone.LandlordId == landlordId);
@@ -36,6 +37,7 @@ public class PaymentService(AppDbContext db, NotificationService notificationSer
     public async Task<IEnumerable<PaymentDto>> GetByTenantAsync(Guid tenantProfileId)
     {
         var payments = await db.Payments
+            .AsNoTracking()
             .Include(p => p.Invoice).ThenInclude(i => i.Room)
             .Where(p => p.Invoice.TenantProfileId == tenantProfileId)
             .OrderByDescending(p => p.CreatedAt)
@@ -46,19 +48,20 @@ public class PaymentService(AppDbContext db, NotificationService notificationSer
     // Lấy danh sách giao dịch thanh toán của Khách thuê theo ID tài khoản (UserId).
     public async Task<IEnumerable<PaymentDto>> GetByTenantUserIdAsync(Guid tenantUserId)
     {
-        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        var profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == tenantUserId);
         if (profile == null)
         {
-            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == tenantUserId);
             if (user != null)
             {
-                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
+                profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.User.Email == user.Email);
             }
         }
 
         if (profile == null) return [];
 
         var payments = await db.Payments
+            .AsNoTracking()
             .Include(p => p.Invoice).ThenInclude(i => i.Room)
             .Where(p => p.Invoice.TenantProfileId == profile.Id || (profile.RoomId.HasValue && p.Invoice.RoomId == profile.RoomId.Value))
             .OrderByDescending(p => p.CreatedAt)

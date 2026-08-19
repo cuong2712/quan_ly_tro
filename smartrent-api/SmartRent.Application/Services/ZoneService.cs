@@ -11,7 +11,7 @@ public class ZoneService(AppDbContext db)
     // Lấy danh sách tất cả các khu trọ thuộc về một Chủ trọ (hỗ trợ phân trang).
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
-        var query = db.Zones.Include(z => z.Rooms).Where(z => z.LandlordId == landlordId);
+        var query = db.Zones.AsNoTracking().Include(z => z.Rooms).Where(z => z.LandlordId == landlordId);
         var totalItems = await query.CountAsync();
         if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
         {

@@ -20,6 +20,7 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
         if (normalizedRole == "tenant")
         {
             var tp = await db.TenantProfiles
+                .AsNoTracking()
                 .Include(t => t.Room).ThenInclude(r => r!.Zone)
                 .FirstOrDefaultAsync(t => t.UserId == userId);
             if (tp?.Room != null)
@@ -31,6 +32,7 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
         }
 
         var notifications = await db.Notifications
+            .AsNoTracking()
             .Include(n => n.Sender)
             .Include(n => n.Reads.Where(r => r.UserId == userId))
             .Where(n => 

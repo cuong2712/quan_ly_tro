@@ -10,10 +10,11 @@ public class ProfileService(AppDbContext db)
     // Lấy thông tin tài khoản cá nhân theo UserId (kèm dữ liệu hồ sơ xe/CCCD/phòng trọ của khách thuê nếu có).
     public async Task<UserProfileDto?> GetProfileAsync(Guid userId)
     {
-        var u = await db.Users.FindAsync(userId);
+        var u = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
         if (u is null) return null;
 
         var tp = await db.TenantProfiles
+            .AsNoTracking()
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .FirstOrDefaultAsync(t => t.UserId == userId);
 
@@ -39,7 +40,7 @@ public class ProfileService(AppDbContext db)
     // Lấy riêng thông tin đăng ký xe của khách thuê
     public async Task<UpdateVehicleRequest> GetVehicleInfoAsync(Guid userId)
     {
-        var tp = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == userId)
+        var tp = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == userId)
             ?? throw new KeyNotFoundException("Hồ sơ khách thuê không tồn tại");
 
         return new UpdateVehicleRequest(tp.VehicleCount, tp.VehicleInfo);

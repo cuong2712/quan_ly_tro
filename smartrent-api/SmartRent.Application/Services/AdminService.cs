@@ -31,7 +31,7 @@ public class AdminService(AppDbContext db)
     // Lấy danh sách tài khoản chủ trọ với bộ lọc tìm kiếm theo tên/email/sĐT và trạng thái hoạt động.
     public async Task<IEnumerable<LandlordListDto>> GetLandlordsAsync(string? search = null, bool? isActive = null)
     {
-        var query = db.Users.Include(u => u.TenantProfile).Where(u => u.Role == UserRole.Landlord).AsQueryable();
+        var query = db.Users.AsNoTracking().Include(u => u.TenantProfile).Where(u => u.Role == UserRole.Landlord).AsQueryable();
         if (!string.IsNullOrEmpty(search))
             query = query.Where(u => u.FullName.Contains(search) || u.Email.Contains(search) || u.Phone.Contains(search));
         if (isActive.HasValue)
@@ -168,7 +168,7 @@ public class AdminService(AppDbContext db)
     // Lấy danh sách tất cả các góp ý/khiếu nại gửi tới Admin.
     public async Task<IEnumerable<ComplaintDto>> GetComplaintsAsync()
     {
-        var complaints = await db.Complaints.Include(c => c.Sender).OrderByDescending(c => c.CreatedAt).ToListAsync();
+        var complaints = await db.Complaints.AsNoTracking().Include(c => c.Sender).OrderByDescending(c => c.CreatedAt).ToListAsync();
         return complaints.Select(c => new ComplaintDto(c.Id, c.Sender.FullName, c.Sender.Email, c.Sender.Role.ToString(),
             c.Title, c.Content, c.Status.ToString(), c.Reply, c.CreatedAt, c.RepliedAt));
     }

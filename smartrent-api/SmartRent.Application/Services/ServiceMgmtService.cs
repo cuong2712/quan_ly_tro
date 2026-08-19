@@ -11,7 +11,7 @@ public class ServiceMgmtService(AppDbContext db)
     // Lấy danh sách dịch vụ của Chủ trọ (hỗ trợ phân trang và lọc theo khu vực/ZoneId).
     public async Task<object> GetByLandlordAsync(Guid landlordId, Guid? zoneId = null, int? page = null, int? pageSize = null)
     {
-        var query = db.Services.Include(s => s.Zone).Where(s => s.LandlordId == landlordId);
+        var query = db.Services.AsNoTracking().Include(s => s.Zone).Where(s => s.LandlordId == landlordId);
         if (zoneId.HasValue)
         {
             query = query.Where(s => s.ZoneId == zoneId || s.ZoneId == null);

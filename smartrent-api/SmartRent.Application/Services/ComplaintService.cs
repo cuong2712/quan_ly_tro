@@ -12,7 +12,7 @@ public class ComplaintService(AppDbContext db, NotificationService notificationS
     // Lấy danh sách tất cả góp ý/khiếu nại.
     public async Task<IEnumerable<ComplaintDto>> GetAllAsync()
     {
-        var list = await db.Complaints.Include(c => c.Sender).OrderByDescending(c => c.CreatedAt).ToListAsync();
+        var list = await db.Complaints.AsNoTracking().Include(c => c.Sender).OrderByDescending(c => c.CreatedAt).ToListAsync();
         return list.Select(MapComplaint);
     }
 
