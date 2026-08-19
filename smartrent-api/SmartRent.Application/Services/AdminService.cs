@@ -59,6 +59,13 @@ public class AdminService(AppDbContext db)
         if (await db.Users.AnyAsync(u => u.Email == request.Email))
             throw new InvalidOperationException("Email đã tồn tại trong hệ thống");
 
+        if (string.IsNullOrWhiteSpace(request.CCCD))
+            throw new InvalidOperationException("Vui lòng nhập số Căn cước công dân (CCCD) của chủ trọ");
+
+        var cleanCccd = request.CCCD.Trim();
+        if (await db.TenantProfiles.AnyAsync(tp => tp.CCCD == cleanCccd))
+            throw new InvalidOperationException($"Số CCCD {cleanCccd} đã được đăng ký trong hệ thống");
+
         var user = new User
         {
             Email = request.Email,
@@ -70,8 +77,23 @@ public class AdminService(AppDbContext db)
             IsActive = true
         };
         db.Users.Add(user);
+
+        var profile = new TenantProfile
+        {
+            UserId = user.Id,
+            CCCD = cleanCccd,
+            Hometown = request.Hometown,
+            CccdFrontUrl = request.CccdFrontUrl,
+            CccdBackUrl = request.CccdBackUrl
+        };
+        db.TenantProfiles.Add(profile);
+
         await db.SaveChangesAsync();
-        return new LandlordListDto(user.Id, user.FullName, user.Email, user.Phone, user.AvatarUrl, user.IsActive, user.Role.ToString(), 0, 0, user.CreatedAt, null, null, null, null);
+        return new LandlordListDto(
+            user.Id, user.FullName, user.Email, user.Phone, user.AvatarUrl, user.IsActive, user.Role.ToString(),
+            0, 0, user.CreatedAt,
+            profile.CCCD, profile.Hometown, profile.CccdFrontUrl, profile.CccdBackUrl
+        );
     }
 
     // Cập nhật thông tin cá nhân của tài khoản Chủ trọ.
@@ -80,7 +102,42 @@ public class AdminService(AppDbContext db)
         var user = await db.Users.Include(u => u.TenantProfile).FirstOrDefaultAsync(u => u.Id == id) ?? throw new KeyNotFoundException("Không tìm thấy chủ trọ");
         user.FullName = request.FullName;
         user.Phone = request.Phone;
-        user.AvatarUrl = request.AvatarUrl;
+        if (request.AvatarUrl != null) user.AvatarUrl = request.AvatarUrl;
+
+        if (!string.IsNullOrWhiteSpace(request.CCCD))
+        {
+            var cleanCccd = request.CCCD.Trim();
+            var duplicateCccd = await db.TenantProfiles.AnyAsync(tp => tp.CCCD == cleanCccd && tp.UserId != id);
+            if (duplicateCccd)
+                throw new InvalidOperationException($"Số CCCD {cleanCccd} đã được sử dụng bởi tài khoản khác");
+
+            if (user.TenantProfile == null)
+            {
+                user.TenantProfile = new TenantProfile
+                {
+                    UserId = user.Id,
+                    CCCD = cleanCccd,
+                    Hometown = request.Hometown,
+                    CccdFrontUrl = request.CccdFrontUrl,
+                    CccdBackUrl = request.CccdBackUrl
+                };
+                db.TenantProfiles.Add(user.TenantProfile);
+            }
+            else
+            {
+                user.TenantProfile.CCCD = cleanCccd;
+                if (request.Hometown != null) user.TenantProfile.Hometown = request.Hometown;
+                if (request.CccdFrontUrl != null) user.TenantProfile.CccdFrontUrl = request.CccdFrontUrl;
+                if (request.CccdBackUrl != null) user.TenantProfile.CccdBackUrl = request.CccdBackUrl;
+            }
+        }
+        else if (user.TenantProfile != null)
+        {
+            if (request.Hometown != null) user.TenantProfile.Hometown = request.Hometown;
+            if (request.CccdFrontUrl != null) user.TenantProfile.CccdFrontUrl = request.CccdFrontUrl;
+            if (request.CccdBackUrl != null) user.TenantProfile.CccdBackUrl = request.CccdBackUrl;
+        }
+
         await db.SaveChangesAsync();
         var zones = await db.Zones.CountAsync(z => z.LandlordId == id);
         var rooms = await db.Rooms.CountAsync(r => r.Zone.LandlordId == id);

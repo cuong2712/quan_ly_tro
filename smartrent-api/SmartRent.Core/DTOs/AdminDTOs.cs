@@ -24,11 +24,14 @@ public record LandlordListDto(
 
 public record CreateLandlordRequest(
     string FullName, string Email, string Phone,
-    string Password, string? AvatarUrl
+    string Password, string CCCD, string? Hometown = null,
+    string? AvatarUrl = null, string? CccdFrontUrl = null, string? CccdBackUrl = null
 );
 
 public record UpdateLandlordRequest(
-    string FullName, string Phone, string? AvatarUrl
+    string FullName, string Phone, string? AvatarUrl = null,
+    string? CCCD = null, string? Hometown = null,
+    string? CccdFrontUrl = null, string? CccdBackUrl = null
 );
 
 public record ComplaintDto(
