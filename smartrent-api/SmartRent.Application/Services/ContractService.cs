@@ -68,7 +68,50 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
             .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .Where(c => c.TenantProfileId == tenantProfileId).ToListAsync();
+            .Where(c => c.TenantProfileId == tenantProfileId)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+        return contracts.Select(MapContract);
+    }
+
+    // Lấy danh sách hợp đồng của Khách thuê theo ID tài khoản (UserId).
+    public async Task<IEnumerable<ContractDto>> GetByTenantUserIdAsync(Guid tenantUserId)
+    {
+        var profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        if (profile == null)
+        {
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            if (user != null)
+            {
+                profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.User.Email == user.Email);
+            }
+        }
+
+        if (profile == null)
+        {
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            if (user != null)
+            {
+                var directContracts = await db.Contracts
+                    .AsNoTracking()
+                    .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+                    .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+                    .Where(c => c.TenantProfile.UserId == tenantUserId || (c.TenantProfile.User != null && c.TenantProfile.User.Email == user.Email))
+                    .OrderByDescending(c => c.CreatedAt)
+                    .ToListAsync();
+                return directContracts.Select(MapContract);
+            }
+            return [];
+        }
+
+        var contracts = await db.Contracts
+            .AsNoTracking()
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .Where(c => c.TenantProfileId == profile.Id || c.TenantProfile.UserId == tenantUserId || (profile.RoomId.HasValue && c.RoomId == profile.RoomId.Value))
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
         return contracts.Select(MapContract);
     }
 
@@ -87,7 +130,32 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
         }
         else if (role == "Tenant")
         {
-            query = query.Where(c => c.TenantProfile.UserId == currentUserId);
+            var profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == currentUserId);
+            if (profile == null)
+            {
+                var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId);
+                if (user != null)
+                {
+                    profile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.User.Email == user.Email);
+                }
+            }
+
+            if (profile != null)
+            {
+                query = query.Where(c => c.TenantProfileId == profile.Id || c.TenantProfile.UserId == currentUserId || (profile.RoomId.HasValue && c.RoomId == profile.RoomId.Value));
+            }
+            else
+            {
+                var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId);
+                if (user != null)
+                {
+                    query = query.Where(c => c.TenantProfile.UserId == currentUserId || (c.TenantProfile.User != null && c.TenantProfile.User.Email == user.Email));
+                }
+                else
+                {
+                    query = query.Where(c => c.TenantProfile.UserId == currentUserId);
+                }
+            }
         }
 
         var contract = await query.FirstOrDefaultAsync(c => c.Id == id);
@@ -100,16 +168,16 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId)
             ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
 
-        var tenant = await db.TenantProfiles.FirstOrDefaultAsync(t => t.Id == req.TenantProfileId)
+        var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.Id == req.TenantProfileId || t.UserId == req.TenantProfileId)
             ?? throw new KeyNotFoundException("Hồ sơ khách thuê không tồn tại");
 
         var contract = new Contract 
         { 
             ContractCode = req.ContractCode, 
             RoomId = req.RoomId, 
-            TenantProfileId = req.TenantProfileId, 
-            StartDate = req.StartDate, 
-            EndDate = req.EndDate, 
+            TenantProfileId = tenant.Id, 
+            StartDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc), 
+            EndDate = DateTime.SpecifyKind(req.EndDate, DateTimeKind.Utc), 
             RentAmount = req.RentAmount, 
             Deposit = req.Deposit, 
             PaymentTermDay = req.PaymentTermDay, 
@@ -127,6 +195,8 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
             }
         }
         tenant.RoomId = req.RoomId;
+        if (tenant.MoveInDate == null) tenant.MoveInDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc);
+        if (tenant.Deposit == 0 && req.Deposit > 0) tenant.Deposit = req.Deposit;
         room.Status = RoomStatus.Occupied;
 
         await db.SaveChangesAsync();
@@ -159,8 +229,8 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
             .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
             ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
 
-        c.StartDate = req.StartDate; 
-        c.EndDate = req.EndDate; 
+        c.StartDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc); 
+        c.EndDate = DateTime.SpecifyKind(req.EndDate, DateTimeKind.Utc); 
         c.RentAmount = req.RentAmount; 
         c.PaymentTermDay = req.PaymentTermDay; 
         c.Terms = req.Terms;
@@ -333,10 +403,31 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
     // Khách thuê gửi yêu cầu đăng ký gia hạn hợp đồng
     public async Task<ContractDto> RequestRenewAsync(Guid contractId, Guid tenantUserId, RequestRenewContractRequest req)
     {
-        var c = await db.Contracts
+        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        if (profile == null)
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            if (user != null)
+            {
+                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
+            }
+        }
+
+        var query = db.Contracts
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .FirstOrDefaultAsync(c => c.Id == contractId && c.TenantProfile.UserId == tenantUserId)
+            .Where(c => c.Id == contractId);
+
+        if (profile != null)
+        {
+            query = query.Where(c => c.TenantProfileId == profile.Id || c.TenantProfile.UserId == tenantUserId || (profile.RoomId.HasValue && c.RoomId == profile.RoomId.Value));
+        }
+        else
+        {
+            query = query.Where(c => c.TenantProfile.UserId == tenantUserId);
+        }
+
+        var c = await query.FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng của bạn.");
 
         if (c.Status == ContractStatus.Liquidated)
@@ -370,10 +461,31 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
     // Khách thuê hủy yêu cầu gia hạn hợp đồng
     public async Task<ContractDto> CancelRenewRequestAsync(Guid contractId, Guid tenantUserId)
     {
-        var c = await db.Contracts
+        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId);
+        if (profile == null)
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == tenantUserId);
+            if (user != null)
+            {
+                profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.User.Email == user.Email);
+            }
+        }
+
+        var query = db.Contracts
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .FirstOrDefaultAsync(c => c.Id == contractId && c.TenantProfile.UserId == tenantUserId)
+            .Where(c => c.Id == contractId);
+
+        if (profile != null)
+        {
+            query = query.Where(c => c.TenantProfileId == profile.Id || c.TenantProfile.UserId == tenantUserId || (profile.RoomId.HasValue && c.RoomId == profile.RoomId.Value));
+        }
+        else
+        {
+            query = query.Where(c => c.TenantProfile.UserId == tenantUserId);
+        }
+
+        var c = await query.FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng của bạn.");
 
         if (c.Status == ContractStatus.Liquidated)

@@ -201,7 +201,7 @@ public class TenantService(AppDbContext db)
         t.Room?.Zone?.Name,
         t.CccdFrontUrl,
         t.CccdBackUrl,
-        t.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active)?.ContractCode,
+        t.Contracts.Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested).OrderByDescending(c => c.CreatedAt).FirstOrDefault()?.ContractCode,
         t.VehicleCount,
         t.VehicleInfo
     );

@@ -38,11 +38,20 @@ public class DashboardController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> GetTenantDashboard()
     {
         var profile = await db.TenantProfiles.AsNoTracking().Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts).FirstOrDefaultAsync(t => t.UserId == CurrentUserId);
-        if (profile is null) return NotFound();
-        var unpaidInvoices = await db.Invoices.CountAsync(i => i.TenantProfileId == profile.Id && i.Status == InvoiceStatus.Unpaid);
-        var totalPaid = await db.Payments.Where(p => p.Invoice.TenantProfileId == profile.Id && p.Status == PaymentStatus.Completed).SumAsync(p => p.Amount);
+        if (profile == null)
+        {
+            var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == CurrentUserId);
+            if (user != null)
+            {
+                profile = await db.TenantProfiles.AsNoTracking().Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts).FirstOrDefaultAsync(t => t.User.Email == user.Email);
+            }
+        }
+        if (profile is null) return NotFound(new { message = "Không tìm thấy hồ sơ người thuê." });
+
+        var unpaidInvoices = await db.Invoices.CountAsync(i => (i.TenantProfileId == profile.Id || (profile.RoomId.HasValue && i.RoomId == profile.RoomId.Value)) && i.Status == InvoiceStatus.Unpaid);
+        var totalPaid = await db.Payments.Where(p => (p.Invoice.TenantProfileId == profile.Id || (profile.RoomId.HasValue && p.Invoice.RoomId == profile.RoomId.Value)) && p.Status == PaymentStatus.Completed).SumAsync(p => p.Amount);
         var maintenanceCount = await db.MaintenanceRequests.CountAsync(m => m.TenantProfileId == profile.Id);
-        var activeContract = profile.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active);
+        var activeContract = profile.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested);
 
         return Ok(new { 
             roomNumber = profile.Room?.RoomNumber, 

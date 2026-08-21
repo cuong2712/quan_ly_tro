@@ -5,6 +5,7 @@ using SmartRent.Core.Enums;
 namespace SmartRent.Infrastructure.Data;
 
 public class AppDbContext : DbContext
+
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 

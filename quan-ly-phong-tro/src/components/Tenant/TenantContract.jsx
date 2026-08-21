@@ -4,7 +4,11 @@ import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { contractService } from '../../services';
 
 export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setContracts, onRefresh }) => {
-  const myContract = contracts[0] || null;
+  const activeContract = contracts.find(c => {
+    const s = (c.status || '').toLowerCase();
+    return s === 'active' || s === 'renewrequested' || s === 'renew_requested';
+  });
+  const myContract = activeContract || contracts[0] || null;
   const roomNum = myContract?.roomNumber || activeTenant?.roomNumber || '101';
 
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);

@@ -507,11 +507,12 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       }
     }
 
+    const room = rooms.find(r => r.id === formData.roomId);
+    const roomNumber = room?.roomNumber || '101';
     const payload = {
-      contractCode: formData.contractCode || `HD-2026-${formData.roomId}`,
+      contractCode: formData.contractCode || `HD-2026-${roomNumber}`,
       roomId: formData.roomId,
       tenantProfileId: formData.tenantId,
-      tenantId: formData.tenantId,
       startDate: formData.startDate || new Date().toISOString().split('T')[0],
       endDate: formData.endDate || '2027-07-28',
       rentAmount: Number(formData.rentAmount || 0),
@@ -520,40 +521,26 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       terms: formData.terms || '',
     };
 
-    let apiSuccess = false;
     try {
-      if (contractService && contractService.createContract) {
-        if (editingContract) {
-          await contractService.updateContract(editingContract.id, payload);
-        } else {
-          await contractService.createContract(payload);
+      if (editingContract) {
+        const updated = await contractService.updateContract(editingContract.id, payload);
+        const updatedContract = updated || { ...editingContract, ...formData, ...payload };
+        setContracts(contracts.map(c => c.id === editingContract.id ? updatedContract : c));
+        alert('✅ Cập nhật hợp đồng thành công!');
+        if (modalReturnToDetail) {
+          setViewingContract(updatedContract);
+          setModalReturnToDetail(null);
         }
-        apiSuccess = true;
+      } else {
+        const created = await contractService.createContract(payload);
+        setContracts(prev => [created || { id: `HD00${prev.length + 1}`, ...formData, ...payload }, ...prev]);
+        alert('✅ Khởi tạo hợp đồng mới thành công!');
       }
-    } catch (err) {
-      console.warn('API save error, fallback to state update:', err);
-    }
-
-    if (editingContract) {
-      const updatedContract = { ...editingContract, ...formData, ...payload };
-      setContracts(contracts.map(c => c.id === editingContract.id ? updatedContract : c));
       setIsModalOpen(false);
-      if (modalReturnToDetail) {
-        setViewingContract(updatedContract);
-        setModalReturnToDetail(null);
-      }
-    } else {
-      const newContract = {
-        id: `HD00${contracts.length + 1}`,
-        ...formData,
-        ...payload,
-      };
-      setContracts([...contracts, newContract]);
-      setIsModalOpen(false);
-    }
-
-    if (apiSuccess) {
+      setEditingContract(null);
       onRefresh?.();
+    } catch (err) {
+      alert('❌ Lỗi lưu hợp đồng: ' + (err.response?.data?.message || err.message));
     }
   };
 

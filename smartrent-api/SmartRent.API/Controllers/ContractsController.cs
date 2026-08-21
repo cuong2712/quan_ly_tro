@@ -12,8 +12,8 @@ namespace SmartRent.API.Controllers;
 [Authorize]
 public class ContractsController(ContractService contractService) : ControllerBase
 {
-    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    private string CurrentRole => User.FindFirstValue(ClaimTypes.Role)!;
+    private Guid CurrentUserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub"), out var id) ? id : Guid.Empty;
+    private string CurrentRole => User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role") ?? "";
 
     // Lấy danh sách hợp đồng (tùy theo vai trò: Chủ trọ xem hợp đồng khu mình, Khách thuê xem hợp đồng của bản thân).
     [HttpGet]
@@ -21,10 +21,8 @@ public class ContractsController(ContractService contractService) : ControllerBa
     {
         if (CurrentRole == "Landlord")
             return Ok(await contractService.GetByLandlordAsync(CurrentUserId, page, pageSize));
-        var tenantSvc = HttpContext.RequestServices.GetRequiredService<TenantService>();
-        var profile = await tenantSvc.GetByUserIdAsync(CurrentUserId);
-        if (profile is null) return NotFound(new { message = "Không tìm thấy hồ sơ khách thuê" });
-        return Ok(await contractService.GetByTenantAsync(profile.Id));
+
+        return Ok(await contractService.GetByTenantUserIdAsync(CurrentUserId));
     }
 
     // Lấy chi tiết một Hợp đồng theo ID (kiểm tra quyền sở hữu).

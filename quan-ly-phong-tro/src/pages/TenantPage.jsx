@@ -44,7 +44,7 @@ export default function TenantPage() {
   // ── Fetch dữ liệu từ API thật ────────────────────────────────
   const { data: dashboard, refetch: refetchDashboard } = useApi(() => dashboardService.getTenantDashboard(), []);
   const { data: invoices, setData: setInvoices, refetch: refetchInvoices } = useApi(() => invoiceService.getInvoices(), []);
-  const { data: contracts, setData: setContracts } = useApi(() => contractService.getContracts(), []);
+  const { data: contracts, setData: setContracts, refetch: refetchContracts } = useApi(() => contractService.getContracts(), []);
   const { data: payments, setData: setPayments, refetch: refetchPayments } = useApi(() => paymentService.getPayments?.() || Promise.resolve([]), []);
   const { data: maintenanceRequests, setData: setMaintenanceRequests, refetch: refetchMaintenance } = useApi(() => maintenanceService.getRequests(), []);
 
@@ -107,7 +107,7 @@ export default function TenantPage() {
           />
         );
       case 'tn_contract':
-        return <TenantContract activeTenant={activeTenant} contracts={contracts || []} rooms={[]} setContracts={setContracts} />;
+        return <TenantContract activeTenant={activeTenant} contracts={contracts || []} rooms={[]} setContracts={setContracts} onRefresh={refetchContracts} />;
       case 'tn_invoices':
         return <TenantInvoice activeTenant={activeTenant} invoices={invoices || []} setInvoices={setInvoices} onRefresh={refetchInvoices} />;
       case 'tn_payment':

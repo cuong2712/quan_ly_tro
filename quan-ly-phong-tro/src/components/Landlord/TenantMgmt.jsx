@@ -269,13 +269,21 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                 const roomNumber = t.roomNumber || (room ? room.roomNumber : null);
                 const zoneName = t.zoneName || (zone ? zone.name : '');
 
-                const tenantContracts = contracts.filter(c => (c.tenantId === t.id || c.TenantProfileId === t.id || c.tenantProfileId === t.id));
-                const hasActiveContract = tenantContracts.some(c => {
+                const tenantContracts = contracts.filter(c => (
+                  c.tenantId === t.id ||
+                  c.TenantProfileId === t.id ||
+                  c.tenantProfileId === t.id ||
+                  c.tenantId === t.userId ||
+                  c.tenantProfileId === t.userId ||
+                  (t.roomId && (c.roomId === t.roomId || c.RoomId === t.roomId))
+                ));
+                const activeContract = tenantContracts.find(c => {
                   const s = String(c.status || '').toLowerCase();
                   return s === 'active' || s === 'renewrequested' || s === 'renew_requested';
                 });
+                const hasActiveContract = Boolean(activeContract) || Boolean(t.contractCode || t.ContractCode);
                 const isLiquidated = !hasActiveContract && tenantContracts.some(c => String(c.status || '').toLowerCase() === 'liquidated');
-                const contractCode = t.contractCode || t.ContractCode || tenantContracts[0]?.contractCode;
+                const contractCode = activeContract?.contractCode || t.contractCode || t.ContractCode || tenantContracts[0]?.contractCode;
 
                 return (
                   <tr key={t.id}>

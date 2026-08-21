@@ -36,11 +36,13 @@ const TAB_FETCHERS = {
     zones: zoneService.getZones,
     invoices: invoiceService.getInvoices,
     tenants: tenantService.getTenants,
+    contracts: contractService.getContracts,
   },
   ll_tenants: {
     tenants: tenantService.getTenants,
     rooms: roomService.getRooms,
     zones: zoneService.getZones,
+    contracts: contractService.getContracts,
   },
   ll_contracts: {
     contracts: contractService.getContracts,
@@ -174,7 +176,7 @@ export default function LandlordPage() {
       case 'll_dashboard':
         return (
           <Suspense fallback={<TabLoader />}>
-            <LandlordDashboard data={{ dashboard: d.dashboard, rooms: d.rooms || [], invoices: d.invoices || [], tenants: d.tenants || [], zones: d.zones || [] }} />
+            <LandlordDashboard data={{ dashboard: d.dashboard, rooms: d.rooms || [], invoices: d.invoices || [], tenants: d.tenants || [], zones: d.zones || [], contracts: d.contracts || [] }} />
           </Suspense>
         );
       case 'll_zones':
@@ -189,8 +191,9 @@ export default function LandlordPage() {
           <Suspense fallback={<TabLoader />}>
             <TenantMgmt
               tenants={d.tenants || []} setTenants={v => setCurrentData('tenants', v)}
-              rooms={d.rooms || []} zones={d.zones || []} contracts={[]} setContracts={() => {}}
-              onRefresh={() => handleRefresh()}
+              rooms={d.rooms || []} zones={d.zones || []}
+              contracts={d.contracts || []} setContracts={v => setCurrentData('contracts', v)}
+              onRefresh={() => handleRefresh(['ll_contracts', 'll_dashboard'])}
             />
           </Suspense>
         );
