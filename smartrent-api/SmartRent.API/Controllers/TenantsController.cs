@@ -55,4 +55,15 @@ public class TenantsController(TenantService tenantService) : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteTenant(Guid id)
         => await tenantService.DeleteAsync(id, LandlordId) ? NoContent() : NotFound(new { message = "Không tìm thấy khách thuê hoặc không có quyền xóa." });
+
+    // Đặt lại mật khẩu cho tài khoản người thuê (Mặc định: Tenant@123456 hoặc mật khẩu mới do chủ trọ nhập)
+    [HttpPatch("{id:guid}/reset-password")]
+    public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetTenantPasswordRequest? request)
+    {
+        var success = await tenantService.ResetPasswordAsync(id, LandlordId, request?.NewPassword);
+        var passwordUsed = string.IsNullOrWhiteSpace(request?.NewPassword) ? "Tenant@123456" : request.NewPassword;
+        return success 
+            ? Ok(new { message = $"Đặt lại mật khẩu thành công. Mật khẩu mới là: {passwordUsed}", newPassword = passwordUsed }) 
+            : NotFound(new { message = "Không tìm thấy khách thuê hoặc không có quyền thao tác." });
+    }
 }

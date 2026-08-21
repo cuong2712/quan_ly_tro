@@ -30,3 +30,5 @@ public record UpdateTenantRequest(
 public record TransferRoomRequest(Guid NewRoomId, DateTime TransferDate);
 
 public record UpdateVehicleRequest(int VehicleCount, string? VehicleInfo);
+
+public record ResetTenantPasswordRequest(string? NewPassword = null);

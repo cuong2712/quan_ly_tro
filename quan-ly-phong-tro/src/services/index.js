@@ -62,6 +62,7 @@ export const tenantService = {
   createTenant: (data) => apiClient.post('/tenants', data).then(r => r.data),
   updateTenant: (id, data) => apiClient.put(`/tenants/${id}`, data).then(r => r.data),
   deleteTenant: (id) => apiClient.delete(`/tenants/${id}`).then(r => r.data),
+  resetPassword: (id, newPassword) => apiClient.patch(`/tenants/${id}/reset-password`, newPassword ? { newPassword } : {}).then(r => r.data),
 };
 
 export const contractService = {

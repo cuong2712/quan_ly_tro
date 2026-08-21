@@ -180,9 +180,25 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }));
   };
 
-  const currentTenantId = editingContract ? (editingContract.tenantId || editingContract.TenantProfileId) : null;
+  const currentTenantId = editingContract
+    ? (editingContract.tenantProfileId || editingContract.tenantId || editingContract.TenantProfileId)
+    : null;
+  const currentTenant = editingContract
+    ? (tenants.find(t =>
+        t.id === currentTenantId ||
+        t.userId === currentTenantId ||
+        (editingContract.tenantPhone && t.phone === editingContract.tenantPhone) ||
+        (editingContract.tenantName && (t.fullName === editingContract.tenantName || t.name === editingContract.tenantName))
+      ) || null)
+    : null;
+  const effectiveCurrentTenantId = currentTenant ? currentTenant.id : currentTenantId;
+
   const selectableTenants = editingContract
-    ? tenants.filter(t => t.id === currentTenantId || !activeContractTenantIds.has(t.id))
+    ? (
+        currentTenant && !tenants.some(t => t.id === currentTenant.id && !activeContractTenantIds.has(t.id))
+          ? [currentTenant, ...tenants.filter(t => t.id !== currentTenant.id && !activeContractTenantIds.has(t.id))]
+          : tenants.filter(t => t.id === effectiveCurrentTenantId || !activeContractTenantIds.has(t.id))
+      )
     : uncontractedTenants;
 
   const handleOpenAddForTenant = (tenant) => {
@@ -240,7 +256,38 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     setEditingContract(c);
     const room = rooms.find(r => r.id === c.roomId || r.id === c.RoomId);
     setSelectedZoneId(room?.zoneId || room?.ZoneId || zones[0]?.id || '');
-    setFormData({ ...c });
+
+    const cTenantId = c.tenantProfileId || c.tenantId || c.TenantProfileId;
+    const matchingTenant = tenants.find(t =>
+      t.id === cTenantId ||
+      t.userId === cTenantId ||
+      (c.tenantPhone && t.phone === c.tenantPhone) ||
+      (c.tenantName && (t.fullName === c.tenantName || t.name === c.tenantName))
+    );
+
+    const formatDateForInput = (dStr) => {
+      if (!dStr) return '';
+      try {
+        const d = new Date(dStr);
+        if (isNaN(d.getTime())) return String(dStr).slice(0, 10);
+        return d.toISOString().split('T')[0];
+      } catch {
+        return String(dStr).slice(0, 10);
+      }
+    };
+
+    setFormData({
+      ...c,
+      tenantId: matchingTenant?.id || cTenantId || '',
+      roomId: c.roomId || c.RoomId || '',
+      contractCode: c.contractCode || c.ContractCode || '',
+      startDate: formatDateForInput(c.startDate || c.StartDate),
+      endDate: formatDateForInput(c.endDate || c.EndDate),
+      rentAmount: c.rentAmount !== undefined ? c.rentAmount : (c.RentAmount || 0),
+      deposit: c.deposit !== undefined ? c.deposit : (c.Deposit || 0),
+      paymentTermDay: c.paymentTermDay || c.PaymentTermDay || 5,
+      terms: c.terms || c.Terms || '',
+    });
     setIsModalOpen(true);
   };
 
@@ -1189,20 +1236,25 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Chọn Khách Thuê {!editingContract && '(Chưa có hợp đồng)'}</label>
+                    <label className="form-label">
+                      Chọn Khách Thuê (Email) {editingContract ? '🔒 (Người đang sửa HĐ)' : '(Chưa có HĐ)'} *
+                    </label>
                     <select
                       className="form-control"
+                      required
                       value={formData.tenantId}
                       onChange={(e) => handleTenantChange(e.target.value)}
                     >
-                      <option value="">-- Chọn Khách Thuê --</option>
+                      <option value="">-- Chọn Khách Thuê (Theo Email) --</option>
                       {selectableTenants.map(t => {
                         const tRoomId = t.roomId || t.RoomId;
                         const room = rooms.find(r => r.id === tRoomId);
-                        const roomInfo = room ? ` (Phòng ${room.roomNumber})` : '';
+                        const roomInfo = room ? ` [Phòng ${room.roomNumber}]` : '';
+                        const emailDisplay = t.email || t.Email || 'Chưa có email';
+                        const nameDisplay = t.fullName || t.name || 'Khách thuê';
                         return (
                           <option key={t.id} value={t.id}>
-                            {t.fullName || t.name}{roomInfo} - {t.phone}
+                            {emailDisplay} - {nameDisplay}{roomInfo} ({t.phone})
                           </option>
                         );
                       })}

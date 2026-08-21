@@ -185,6 +185,23 @@ public class TenantService(AppDbContext db)
         return true;
     }
 
+    // Đặt lại mật khẩu tài khoản người thuê trọ
+    public async Task<bool> ResetPasswordAsync(Guid id, Guid landlordId, string? newPassword = null)
+    {
+        var t = await db.TenantProfiles
+            .Include(t => t.User)
+            .Include(t => t.Room).ThenInclude(r => r!.Zone)
+            .Include(t => t.Contracts).ThenInclude(c => c.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)));
+        
+        if (t?.User == null) return false;
+
+        var pwd = string.IsNullOrWhiteSpace(newPassword) ? "Tenant@123456" : newPassword;
+        t.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(pwd);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
     private static TenantDto MapTenant(TenantProfile t) => new(
         t.Id,
         t.UserId,

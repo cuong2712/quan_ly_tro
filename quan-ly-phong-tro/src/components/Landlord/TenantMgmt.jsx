@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserCheck, Plus, Search, Edit, Trash2, ArrowRightLeft, FileText, Upload, Eye, Shield, Bike, Image as ImageIcon } from 'lucide-react';
+import { UserCheck, Plus, Search, Edit, Trash2, ArrowRightLeft, FileText, Upload, Eye, Shield, Bike, Image as ImageIcon, KeyRound } from 'lucide-react';
 import { formatVND, formatDate, getImageUrl, sanitizeCccd, isValidCccd } from '../../utils/formatters';
 import { tenantService } from '../../services';
 import { Pagination } from '../Common/Pagination';
@@ -18,6 +18,9 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);
   const [viewingProfile, setViewingProfile] = useState(null);
+  const [resetModalTenant, setResetModalTenant] = useState(null);
+  const [customNewPass, setCustomNewPass] = useState('Tenant@123456');
+  const [isResetting, setIsResetting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [lightboxImage, setLightboxImage] = useState(null);
@@ -108,6 +111,25 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       } catch (err) {
         alert('Lỗi xóa người thuê: ' + (err.response?.data?.message || err.message));
       }
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e?.preventDefault();
+    if (!resetModalTenant) return;
+    if (!customNewPass || customNewPass.trim().length < 6) {
+      alert('Mật khẩu mới phải có ít nhất 6 ký tự!');
+      return;
+    }
+    setIsResetting(true);
+    try {
+      const res = await tenantService.resetPassword(resetModalTenant.id, customNewPass.trim());
+      alert(`✅ ${res?.message || 'Đặt lại mật khẩu thành công!'}`);
+      setResetModalTenant(null);
+    } catch (err) {
+      alert('Lỗi đặt lại mật khẩu: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -343,6 +365,16 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          title="Đặt lại mật khẩu cho khách thuê"
+                          onClick={() => {
+                            setResetModalTenant(t);
+                            setCustomNewPass('Tenant@123456');
+                          }}
+                        >
+                          <KeyRound size={14} color="#6366f1" />
+                        </button>
                         <button className="btn btn-sm btn-secondary" title="Sửa thông tin" onClick={() => handleOpenEdit(t)}>
                           <Edit size={14} />
                         </button>
@@ -429,7 +461,20 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                 </div>
               </div>
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6366f1', borderColor: 'rgba(99,102,241,0.4)' }}
+                onClick={() => {
+                  const target = viewingProfile;
+                  setViewingProfile(null);
+                  setResetModalTenant(target);
+                  setCustomNewPass('Tenant@123456');
+                }}
+              >
+                <KeyRound size={14} /> Đặt Lại Mật Khẩu
+              </button>
               <button className="btn btn-secondary" onClick={() => setViewingProfile(null)}>Đóng</button>
             </div>
           </div>
@@ -646,6 +691,57 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                 <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
                   {saving ? '⏳ Đang lưu...' : (editingTenant ? 'Cập Nhật Hồ Sơ' : 'Lưu Khách Thuê')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetModalTenant && (
+        <div className="modal-overlay" onClick={() => setResetModalTenant(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '95%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <KeyRound size={20} color="#6366f1" /> Đặt Lại Mật Khẩu Khách Thuê
+              </h3>
+              <button className="btn btn-sm btn-secondary" onClick={() => setResetModalTenant(null)}>✕</button>
+            </div>
+            <form onSubmit={handleResetPassword}>
+              <div className="modal-body">
+                <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '15px' }}>
+                    {resetModalTenant.fullName || resetModalTenant.name}
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+                    Email: <strong>{resetModalTenant.email}</strong> | SĐT: {resetModalTenant.phone}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 600 }}>
+                    Mật khẩu mới (Cung cấp cho khách thuê đăng nhập) *
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    required
+                    value={customNewPass}
+                    onChange={(e) => setCustomNewPass(e.target.value)}
+                    placeholder="Nhập mật khẩu mới (VD: Tenant@123456)"
+                  />
+                  <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
+                    Gợi ý: Mặc định là <code>Tenant@123456</code>. Sau khi đặt lại, khách thuê có thể dùng mật khẩu này đăng nhập vào hệ thống và tự đổi mật khẩu mới trong mục Hồ sơ.
+                  </small>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setResetModalTenant(null)}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={isResetting}>
+                  {isResetting ? '⏳ Đang lưu...' : 'Xác Nhận Đặt Lại Mật Khẩu'}
                 </button>
               </div>
             </form>
