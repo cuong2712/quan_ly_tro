@@ -36,29 +36,21 @@
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Global Custom Dark Scrollbars (loại bỏ hoàn toàn thanh cuộn trắng của trình duyệt) */
-html, body {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) var(--bg-dark);
+/* Global Scrollbar Hiding (loại bỏ hoàn toàn thanh cuộn lên xuống bên phải) */
+html, body, .main-content, .page-body {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar, 
+.main-content::-webkit-scrollbar, 
+.page-body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--bg-dark);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
 
 /* Light Mode Overrides */
 body.light-mode {
@@ -88,8 +80,9 @@ body {
     radial-gradient(circle at 85% 70%, rgba(99, 102, 241, 0.08) 0%, transparent 45%);
   background-attachment: fixed;
   color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   line-height: 1.6;
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
@@ -99,7 +92,9 @@ body {
 /* Main App Layout */
 .app-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   position: relative;
 }
 
@@ -249,7 +244,9 @@ body.light-mode .brand-title {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
 }
 
 /* Top Navbar Header */
@@ -338,8 +335,9 @@ body.light-mode .role-switcher-bar {
 
 /* Page View Content Container */
 .page-body {
-  padding: 32px;
+  padding: 16px 28px;
   flex: 1;
+  overflow-y: auto;
 }
 
 /* Page Header */

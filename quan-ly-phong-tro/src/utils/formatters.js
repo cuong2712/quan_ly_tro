@@ -170,6 +170,26 @@ export const isValidCccd = (cccd) => {
   return /^0\d{11}$/.test(String(cccd).trim());
 };
 
+// ─── CHUẨN HÓA & KIỂM TRA HỌ TÊN (KHÔNG CHỨA SỐ & KÝ TỰ ĐẶC BIỆT) ───
+export const isValidFullName = (name) => {
+  if (!name || typeof name !== 'string') return false;
+  const trimmed = name.trim();
+  if (trimmed.length < 2 || trimmed.length > 60) return false;
+  return /^[\p{L}\s]+$/u.test(trimmed);
+};
+
+// ─── CHUẨN HÓA & KIỂM TRA SỐ ĐIỆN THOẠI (CHỈ NHẬN 10 SỐ, BẮT ĐẦU BẰNG 0) ───
+export const sanitizePhone = (raw) => {
+  if (!raw) return '';
+  return String(raw).replace(/\D/g, '').slice(0, 10);
+};
+
+export const isValidPhone = (phone) => {
+  if (!phone) return false;
+  return /^0\d{9}$/.test(String(phone).trim());
+};
+
+
 // ─── XỬ LÝ & ĐỊNH DẠNG TRẠNG THÁI HỢP ĐỒNG ──────────────────────
 export const getContractStatusInfo = (c) => {
   if (!c) {

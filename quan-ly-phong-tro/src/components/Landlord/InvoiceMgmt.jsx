@@ -53,7 +53,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   });
 
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 7;
 
   const pendingDisputesCount = invoices.filter(i => i.isReported && i.disputeStatus === 'Pending').length;
 
@@ -200,14 +200,15 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
       alert('Không có dữ liệu hóa đơn để xuất CSV!');
       return;
     }
-    const headers = ['Mã Hóa Đơn', 'Kỳ Tháng', 'Phòng', 'Khách Thuê', 'Tiền Thuê Phòng', 'Tiền Điện', 'Tiền Nước', 'Phí Dịch Vụ', 'Tổng Tiền (VNĐ)', 'Trạng Thái', 'Hạn Thanh Toán'];
+
+    const headers = ['Mã Hóa Đơn', 'Kỳ Tháng', 'Phòng', 'Khách Thuê', 'Tiền Phòng', 'Tiền Điện', 'Tiền Nước', 'Phí Dịch Vụ', 'Tổng Tiền', 'Trạng Thái', 'Hạn Thanh Toán'];
     const rows = filteredInvoices.map(inv => {
       const room = rooms.find(r => r.id === inv.roomId);
       const isPaid = (inv.status || '').toLowerCase() === 'paid';
       return [
         `"${inv.invoiceCode || ''}"`,
         `"${inv.month || ''}"`,
-        `"P.${inv.roomNumber || (room ? room.roomNumber : '')}"`,
+        `"${inv.roomNumber || (room ? room.roomNumber : inv.roomId)}"`,
         `"${inv.tenantName || 'Khách thuê'}"`,
         inv.rentFee || 0,
         inv.elecFee || 0,
@@ -215,7 +216,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
         inv.serviceFee || 0,
         inv.totalAmount || 0,
         `"${isPaid ? 'Đã thanh toán' : (inv.status === 'Overdue' ? 'Quá hạn' : 'Chưa thanh toán')}"`,
-        `"${inv.dueDate ? formatDate(inv.dueDate) : ''}"`
+        `"${inv.dueDate ? formatDate(inv.dueDate) : ''}"`,
       ].join(',');
     });
 
@@ -308,227 +309,251 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
     }
   };
 
-  const getImageFullUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
-  };
-
-  const resolveCalculatedTotal = Number(disputeResolveData.rentFee || 0) + 
-    Number(disputeResolveData.elecFee || 0) + 
-    Number(disputeResolveData.waterFee || 0) + 
-    Number(disputeResolveData.serviceFee || 0);
-
   return (
-    <div>
+    <div style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
       {/* Header with Title & Export Actions */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+      <div className="page-header" style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h2 className="page-title"><Receipt size={24} color="#6366f1" /> Quản Lý Hóa Đơn & Doanh Thu</h2>
-          <p className="page-subtitle">Theo dõi tổng quan tài chính, công nợ, quản lý thanh toán hóa đơn và xuất báo cáo kế toán</p>
+          <h2 className="page-title" style={{ fontSize: '25px', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Receipt size={28} color="#6366f1" /> Quản Lý Hóa Đơn & Doanh Thu
+          </h2>
+          <p className="page-subtitle" style={{ fontSize: '14px', margin: '4px 0 0 0' }}>
+            Theo dõi tổng quan tài chính, công nợ, quản lý thanh toán hóa đơn và xuất báo cáo kế toán
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={handleExportExcel} title="Xuất dữ liệu hóa đơn ra file Excel">
-            <FileSpreadsheet size={16} color="#10b981" /> Xuất Excel (.xlsx)
+          <button className="btn btn-secondary" onClick={handleExportExcel} style={{ fontSize: '13.5px', height: '36px', padding: '6px 14px', fontWeight: 600 }} title="Xuất dữ liệu hóa đơn ra file Excel">
+            <FileSpreadsheet size={16} color="#10b981" /> Xuất Excel
           </button>
-          <button className="btn btn-secondary" onClick={handleExportCSV} title="Tải file CSV cho kế toán">
-            <Download size={16} color="#0ea5e9" /> Xuất CSV (.csv)
+          <button className="btn btn-secondary" onClick={handleExportCSV} style={{ fontSize: '13.5px', height: '36px', padding: '6px 14px', fontWeight: 600 }} title="Tải file CSV cho kế toán">
+            <Download size={16} color="#0ea5e9" /> Xuất CSV
           </button>
         </div>
       </div>
 
-      {/* 4 Thẻ KPI Doanh Thu & Hiệu Suất (Tích hợp từ Báo Cáo) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', display: 'grid', placeItems: 'center', color: '#10b981' }}>
-            <DollarSign size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tổng Thu Đã Thu</div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>{formatVND(totalCollected)}</div>
+      {/* 4 Thẻ KPI Doanh Thu & Hiệu Suất (Tách biệt, ngắn gọn, có khoảng cách rõ ràng) */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '14px' }}>
+        {/* 1. Tổng Thu Đã Thu */}
+        <div
+          className="card"
+          onClick={() => { setStatusFilter('Paid'); setCurrentPage(1); }}
+          style={{
+            flex: '1 1 200px',
+            maxWidth: '350px',
+            padding: '14px 18px',
+            cursor: 'pointer',
+            borderRadius: '14px',
+            border: statusFilter === 'Paid' ? '2px solid #10b981' : '1px solid var(--border-color)',
+            background: 'rgba(16, 185, 129, 0.08)',
+            transition: 'all 0.2s ease-in-out',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.08)'
+          }}
+        >
+          <div style={{ fontSize: '14.5px', color: '#10b981', fontWeight: 700 }}>💵 Tổng Thu Đã Thu</div>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>{formatVND(totalCollected)}</div>
+        </div>
+
+        {/* 2. Công Nợ Chưa Thu */}
+        <div
+          className="card"
+          onClick={() => { setStatusFilter('Unpaid'); setCurrentPage(1); }}
+          style={{
+            flex: '1 1 200px',
+            maxWidth: '350px',
+            padding: '14px 18px',
+            cursor: 'pointer',
+            borderRadius: '14px',
+            border: statusFilter === 'Unpaid' ? '2px solid #ef4444' : '1px solid var(--border-color)',
+            background: 'rgba(239, 68, 68, 0.08)',
+            transition: 'all 0.2s ease-in-out',
+            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.08)'
+          }}
+        >
+          <div style={{ fontSize: '14.5px', color: '#ef4444', fontWeight: 700 }}>⏳ Công Nợ Chưa Thu</div>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#ef4444', marginTop: '4px' }}>{formatVND(totalPending)}</div>
+        </div>
+
+        {/* 3. Tỷ Lệ Phòng Thuê */}
+        <div
+          className="card"
+          style={{
+            flex: '1 1 200px',
+            maxWidth: '350px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            border: '1px solid var(--border-color)',
+            background: 'rgba(59, 130, 246, 0.08)',
+            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.08)'
+          }}
+        >
+          <div style={{ fontSize: '14.5px', color: '#3b82f6', fontWeight: 700 }}>🏠 Tỷ Lệ Phòng Thuê</div>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#3b82f6', marginTop: '4px' }}>
+            {occupancyPercentage}% <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>({occupiedRoomsCount}/{totalRoomsCount})</span>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(239, 68, 68, 0.15)', display: 'grid', placeItems: 'center', color: '#ef4444' }}>
-            <AlertCircle size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Công Nợ Chưa Thu</div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>{formatVND(totalPending)}</div>
-          </div>
+        {/* 4. Tổng Tiền Điện Nước */}
+        <div
+          className="card"
+          style={{
+            flex: '1 1 200px',
+            maxWidth: '350px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            border: '1px solid var(--border-color)',
+            background: 'rgba(245, 158, 11, 0.08)',
+            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)'
+          }}
+        >
+          <div style={{ fontSize: '14.5px', color: '#f59e0b', fontWeight: 700 }}>⚡ Tiền Điện & Nước</div>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>{formatVND(totalElecWater)}</div>
         </div>
+      </div>
 
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'grid', placeItems: 'center', color: '#3b82f6' }}>
-            <Home size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tỷ Lệ Phòng Thuê</div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#3b82f6', marginTop: '2px' }}>
-              {occupancyPercentage}% <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)' }}>({occupiedRoomsCount}/{totalRoomsCount})</span>
+      {/* THANH THỐNG KÊ TIẾN ĐỘ LẬP HÓA ĐƠN CÁC PHÒNG */}
+      {targetRooms.length > 0 && (
+        <div style={{
+          background: unbilledRoomsThisMonth.length === 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(99, 102, 241, 0.08)',
+          border: `1px solid ${unbilledRoomsThisMonth.length === 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(99, 102, 241, 0.25)'}`,
+          borderRadius: '12px',
+          padding: '10px 16px',
+          marginBottom: '14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Receipt size={17} color="#6366f1" />
+              Tiến độ lập hóa đơn Tháng {currentMonthKey}: 
+              <span style={{ color: unbilledRoomsThisMonth.length === 0 ? '#10b981' : '#6366f1', fontWeight: 800 }}>
+                {billedRoomsThisMonth.length} / {targetRooms.length} phòng ({Math.round((billedRoomsThisMonth.length / (targetRooms.length || 1)) * 100)}%)
+              </span>
             </div>
+            {unbilledRoomsThisMonth.length > 0 ? (
+              <div style={{ fontSize: '13px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span>⏳ Còn <strong>{unbilledRoomsThisMonth.length} phòng</strong> chưa lập HĐ:</span>
+                {unbilledRoomsThisMonth.map(r => (
+                  <span key={r.id} style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '3px 8px', borderRadius: '4px', fontSize: '12.5px', fontWeight: 700 }}>
+                    P.{r.roomNumber}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '13px', color: '#10b981', fontWeight: 600 }}>
+                🎉 Tất cả {targetRooms.length} phòng đã được lập hóa đơn đầy đủ cho kỳ này!
+              </div>
+            )}
           </div>
         </div>
-
-        <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--card-bg)' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(245, 158, 11, 0.15)', display: 'grid', placeItems: 'center', color: '#f59e0b' }}>
-            <Zap size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tổng Tiền Điện & Nước</div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#f59e0b', marginTop: '2px' }}>{formatVND(totalElecWater)}</div>
-          </div>
-        </div>
-      </div>
+      )}
 
       <div className="card-table-container">
-        <div className="table-toolbar" style={{ flexWrap: 'wrap', gap: '12px' }}>
-          <div className="search-input-group" style={{ minWidth: 260 }}>
-            <Search size={18} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Tìm mã hóa đơn, số phòng,..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+        {/* Table Toolbar: Tìm kiếm, Chọn khu trọ, Chọn tháng thẳng hàng nhau */}
+        <div className="table-toolbar" style={{ padding: '12px 18px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto' }}>
+            {/* 1. Tìm kiếm */}
+            <div className="search-input-group" style={{ width: '260px' }}>
+              <Search size={18} color="var(--text-muted)" />
+              <input
+                type="text"
+                placeholder="Tìm mã hóa đơn, phòng, khách..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                style={{ fontSize: '14px', height: '36px' }}
+              />
+            </div>
 
-          {/* Bộ lọc Khu Trọ */}
-          {zones.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Building2 size={16} color="var(--text-muted)" />
+            {/* 2. Bộ lọc Khu Trọ */}
+            {zones.length > 0 && (
               <select
                 className="filter-select"
                 value={zoneFilter}
-                onChange={(e) => setZoneFilter(e.target.value)}
-                style={{ padding: '6px 12px', fontSize: '13px' }}
+                onChange={(e) => { setZoneFilter(e.target.value); setCurrentPage(1); }}
+                style={{ padding: '5px 12px', fontSize: '14px', height: '36px', borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
               >
                 <option value="all">🏢 Tất cả khu trọ</option>
                 {zones.map(z => (
                   <option key={z.id} value={z.id}>{z.name}</option>
                 ))}
               </select>
-            </div>
-          )}
+            )}
 
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {/* 3. Bộ lọc kỳ tháng (Thẳng hàng) */}
+            <input 
+              type="month" 
+              className="form-control" 
+              style={{ padding: '5px 12px', fontSize: '14px', height: '36px', width: 'auto', background: 'var(--bg-card)', borderRadius: '8px', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+              value={monthFilter} 
+              onChange={e => { setMonthFilter(e.target.value); setCurrentPage(1); }} 
+              title="Lọc theo kỳ tháng"
+            />
+          </div>
+
+          {/* 4. Nhóm nút trạng thái */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('all')}
+              onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
+              style={{ fontSize: '13.5px', padding: '5px 12px', height: '36px' }}
             >
               Tất cả
             </button>
 
             <button
               className={`btn btn-sm ${statusFilter === 'disputed' ? 'btn-primary' : 'btn-secondary'}`}
-              style={statusFilter !== 'disputed' && pendingDisputesCount > 0 ? { color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', background: 'rgba(245, 158, 11, 0.08)' } : {}}
-              onClick={() => setStatusFilter('disputed')}
+              style={statusFilter !== 'disputed' && pendingDisputesCount > 0 ? { color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', background: 'rgba(245, 158, 11, 0.08)', fontSize: '13.5px', padding: '5px 12px', height: '36px' } : { fontSize: '13.5px', padding: '5px 12px', height: '36px' }}
+              onClick={() => { setStatusFilter('disputed'); setCurrentPage(1); }}
             >
               ⚠️ Cần kiểm tra ({pendingDisputesCount})
             </button>
 
             <button
               className={`btn btn-sm ${statusFilter === 'Unpaid' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('Unpaid')}
+              onClick={() => { setStatusFilter('Unpaid'); setCurrentPage(1); }}
+              style={{ fontSize: '13.5px', padding: '5px 12px', height: '36px' }}
             >
               ⏳ Chưa trả
             </button>
 
             <button
               className={`btn btn-sm ${statusFilter === 'Paid' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('Paid')}
+              onClick={() => { setStatusFilter('Paid'); setCurrentPage(1); }}
+              style={{ fontSize: '13.5px', padding: '5px 12px', height: '36px' }}
             >
               ✅ Đã trả
             </button>
 
             <button
               className={`btn btn-sm ${statusFilter === 'Overdue' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setStatusFilter('Overdue')}
+              onClick={() => { setStatusFilter('Overdue'); setCurrentPage(1); }}
+              style={{ fontSize: '13.5px', padding: '5px 12px', height: '36px' }}
             >
               🔥 Quá hạn
             </button>
           </div>
         </div>
 
-        {/* THANH THỐNG KÊ TIẾN ĐỘ & BỘ LỌC KỲ THÁNG */}
-        {targetRooms.length > 0 && (
-          <div style={{
-            background: unbilledRoomsThisMonth.length === 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(99, 102, 241, 0.06)',
-            border: `1px solid ${unbilledRoomsThisMonth.length === 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(99, 102, 241, 0.2)'}`,
-            borderRadius: '10px',
-            padding: '12px 16px',
-            margin: '0 16px 16px 16px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Receipt size={16} color="#6366f1" />
-                Tiến độ lập hóa đơn Tháng {currentMonthKey}: 
-                <span style={{ color: unbilledRoomsThisMonth.length === 0 ? '#10b981' : '#6366f1', fontWeight: 800 }}>
-                  {billedRoomsThisMonth.length} / {targetRooms.length} phòng ({Math.round((billedRoomsThisMonth.length / (targetRooms.length || 1)) * 100)}%)
-                </span>
-              </div>
-              {unbilledRoomsThisMonth.length > 0 ? (
-                <div style={{ fontSize: '12px', color: '#f59e0b', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  <span>⏳ Còn <strong>{unbilledRoomsThisMonth.length} phòng</strong> chưa lập HĐ:</span>
-                  {unbilledRoomsThisMonth.map(r => (
-                    <span key={r.id} style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600 }}>
-                      P.{r.roomNumber}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: '12px', color: '#10b981', marginTop: '4px', fontWeight: 500 }}>
-                  🎉 Tuyệt vời! Tất cả các phòng đã được lập hóa đơn cho kỳ Tháng {currentMonthKey}.
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Xem kỳ tháng:</label>
-              <input 
-                type="month" 
-                className="form-control" 
-                style={{ padding: '4px 8px', fontSize: '12px', width: 'auto', background: 'var(--bg-card)' }}
-                value={monthFilter} 
-                onChange={e => setMonthFilter(e.target.value)} 
-              />
-              {monthFilter && (
-                <button 
-                  className="btn btn-sm btn-secondary" 
-                  style={{ fontSize: '11px', padding: '4px 8px' }}
-                  onClick={() => setMonthFilter('')}
-                >
-                  Tất cả các tháng
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
+        {/* Bảng Dữ Liệu (Đã bỏ cột Chi Tiết Các Khoản Phí, chữ to rõ ràng) */}
         <table className="custom-table">
           <thead>
             <tr>
-              <th>Mã Hóa Đơn</th>
-              <th>Phòng Thuê</th>
-              <th>Kỳ Thu</th>
-              <th>Tiền Nhà / Điện / Nước / Dịch Vụ</th>
-              <th>Tổng Số Tiền</th>
-              <th>Hạn Thanh Toán</th>
-              <th>Trạng Thái</th>
-              <th>Phản Ánh Của Khách</th>
-              <th>Thao Tác</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px' }}>MÃ HÓA ĐƠN</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px' }}>PHÒNG</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px' }}>KỲ THU</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px' }}>TỔNG SỐ TIỀN</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px' }}>HẠN NỘP</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px' }}>TRẠNG THÁI</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px' }}>BÁO CÁO SAI SÓT</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px' }}>THAO TÁC</th>
             </tr>
           </thead>
           <tbody>
             {filteredInvoices.length === 0 ? (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '15px' }}>
                   {statusFilter === 'disputed' 
                     ? 'Hiện tại không có hóa đơn nào bị khách thuê báo sai sót.' 
                     : 'Chưa có hóa đơn nào phù hợp với bộ lọc.'}
@@ -545,27 +570,33 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                     key={inv.id}
                     style={isPendingDispute ? { background: 'rgba(245, 158, 11, 0.06)', borderLeft: '3px solid #f59e0b' } : {}}
                   >
-                    <td><strong>{inv.invoiceCode || inv.id}</strong></td>
-                    <td>
-                      <span className="status-pill occupied">
-                        Phòng {inv.roomNumber || inv.roomId}
+                    <td style={{ padding: '9px 16px' }}>
+                      <strong style={{ color: 'var(--primary)', fontSize: '15.5px', letterSpacing: '0.2px' }}>
+                        {inv.invoiceCode || inv.id}
+                      </strong>
+                    </td>
+                    <td style={{ padding: '9px 16px' }}>
+                      <span className="status-pill occupied" style={{ fontSize: '13.5px', padding: '4px 10px', fontWeight: 700 }}>
+                        P.{inv.roomNumber || inv.roomId}
                       </span>
                     </td>
-                    <td>Tháng {inv.month}</td>
-                    <td>
-                      <div style={{ fontSize: '12px' }}>
-                        Phòng: {formatVND(inv.rentFee || 0)} | Điện: {formatVND(inv.elecFee || 0)} | Nước: {formatVND(inv.waterFee || 0)}
-                        {inv.serviceFee > 0 && <span style={{ color: '#6366f1', fontWeight: 600 }}> | DV: {formatVND(inv.serviceFee)}</span>}
-                      </div>
+                    <td style={{ padding: '9px 16px', fontSize: '14.5px', color: 'var(--text-primary)' }}>
+                      Tháng {inv.month}
                     </td>
-                    <td><strong style={{ color: isPendingDispute ? '#f59e0b' : '#34d399', fontSize: '15px' }}>{formatVND(inv.totalAmount)}</strong></td>
-                    <td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : ''}</td>
-                    <td>
-                      <span className={`status-pill ${(inv.status || '').toLowerCase() === 'paid' ? 'occupied' : 'vacant'}`}>
+                    <td style={{ padding: '9px 16px' }}>
+                      <strong style={{ color: isPendingDispute ? '#f59e0b' : '#34d399', fontSize: '16px' }}>
+                        {formatVND(inv.totalAmount)}
+                      </strong>
+                    </td>
+                    <td style={{ padding: '9px 16px', fontSize: '14px', color: 'var(--text-primary)' }}>
+                      {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : ''}
+                    </td>
+                    <td style={{ padding: '9px 16px' }}>
+                      <span className={`status-pill ${(inv.status || '').toLowerCase() === 'paid' ? 'occupied' : 'vacant'}`} style={{ fontSize: '13px', padding: '4px 10px', fontWeight: 600 }}>
                         {(inv.status || '').toLowerCase() === 'paid' ? '✅ Đã thanh toán' : '⏳ Chưa thanh toán'}
                       </span>
                     </td>
-                    <td>
+                    <td style={{ padding: '9px 16px' }}>
                       {isPendingDispute ? (
                         <button
                           className="btn btn-sm btn-secondary"
@@ -573,61 +604,63 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                             color: '#f59e0b',
                             background: 'rgba(245, 158, 11, 0.15)',
                             borderColor: 'rgba(245, 158, 11, 0.4)',
-                            fontWeight: 600,
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            padding: '4px 10px',
+                            height: '32px',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '5px',
                             cursor: 'pointer'
                           }}
                           onClick={() => handleOpenResolveDispute(inv)}
                           title="Bấm để xem và xử lý báo sai của khách"
                         >
-                          <AlertTriangle size={13} /> Khách báo sai
+                          <AlertTriangle size={14} /> Khách báo sai
                         </button>
                       ) : isResolvedDispute ? (
-                        <span className="status-pill" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                          <CheckCircle size={12} /> Đã điều chỉnh
+                        <span className="status-pill" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', fontSize: '13px', padding: '3px 8px' }}>
+                          <CheckCircle size={13} /> Đã chỉnh
                         </span>
                       ) : isRejectedDispute ? (
-                        <span className="status-pill" style={{ background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-muted)', border: '1px solid var(--border-color)' }}>
-                          <MessageSquare size={12} /> Đã phản hồi
+                        <span className="status-pill" style={{ background: 'rgba(148, 163, 184, 0.1)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', fontSize: '13px', padding: '3px 8px' }}>
+                          <MessageSquare size={13} /> Đã phản hồi
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Không có</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '13.5px' }}>Không có</span>
                       )}
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '6px' }}>
+                    <td style={{ padding: '9px 16px' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <button 
                           className="btn btn-sm btn-secondary" 
-                          title="Xem Chi Tiết Hóa Đơn Minh Bạch & In PDF" 
+                          style={{ padding: '4px 8px', height: '32px', borderRadius: '6px' }}
+                          title="Xem Chi Tiết Hóa Đơn & In PDF" 
                           onClick={() => setViewingInvoice(inv)}
                         >
-                          <Eye size={14} color="#6366f1" />
+                          <Eye size={15} color="#6366f1" />
                         </button>
                         {isPendingDispute ? (
                           <button 
                             className="btn btn-sm btn-primary" 
-                            style={{ background: '#f59e0b', borderColor: '#f59e0b' }}
+                            style={{ background: '#f59e0b', borderColor: '#f59e0b', padding: '4px 10px', height: '32px', fontSize: '13px', fontWeight: 700 }}
                             title="Xử lý báo cáo sai sót hóa đơn của khách thuê"
                             onClick={() => handleOpenResolveDispute(inv)}
                           >
                             <AlertTriangle size={14} /> Xử lý
                           </button>
                         ) : (
-                          <button className="btn btn-sm btn-secondary" title="Chỉnh Sửa Hóa Đơn (Nếu nhập nhầm số)" onClick={() => handleOpenEdit(inv)}>
-                            <Edit size={14} color="#f59e0b" />
+                          <button className="btn btn-sm btn-secondary" style={{ padding: '4px 8px', height: '32px', borderRadius: '6px' }} title="Chỉnh Sửa Hóa Đơn" onClick={() => handleOpenEdit(inv)}>
+                            <Edit size={15} color="#f59e0b" />
                           </button>
                         )}
-                        <button className="btn btn-sm btn-secondary" title="Gửi Email Thông Báo" onClick={() => handleSendEmail(inv)}>
-                          <Mail size={14} color="#3b82f6" />
-                        </button>
                         <button 
                           className="btn btn-sm btn-danger" 
-                          title="Xóa Hóa Đơn (Dễ Dàng Test Lại)" 
+                          style={{ padding: '4px 8px', height: '32px', borderRadius: '6px' }}
+                          title="Xóa Hóa Đơn" 
                           onClick={(e) => handleDeleteInvoice(inv, e)}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -638,15 +671,15 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
           </tbody>
         </table>
 
-        {totalPages > 1 && (
-          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        )}
+        <div style={{ padding: '8px 16px' }}>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredInvoices.length}
+            pageSize={pageSize}
+          />
+        </div>
       </div>
 
       {/* Modal 1: Xử Lý Báo Cáo / Khiếu Nại Hóa Đơn Của Khách Thuê */}

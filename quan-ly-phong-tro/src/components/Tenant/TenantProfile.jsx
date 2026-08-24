@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserCheck, Key, Car, Check, User, CreditCard, Building2, Home, Phone, Mail, MapPin, ShieldCheck, Bike, Sparkles } from 'lucide-react';
 import { profileService } from '../../services';
 import { AvatarUploader, CccdCardUploader } from '../Common/ImageUploader';
-import { formatDate, sanitizeCccd, isValidCccd } from '../../utils/formatters';
+import { formatDate, sanitizeCccd, isValidCccd, isValidFullName, sanitizePhone, isValidPhone } from '../../utils/formatters';
 
 export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   const [profileData, setProfileData] = useState({
@@ -74,6 +74,14 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
+    if (!profileData.fullName || !isValidFullName(profileData.fullName)) {
+      alert('Họ và tên không hợp lệ! Tên chỉ được chứa chữ cái, không được chứa số hoặc ký tự đặc biệt.');
+      return;
+    }
+    if (!profileData.phone || !isValidPhone(profileData.phone)) {
+      alert('Số điện thoại không hợp lệ! Vui lòng nhập đúng 10 chữ số và bắt đầu bằng số 0 (VD: 0912345678).');
+      return;
+    }
     if (profileData.cccd && !isValidCccd(profileData.cccd)) {
       alert('Số CCCD không hợp lệ! Vui lòng nhập đúng 12 chữ số và bắt đầu bằng số 0 (VD: 001201012345).');
       return;
@@ -81,8 +89,8 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
     setSavingInfo(true);
     try {
       const updated = await profileService.updateProfile({
-        fullName: profileData.fullName,
-        phone: profileData.phone,
+        fullName: profileData.fullName.trim(),
+        phone: profileData.phone.trim(),
         avatarUrl: profileData.avatarUrl,
         cccd: profileData.cccd,
         hometown: profileData.hometown,
@@ -361,6 +369,11 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
                     value={profileData.fullName}
                     onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
                   />
+                  <small style={{ fontSize: '11px', color: profileData.fullName && !isValidFullName(profileData.fullName) ? '#ef4444' : 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                    {profileData.fullName && !isValidFullName(profileData.fullName)
+                      ? '⚠️ Tên không được có số hoặc ký tự đặc biệt'
+                      : 'Tên chỉ gồm chữ cái tiếng Việt và khoảng trắng'}
+                  </small>
                 </div>
 
                 <div className="form-group">
@@ -369,10 +382,17 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
                     type="text"
                     className="form-control"
                     required
-                    placeholder="VD: 0912345678"
+                    maxLength={10}
+                    inputMode="numeric"
+                    placeholder="VD: 0912345678 (10 số)"
                     value={profileData.phone}
-                    onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                    onChange={(e) => setProfileData({ ...profileData, phone: sanitizePhone(e.target.value) })}
                   />
+                  <small style={{ fontSize: '11px', color: profileData.phone && !isValidPhone(profileData.phone) ? '#ef4444' : 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                    {profileData.phone && !isValidPhone(profileData.phone)
+                      ? '⚠️ Số điện thoại phải gồm đúng 10 số và bắt đầu bằng số 0'
+                      : 'Chỉ nhận 10 chữ số, không được nhập chữ'}
+                  </small>
                 </div>
               </div>
 

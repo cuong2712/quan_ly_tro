@@ -108,9 +108,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     if (info.type === 'liquidated') liquidatedCount++;
   });
 
-  // ─── 2. Lọc Hợp Đồng Theo Tìm Kiếm, Khu Trọ & Trạng Thái ─────
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 8;
 
   const filteredContracts = contracts.filter(c => {
     const room = rooms.find(r => r.id === c.roomId || r.id === c.RoomId);
@@ -478,8 +477,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const handleCheckExpiring = async () => {
     try {
       const res = await contractService.checkExpiring();
-      const count = res?.count !== undefined ? res.count : (Array.isArray(res) ? res.length : 0);
-      alert(`✅ Đã quét tự động thành công! Tìm thấy ${count} hợp đồng sắp/đã hết hạn. Đã gửi thông báo nhắc nhở tới khách thuê và chủ trọ.`);
+      const count = res?.notifiedCount !== undefined ? res.notifiedCount : (res?.count !== undefined ? res.count : (Array.isArray(res) ? res.length : 0));
+      alert(`✅ Đã quét tự động thành công! Tìm thấy và phát hành ${count} thông báo nhắc nhở hợp đồng sắp hết hạn trong 30 ngày tới tới khách thuê.`);
       onRefresh?.();
     } catch (err) {
       alert('Lỗi quét hợp đồng hết hạn: ' + (err.response?.data?.message || err.message));
@@ -593,210 +592,111 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
 
   return (
-    <div>
+    <div style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
       {/* Header */}
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h2 className="page-title"><FileText size={24} color="#6366f1" /> Quản Lý Hợp Đồng Thuê Nhà</h2>
-          <p className="page-subtitle">Tạo mới, gia hạn, thanh lý và in/xuất file PDF hợp đồng pháp lý</p>
+          <h2 className="page-title" style={{ fontSize: '20px', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={22} color="#6366f1" /> Quản Lý Hợp Đồng Thuê Nhà
+          </h2>
+          <p className="page-subtitle" style={{ fontSize: '12px', margin: '2px 0 0 0' }}>
+            Tạo mới, gia hạn, thanh lý và in/xuất file PDF hợp đồng pháp lý
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={handleCheckExpiring}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={handleCheckExpiring} style={{ padding: '6px 14px', fontSize: '12.5px', height: '34px' }}>
             <Clock size={16} color="#f59e0b" /> Quét HĐ Sắp Hết Hạn
           </button>
-          <button className="btn btn-primary" onClick={handleOpenAdd}>
+          <button className="btn btn-primary" onClick={handleOpenAdd} style={{ padding: '6px 16px', fontSize: '12.5px', height: '34px', fontWeight: 700 }}>
             <Plus size={18} /> Tạo Hợp Đồng Mới
           </button>
         </div>
       </div>
 
-      {/* 📊 THẺ THỐNG KÊ TỔNG QUAN HỢP ĐỒNG */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+      {/* 📊 THẺ THỐNG KÊ TỔNG QUAN HỢP ĐỒNG (COMPACT & ĐỒNG NHẤT) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '8px' }}>
 
         <div
           className="card"
-          onClick={() => setFilterStatus('all')}
-
+          onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
           style={{
-            padding: '16px', cursor: 'pointer', borderRadius: '12px',
+            padding: '8px 12px', cursor: 'pointer', borderRadius: '10px',
             border: filterStatus === 'all' ? '2px solid #6366f1' : '1px solid var(--border-color)',
             background: 'var(--bg-card)', transition: 'all 0.2s'
           }}
         >
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>📄 Tổng Hợp Đồng</div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>{contracts.length}</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>📄 Tổng HĐ</div>
+          <div style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>{contracts.length}</div>
         </div>
 
         {pendingRenewCount > 0 && (
           <div
             className="card"
-            onClick={() => setFilterStatus('renew_requested')}
+            onClick={() => { setFilterStatus('renew_requested'); setCurrentPage(1); }}
             style={{
-              padding: '16px', cursor: 'pointer', borderRadius: '12px',
+              padding: '8px 12px', cursor: 'pointer', borderRadius: '10px',
               border: filterStatus === 'renew_requested' ? '2px solid #f59e0b' : '1px solid rgba(245,158,11,0.4)',
               background: 'rgba(245,158,11,0.12)', transition: 'all 0.2s',
-              boxShadow: '0 0 15px rgba(245,158,11,0.15)'
+              boxShadow: '0 0 10px rgba(245,158,11,0.15)'
             }}
           >
-            <div style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
-              🔔 Chờ Gia Hạn <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 1.5s infinite' }} />
+            <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>
+              🔔 Chờ Gia Hạn
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>{pendingRenewCount}</div>
+            <div style={{ fontSize: '21px', fontWeight: 800, color: '#f59e0b', marginTop: '2px' }}>{pendingRenewCount}</div>
           </div>
         )}
 
         <div
           className="card"
-          onClick={() => setFilterStatus('active')}
+          onClick={() => { setFilterStatus('active'); setCurrentPage(1); }}
           style={{
-            padding: '16px', cursor: 'pointer', borderRadius: '12px',
+            padding: '8px 12px', cursor: 'pointer', borderRadius: '10px',
             border: filterStatus === 'active' ? '2px solid #10b981' : '1px solid var(--border-color)',
             background: 'rgba(16,185,129,0.08)', transition: 'all 0.2s'
           }}
         >
-          <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 700 }}>✅ Đang Hiệu Lực</div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>{activeCount}</div>
+          <div style={{ fontSize: '13px', color: '#10b981', fontWeight: 700 }}>✅ Đang Hiệu Lực</div>
+          <div style={{ fontSize: '21px', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>{activeCount}</div>
         </div>
 
         <div
           className="card"
-          onClick={() => setFilterStatus('expired')}
+          onClick={() => { setFilterStatus('expired'); setCurrentPage(1); }}
           style={{
-            padding: '16px', cursor: 'pointer', borderRadius: '12px',
+            padding: '8px 12px', cursor: 'pointer', borderRadius: '10px',
             border: filterStatus === 'expired' ? '2px solid #ef4444' : '1px solid var(--border-color)',
             background: 'rgba(239,68,68,0.08)', transition: 'all 0.2s'
           }}
         >
-          <div style={{ fontSize: '12px', color: '#ef4444', fontWeight: 700 }}>⏳ Đã / Sắp Hết Hạn</div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#ef4444', marginTop: '4px' }}>{expiredCount}</div>
+          <div style={{ fontSize: '13px', color: '#ef4444', fontWeight: 700 }}>⏳ Hết Hạn</div>
+          <div style={{ fontSize: '21px', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>{expiredCount}</div>
         </div>
 
         <div
           className="card"
-          onClick={() => setFilterStatus('liquidated')}
+          onClick={() => { setFilterStatus('liquidated'); setCurrentPage(1); }}
           style={{
-            padding: '16px', cursor: 'pointer', borderRadius: '12px',
+            padding: '8px 12px', cursor: 'pointer', borderRadius: '10px',
             border: filterStatus === 'liquidated' ? '2px solid #6b7280' : '1px solid var(--border-color)',
             background: 'var(--bg-dark)', transition: 'all 0.2s'
           }}
         >
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>🛑 Đã Thanh Lý</div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-secondary)', marginTop: '4px' }}>{liquidatedCount}</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>🛑 Đã Thanh Lý</div>
+          <div style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-secondary)', marginTop: '2px' }}>{liquidatedCount}</div>
         </div>
 
         <div
           className="card"
-          onClick={() => setFilterStatus('uncontracted')}
+          onClick={() => { setFilterStatus('uncontracted'); setCurrentPage(1); }}
           style={{
-            padding: '16px', cursor: 'pointer', borderRadius: '12px',
+            padding: '8px 12px', cursor: 'pointer', borderRadius: '10px',
             border: filterStatus === 'uncontracted' ? '2px solid #f59e0b' : '1px solid var(--border-color)',
             background: 'rgba(245,158,11,0.08)', transition: 'all 0.2s'
           }}
         >
-          <div style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 700 }}>⚠️ Chưa Làm HĐ</div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>{uncontractedTenants.length} người</div>
-        </div>
-
-      </div>
-
-      {/* 🔔 BANNER NỔI BẬT KHI CÓ YÊU CẦU GIA HẠN HỢP ĐỒNG */}
-      {pendingRenewCount > 0 && filterStatus !== 'uncontracted' && (
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(217, 119, 6, 0.06))',
-          border: '1px solid rgba(245, 158, 11, 0.4)',
-          borderRadius: '12px',
-          padding: '14px 18px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          boxShadow: '0 4px 20px -4px rgba(245, 158, 11, 0.2)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
-              background: '#f59e0b',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: '0 0 15px rgba(245, 158, 11, 0.5)'
-            }}>
-              <Clock size={22} />
-            </div>
-            <div>
-              <h4 style={{ margin: 0, color: '#f59e0b', fontSize: '15px', fontWeight: '800' }}>
-                🔔 Có {pendingRenewCount} Yêu Cầu Gia Hạn Hợp Đồng Cần Phê Duyệt!
-              </h4>
-            </div>
-          </div>
-          {filterStatus !== 'renew_requested' && (
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={() => setFilterStatus('renew_requested')}
-              style={{ background: '#f59e0b', borderColor: '#f59e0b', fontWeight: '700', flexShrink: 0, whiteSpace: 'nowrap' }}
-            >
-              Chỉ xem {pendingRenewCount} yêu cầu
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* 🔍 THANH BỘ LỌC NÂNG CAO (THEO TÊN, KHU TRỌ & TRẠNG THÁI) */}
-      <div className="card" style={{ padding: '16px', marginBottom: '20px', display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-
-        {/* Lọc theo Từ khóa / Tên khách / Mã HĐ / Số phòng */}
-        <div style={{ flex: '1 1 240px', position: 'relative' }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Tìm theo tên khách, SĐT, mã HĐ, số phòng..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ paddingLeft: '36px', fontSize: '13px' }}
-          />
-        </div>
-
-        {/* Lọc theo Khu trọ */}
-        <div style={{ width: '220px' }}>
-          <select
-            className="form-control"
-            value={filterZoneId}
-            onChange={(e) => setFilterZoneId(e.target.value)}
-            style={{ fontSize: '13px' }}
-          >
-            <option value="all">🏢 Tất cả khu trọ ({zones.length})</option>
-            {zones.map(z => (
-              <option key={z.id} value={z.id}>{z.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Lọc theo Trạng thái hợp đồng */}
-        <div style={{ width: '220px' }}>
-          <select
-            className="form-control"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            style={{ fontSize: '13px' }}
-          >
-            <option value="all">📋 Tất cả trạng thái ({contracts.length})</option>
-            {pendingRenewCount > 0 && (
-              <option value="renew_requested" style={{ color: '#f59e0b', fontWeight: 'bold' }}>
-                🔔 Chờ gia hạn ({pendingRenewCount})
-              </option>
-            )}
-            <option value="active">✅ Đang hiệu lực ({activeCount})</option>
-            <option value="expired">⏳ Đã hết hạn ({expiredCount})</option>
-            <option value="liquidated">🛑 Đã thanh lý ({liquidatedCount})</option>
-            <option value="uncontracted">⚠️ Chưa có HĐ ({uncontractedTenants.length})</option>
-          </select>
+          <div style={{ fontSize: '13px', color: '#f59e0b', fontWeight: 700 }}>⚠️ Chưa Có HĐ</div>
+          <div style={{ fontSize: '21px', fontWeight: 800, color: '#f59e0b', marginTop: '2px' }}>{uncontractedTenants.length} người</div>
         </div>
 
       </div>
@@ -804,27 +704,27 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       {/* ⚠️ NẾU CHỌN TAB "CHƯA CÓ HỢP ĐỒNG" ➔ HIỂN THỊ DANH SÁCH KHÁCH THUÊ CẦN TẠO HĐ */}
       {filterStatus === 'uncontracted' ? (
         <div className="card-table-container">
-          <div style={{ padding: '16px 20px', background: 'rgba(245,158,11,0.08)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '12px 18px', background: 'rgba(245,158,11,0.08)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 8 }}>
               <AlertTriangle size={18} color="#f59e0b" /> Khách Thuê Chưa Có Hợp Đồng Đang Hiệu Lực ({uncontractedTenants.length} người)
             </h3>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Bấm nút "Tạo Hợp Đồng Ngay" để hoàn tất hồ sơ cho khách</span>
+            <span style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>Bấm nút "Tạo Hợp Đồng Ngay" để hoàn tất hồ sơ cho khách</span>
           </div>
 
           {uncontractedTenants.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              <CheckCircle size={40} color="#10b981" style={{ marginBottom: 10 }} />
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Tất cả khách thuê hiện tại đều đã có hợp đồng chính thức!</p>
+            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+              <CheckCircle size={38} color="#10b981" style={{ marginBottom: 8 }} />
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Tất cả khách thuê hiện tại đều đã có hợp đồng chính thức!</p>
             </div>
           ) : (
             <table className="custom-table">
               <thead>
                 <tr>
-                  <th>Tên Khách Thuê</th>
-                  <th>Số Điện Thoại</th>
-                  <th>Số CCCD</th>
-                  <th>Phòng Hiện Ở</th>
-                  <th>Thao Tác</th>
+                  <th style={{ padding: '9px 14px', fontSize: '14px' }}>Tên Khách Thuê</th>
+                  <th style={{ padding: '9px 14px', fontSize: '14px' }}>Số Điện Thoại</th>
+                  <th style={{ padding: '9px 14px', fontSize: '14px' }}>Số CCCD</th>
+                  <th style={{ padding: '9px 14px', fontSize: '14px' }}>Phòng Hiện Ở</th>
+                  <th style={{ padding: '9px 14px', fontSize: '14px' }}>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -832,19 +732,19 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                   const room = rooms.find(r => r.id === (t.roomId || t.RoomId));
                   return (
                     <tr key={t.id}>
-                      <td><strong>{t.fullName || t.name}</strong></td>
-                      <td>{t.phone}</td>
-                      <td>{t.cccd || t.CCCD}</td>
-                      <td>
-                        <span className="status-pill occupied">
+                      <td style={{ padding: '7px 14px', fontSize: '15px' }}><strong>{t.fullName || t.name}</strong></td>
+                      <td style={{ padding: '7px 14px', fontSize: '14.5px' }}>{t.phone}</td>
+                      <td style={{ padding: '7px 14px', fontSize: '14.5px' }}>{t.cccd || t.CCCD}</td>
+                      <td style={{ padding: '7px 14px' }}>
+                        <span className="status-pill occupied" style={{ padding: '4px 10px', fontSize: '13px' }}>
                           {room ? `Phòng ${room.roomNumber}` : 'Chưa xếp phòng'}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ padding: '7px 14px' }}>
                         <button
                           className="btn btn-sm btn-primary"
                           onClick={() => handleOpenAddForTenant(t)}
-                          style={{ fontWeight: 700 }}
+                          style={{ fontWeight: 700, padding: '5px 12px', fontSize: '13.5px', height: '30px' }}
                         >
                           <Plus size={14} /> Tạo Hợp Đồng Ngay
                         </button>
@@ -857,24 +757,74 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           )}
         </div>
       ) : (
-        /* BẢNG DANH SÁCH HỢP ĐỒNG */
+        /* BẢNG DANH SÁCH HỢP ĐỒNG KÈM BỘ LỌC TÍCH HỢP */
         <div className="card-table-container">
+          
+          {/* Thanh Toolbar tích hợp lọc và tìm kiếm */}
+          <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(15, 23, 42, 0.4)' }}>
+            
+            <div style={{ display: 'flex', gap: '8px', flex: '1 1 240px', alignItems: 'center' }}>
+              <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
+                <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Tìm tên, SĐT, mã HĐ, số phòng..."
+                  value={searchTerm}
+                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  style={{ paddingLeft: '34px', fontSize: '14px', height: '36px', padding: '4px 10px 4px 34px' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <select
+                className="form-control"
+                value={filterZoneId}
+                onChange={(e) => { setFilterZoneId(e.target.value); setCurrentPage(1); }}
+                style={{ fontSize: '13.5px', height: '36px', padding: '4px 10px', width: 'auto', minWidth: '150px' }}
+              >
+                <option value="all">🏢 Tất cả khu ({zones.length})</option>
+                {zones.map(z => (
+                  <option key={z.id} value={z.id}>{z.name}</option>
+                ))}
+              </select>
+
+              <select
+                className="form-control"
+                value={filterStatus}
+                onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+                style={{ fontSize: '13.5px', height: '36px', padding: '4px 10px', width: 'auto', minWidth: '150px' }}
+              >
+                <option value="all">📋 Tất cả trạng thái ({contracts.length})</option>
+                {pendingRenewCount > 0 && (
+                  <option value="renew_requested" style={{ color: '#f59e0b', fontWeight: 'bold' }}>
+                    🔔 Chờ gia hạn ({pendingRenewCount})
+                  </option>
+                )}
+                <option value="active">✅ Đang hiệu lực ({activeCount})</option>
+                <option value="expired">⏳ Đã hết hạn ({expiredCount})</option>
+                <option value="liquidated">🛑 Đã thanh lý ({liquidatedCount})</option>
+              </select>
+            </div>
+          </div>
+
           <table className="custom-table">
             <thead>
               <tr>
-                <th>Mã Hợp Đồng</th>
-                <th>Khu Trọ & Phòng</th>
-                <th>Khách Thuê</th>
-                <th>Thời Hạn Thuê</th>
-                <th>Tiền Thuê / Cọc</th>
-                <th>Trạng Thái</th>
-                <th>Thao Tác</th>
+                <th style={{ padding: '9px 14px', fontSize: '14px' }}>Mã Hợp Đồng</th>
+                <th style={{ padding: '9px 14px', fontSize: '14px' }}>Khu & Phòng</th>
+                <th style={{ padding: '9px 14px', fontSize: '14px' }}>Khách Thuê</th>
+                <th style={{ padding: '9px 14px', fontSize: '14px' }}>Thời Hạn Thuê</th>
+                <th style={{ padding: '9px 14px', fontSize: '14px' }}>Tiền Thuê / Cọc</th>
+                <th style={{ padding: '9px 14px', fontSize: '14px' }}>Trạng Thái</th>
+                <th style={{ padding: '9px 14px', fontSize: '14px' }}>Thao Tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredContracts.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '14.5px' }}>
                     Không tìm thấy hợp đồng nào phù hợp với bộ lọc.
                   </td>
                 </tr>
@@ -893,104 +843,70 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                       key={c.id}
                       className={`clickable-contract-row ${isRenewReq ? 'highlight-renew-row' : ''}`}
                       onClick={() => setViewingContract(c)}
-                      title="Bấm vào dòng để xem chi tiết hợp đồng & các thao tác mở rộng"
+                      title="Bấm vào dòng để xem chi tiết hợp đồng"
                     >
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: '700', color: isRenewReq ? '#f59e0b' : '#6366f1' }}>{c.contractCode}</span>
+                      <td style={{ padding: '7px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: '700', color: isRenewReq ? '#f59e0b' : '#6366f1', fontSize: '15px' }}>{c.contractCode}</span>
                           {isRenewReq && (
                             <span style={{
                               background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                               color: '#ffffff',
-                              fontSize: '10px',
+                              fontSize: '11px',
                               fontWeight: '800',
-                              padding: '3px 9px',
+                              padding: '2px 8px',
                               borderRadius: '9999px',
-                              letterSpacing: '0.04em',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)'
                             }}>
-                              🔥 CẦN DUYỆT
+                              🔥 DUYỆT
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tạo ngày: {formatDate(c.startDate)}</div>
+                        <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Tạo: {formatDate(c.startDate)}</div>
                       </td>
-                      <td>
-                        <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                      <td style={{ padding: '7px 14px' }}>
+                        <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '15px' }}>
                           {room ? `Phòng ${room.roomNumber}` : 'Phòng N/A'}
                         </div>
-                        {zone && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🏢 {zone.name}</div>}
+                        {zone && <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>🏢 {zone.name}</div>}
                       </td>
-                      <td>
-                        <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{tenantName}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>SĐT: {tenantPhone}</div>
-                        {isRenewReq && (
-                          <div style={{
-                            fontSize: '11.5px',
-                            color: '#f59e0b',
-                            fontWeight: '700',
-                            marginTop: '4px',
-                            background: 'rgba(245, 158, 11, 0.12)',
-                            padding: '2px 8px',
-                            borderRadius: '9999px',
-                            display: 'inline-block',
-                            border: '1px solid rgba(245, 158, 11, 0.25)'
-                          }}>
-                            🔔 Xin gia hạn +{c.requestedRenewMonths || 12} tháng
-                          </div>
-                        )}
+                      <td style={{ padding: '7px 14px' }}>
+                        <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '15px' }}>{tenantName}</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>SĐT: {tenantPhone}</div>
                       </td>
-                      <td>
+                      <td style={{ padding: '7px 14px', fontSize: '14.5px' }}>
                         <div>{formatDate(c.startDate)} - {formatDate(c.endDate)}</div>
                         {c.endDate && (
-                          <div style={{ fontSize: '11px', color: statusInfo.type === 'expired' ? '#ef4444' : 'var(--text-muted)' }}>
-                            {statusInfo.type === 'expired' ? '⚠️ Đã hết hạn' : `Hạn chót: ${formatDate(c.endDate)}`}
+                          <div style={{ fontSize: '12.5px', color: statusInfo.type === 'expired' ? '#ef4444' : 'var(--text-muted)' }}>
+                            {statusInfo.type === 'expired' ? '⚠️ Đã hết hạn' : `Hạn: ${formatDate(c.endDate)}`}
                           </div>
                         )}
                       </td>
-                      <td>
+                      <td style={{ padding: '7px 14px', fontSize: '14.5px' }}>
                         <div>Thuê: <strong style={{ color: '#34d399' }}>{formatVND(c.rentAmount)}</strong></div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Cọc: {formatVND(c.deposit)}</div>
+                        <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Cọc: {formatVND(c.deposit)}</div>
                       </td>
-                      <td>
+                      <td style={{ padding: '7px 14px' }}>
                         <span className={`badge badge-${statusInfo.className}`} style={{
-                          padding: '6px 14px',
-                          fontSize: '12px',
+                          padding: '4px 11px',
+                          fontSize: '13px',
                           borderRadius: '9999px',
                           fontWeight: '700',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '5px',
-                          ...(statusInfo.isRequested ? {
-                            background: 'rgba(245, 158, 11, 0.16)',
-                            color: '#f59e0b',
-                            border: '1px solid rgba(245, 158, 11, 0.5)',
-                            boxShadow: '0 2px 10px rgba(245, 158, 11, 0.25)',
-                            borderRadius: '9999px',
-                          } : {
-                            borderRadius: '9999px',
-                          })
+                          gap: '4px',
                         }}>
                           {statusInfo.label}
                         </span>
-                        {c.renewNotes && (
-                          <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px', fontStyle: 'italic', maxWidth: 160 }} title={c.renewNotes}>
-                            💬 "{c.renewNotes.length > 25 ? c.renewNotes.slice(0, 25) + '...' : c.renewNotes}"
-                          </div>
-                        )}
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <td style={{ padding: '7px 14px' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
                           {statusInfo.isRequested ? (
                             <>
                               <button
                                 className="btn btn-sm btn-primary"
                                 title="Khách gửi yêu cầu gia hạn - Bấm để duyệt"
                                 onClick={() => handleOpenRenew(c)}
-                                style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 9px' }}
+                                style={{ background: '#10b981', borderColor: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 9px', height: '30px', fontSize: '13px' }}
                               >
                                 <Clock size={14} /> Duyệt
                               </button>
@@ -998,7 +914,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                                 className="btn btn-sm btn-danger"
                                 title="Từ chối yêu cầu gia hạn"
                                 onClick={() => handleOpenRejectRenew(c)}
-                                style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 8px' }}
+                                style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', height: '30px', fontSize: '13px' }}
                               >
                                 <UserX size={14} /> Từ Chối
                               </button>
@@ -1009,7 +925,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                                 className="btn btn-sm btn-secondary"
                                 title="Gia Hạn Hợp Đồng"
                                 onClick={() => handleOpenRenew(c)}
-                                style={{ color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 9px' }}
+                                style={{ color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 9px', height: '30px', fontSize: '13px' }}
                               >
                                 <Clock size={14} /> Gia Hạn
                               </button>
@@ -1020,7 +936,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                             className="btn btn-sm btn-danger"
                             title="Xóa hợp đồng"
                             onClick={() => handleOpenDelete(c)}
-                            style={{ padding: '5px 8px' }}
+                            style={{ padding: '3px 8px', height: '30px' }}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -1032,6 +948,16 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
               )}
             </tbody>
           </table>
+
+          <div style={{ padding: '0 14px 8px' }}>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredContracts.length}
+              pageSize={pageSize}
+            />
+          </div>
         </div>
       )}
 

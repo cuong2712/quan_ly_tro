@@ -315,7 +315,8 @@ export const CccdCardUploader = ({
   label = 'Mặt Trước CCCD',
   value,
   onChange,
-  disabled = false
+  disabled = false,
+  height = '145px'
 }) => {
   const [uploading, setUploading] = useState(false);
   const [previewZoom, setPreviewZoom] = useState(false);
@@ -381,7 +382,7 @@ export const CccdCardUploader = ({
       <div
         style={{
           position: 'relative',
-          height: '125px',
+          height: height,
           borderRadius: '10px',
           border: value ? '1px solid rgba(99, 102, 241, 0.4)' : '2px dashed var(--border-color)',
           background: 'rgba(30, 41, 59, 0.4)',

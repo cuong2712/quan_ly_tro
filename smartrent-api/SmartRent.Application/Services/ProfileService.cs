@@ -50,8 +50,31 @@ public class ProfileService(AppDbContext db)
     public async Task<UserProfileDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest req)
     {
         var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
-        u.FullName = req.FullName;
-        u.Phone = req.Phone;
+
+        // 1. Kiểm tra họ và tên (chỉ gồm chữ cái và khoảng trắng, không có số và ký tự đặc biệt)
+        if (string.IsNullOrWhiteSpace(req.FullName) || req.FullName.Trim().Length < 2)
+        {
+            throw new InvalidOperationException("Họ và tên không được để trống (tối thiểu 2 ký tự).");
+        }
+        if (!System.Text.RegularExpressions.Regex.IsMatch(req.FullName.Trim(), @"^[\p{L}\s]+$"))
+        {
+            throw new InvalidOperationException("Họ và tên không hợp lệ! Tên không được chứa số hoặc ký tự đặc biệt.");
+        }
+
+        // 2. Kiểm tra số điện thoại (đúng 10 chữ số và bắt đầu bằng số 0)
+        if (string.IsNullOrWhiteSpace(req.Phone) || !System.Text.RegularExpressions.Regex.IsMatch(req.Phone.Trim(), @"^0\d{9}$"))
+        {
+            throw new InvalidOperationException("Số điện thoại không hợp lệ! Vui lòng nhập đúng 10 chữ số và bắt đầu bằng số 0.");
+        }
+
+        // 3. Kiểm tra số CCCD nếu có nhập (đúng 12 chữ số và bắt đầu bằng số 0)
+        if (!string.IsNullOrWhiteSpace(req.Cccd) && !System.Text.RegularExpressions.Regex.IsMatch(req.Cccd.Trim(), @"^0\d{11}$"))
+        {
+            throw new InvalidOperationException("Số CCCD không hợp lệ! Vui lòng nhập đúng 12 chữ số và bắt đầu bằng số 0.");
+        }
+
+        u.FullName = req.FullName.Trim();
+        u.Phone = req.Phone.Trim();
         u.AvatarUrl = req.AvatarUrl;
 
         var tp = await db.TenantProfiles
@@ -65,8 +88,8 @@ public class ProfileService(AppDbContext db)
                 UserId = userId,
                 CCCD = req.Cccd ?? string.Empty,
                 Hometown = req.Hometown,
-                CccdFrontUrl = req.CccdFrontUrl,
-                CccdBackUrl = req.CccdBackUrl
+                //CccdFrontUrl = req.CccdFrontUrl,
+                //CccdBackUrl = req.CccdBackUrl
             };
             db.TenantProfiles.Add(tp);
         }

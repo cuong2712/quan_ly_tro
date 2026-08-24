@@ -287,168 +287,166 @@ export const LandlordNotify = ({
   };
 
   return (
-    <div>
+    <div style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
       {/* Page Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+      <div className="page-header" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h2 className="page-title"><BellRing size={24} color="#6366f1" /> Trung Tâm Thông Báo</h2>
-          <p className="page-subtitle">Xem thông báo sự cố từ khách thuê, thông báo hệ thống và phát thông báo tới các phòng trọ</p>
+          <h2 className="page-title" style={{ fontSize: '24px', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <BellRing size={26} color="#6366f1" /> Trung Tâm Thông Báo
+          </h2>
+          <p className="page-subtitle" style={{ fontSize: '13.5px', margin: '3px 0 0 0' }}>
+            Xem thông báo sự cố từ khách thuê, thông báo hệ thống và phát thông báo tới các phòng trọ
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="btn btn-primary" onClick={() => handleOpenCreateModal('AllTenants')}>
-            <Plus size={18} /> Gửi Thông Báo Cho Khách
+          <button
+            className="btn btn-primary"
+            onClick={() => handleOpenCreateModal('AllTenants')}
+            style={{ fontSize: '13.5px', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={18} /> Gửi Thông Báo Mới
           </button>
         </div>
       </div>
 
-      {/* Stats Cards Overview - Bo góc mềm mại, hiển thị hiện đại */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      {/* KPI Stats Bar: Đúng 4 thẻ [Hộp Thư Đến -> Báo Sự Cố -> Đã Phát Hành -> Tất Cả] */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '18px' }}>
+        {/* 1. Hộp thư đến */}
         <div
           className="card"
           style={{
-            padding: '16px 20px',
-            borderRadius: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            background: 'var(--card-bg)',
+            flex: '1 1 200px',
+            maxWidth: '350px',
+            padding: '14px 18px',
             cursor: 'pointer',
-            border: sourceTab === 'inbox' ? '1.5px solid #6366f1' : '1px solid var(--border-color)',
-            boxShadow: sourceTab === 'inbox' ? '0 4px 16px rgba(99, 102, 241, 0.15)' : 'none',
-            transition: 'all 0.2s ease'
+            borderRadius: '14px',
+            border: sourceTab === 'inbox' ? '2px solid #6366f1' : '1px solid var(--border-color)',
+            background: 'var(--bg-card)',
+            transition: 'all 0.2s ease-in-out',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
           }}
           onClick={() => handleTabChange('inbox')}
         >
-          <div style={{ width: 46, height: 46, borderRadius: '14px', background: 'rgba(99, 102, 241, 0.15)', display: 'grid', placeItems: 'center', color: '#6366f1', flexShrink: 0 }}>
-            <Inbox size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Hộp Thư Đến</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{incomingNotifs.length}</div>
+          <div style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 600 }}>📥 Hộp Thư Đến</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+            {incomingNotifs.length} <span style={{ fontSize: '15px', fontWeight: 600 }}>tin nhắn</span>
           </div>
         </div>
 
+        {/* 2. Sự cố & Bảo trì */}
         <div
           className="card"
           style={{
-            padding: '16px 20px',
-            borderRadius: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            background: 'var(--card-bg)',
+            flex: '1 1 200px',
+            maxWidth: '350px',
+            padding: '14px 18px',
             cursor: 'pointer',
-            border: sourceTab === 'repairs' ? '1.5px solid #f59e0b' : '1px solid var(--border-color)',
-            boxShadow: sourceTab === 'repairs' ? '0 4px 16px rgba(245, 158, 11, 0.15)' : 'none',
-            transition: 'all 0.2s ease'
+            borderRadius: '14px',
+            border: sourceTab === 'repairs' ? '2px solid #f59e0b' : '1px solid var(--border-color)',
+            background: 'rgba(245,158,11,0.08)',
+            transition: 'all 0.2s ease-in-out',
+            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)'
           }}
           onClick={() => handleTabChange('repairs')}
         >
-          <div style={{ width: 46, height: 46, borderRadius: '14px', background: 'rgba(245, 158, 11, 0.15)', display: 'grid', placeItems: 'center', color: '#f59e0b', flexShrink: 0 }}>
-            <Wrench size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Sự Cố & Báo Sửa Chữa</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#f59e0b', marginTop: '2px' }}>{repairNotifs.length}</div>
+          <div style={{ fontSize: '14px', color: '#f59e0b', fontWeight: 700 }}>🛠️ Báo Sự Cố & Sửa Chữa</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>
+            {repairNotifs.length} <span style={{ fontSize: '15px', fontWeight: 600 }}>yêu cầu</span>
           </div>
         </div>
 
+        {/* 3. Đã phát hành */}
         <div
           className="card"
           style={{
-            padding: '16px 20px',
-            borderRadius: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            background: 'var(--card-bg)',
+            flex: '1 1 200px',
+            maxWidth: '350px',
+            padding: '14px 18px',
             cursor: 'pointer',
-            border: sourceTab === 'outbox' ? '1.5px solid #10b981' : '1px solid var(--border-color)',
-            boxShadow: sourceTab === 'outbox' ? '0 4px 16px rgba(16, 185, 129, 0.15)' : 'none',
-            transition: 'all 0.2s ease'
+            borderRadius: '14px',
+            border: sourceTab === 'outbox' ? '2px solid #10b981' : '1px solid var(--border-color)',
+            background: 'rgba(16,185,129,0.08)',
+            transition: 'all 0.2s ease-in-out',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.08)'
           }}
           onClick={() => handleTabChange('outbox')}
         >
-          <div style={{ width: 46, height: 46, borderRadius: '14px', background: 'rgba(16, 185, 129, 0.15)', display: 'grid', placeItems: 'center', color: '#10b981', flexShrink: 0 }}>
-            <Send size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Thông Báo Đã Gửi Đi</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>{outgoingNotifs.length}</div>
+          <div style={{ fontSize: '14px', color: '#10b981', fontWeight: 700 }}>📤 Đã Phát Hành Đi</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
+            {outgoingNotifs.length} <span style={{ fontSize: '15px', fontWeight: 600 }}>thông báo</span>
           </div>
         </div>
 
+        {/* 4. Tất cả */}
         <div
           className="card"
           style={{
-            padding: '16px 20px',
-            borderRadius: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            background: 'var(--card-bg)',
+            flex: '1 1 200px',
+            maxWidth: '350px',
+            padding: '14px 18px',
             cursor: 'pointer',
-            border: sourceTab === 'all' ? '1.5px solid #3b82f6' : '1px solid var(--border-color)',
-            boxShadow: sourceTab === 'all' ? '0 4px 16px rgba(59, 130, 246, 0.15)' : 'none',
-            transition: 'all 0.2s ease'
+            borderRadius: '14px',
+            border: sourceTab === 'all' ? '2px solid #3b82f6' : '1px solid var(--border-color)',
+            background: 'rgba(59,130,246,0.08)',
+            transition: 'all 0.2s ease-in-out',
+            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.08)'
           }}
           onClick={() => handleTabChange('all')}
         >
-          <div style={{ width: 46, height: 46, borderRadius: '14px', background: 'rgba(59, 130, 246, 0.15)', display: 'grid', placeItems: 'center', color: '#3b82f6', flexShrink: 0 }}>
-            <BellRing size={22} />
-          </div>
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Tất Cả Thông Báo</div>
-            <div style={{ fontSize: '22px', fontWeight: 700, color: '#3b82f6', marginTop: '2px' }}>{notifications.length}</div>
+          <div style={{ fontSize: '14px', color: '#3b82f6', fontWeight: 700 }}>📋 Tất Cả Thông Báo</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, color: '#3b82f6', marginTop: '4px' }}>
+            {notifications.length} <span style={{ fontSize: '15px', fontWeight: 600 }}>tổng số</span>
           </div>
         </div>
       </div>
 
       {/* Main Table & Filter Toolbar */}
       <div className="card-table-container">
-        <div className="table-toolbar" style={{ flexWrap: 'wrap', gap: '12px' }}>
-          {/* Quick Source Tabs */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        <div className="table-toolbar" style={{ padding: '12px 18px' }}>
+          <div className="search-input-group" style={{ flex: '1 1 280px', maxWidth: '380px' }}>
+            <Search size={18} color="var(--text-muted)" />
+            <input
+              type="text"
+              placeholder="Tìm tiêu đề, nội dung, người gửi..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{ fontSize: '14.5px', height: '25px' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Quick Source Filter Tabs */}
             <button
               className={`btn btn-sm ${sourceTab === 'inbox' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => handleTabChange('inbox')}
+              style={{ fontSize: '13.5px', padding: '5px 14px', height: '36px' }}
             >
-              <Inbox size={14} /> Hộp Thư Đến ({incomingNotifs.length})
+              📥 Hộp thư đến
             </button>
             <button
               className={`btn btn-sm ${sourceTab === 'repairs' ? 'btn-primary' : 'btn-secondary'}`}
-              style={sourceTab !== 'repairs' && repairNotifs.length > 0 ? { color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', background: 'rgba(245, 158, 11, 0.08)' } : {}}
               onClick={() => handleTabChange('repairs')}
+              style={{ fontSize: '13.5px', padding: '5px 14px', height: '36px' }}
             >
-              <Wrench size={14} /> 🛠️ Báo Sự Cố ({repairNotifs.length})
+              🛠️ Báo sự cố
             </button>
             <button
               className={`btn btn-sm ${sourceTab === 'outbox' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => handleTabChange('outbox')}
+              style={{ fontSize: '13.5px', padding: '5px 14px', height: '36px' }}
             >
-              <Send size={14} /> Đã Phát Hành ({outgoingNotifs.length})
+              📤 Đã phát hành
             </button>
             <button
               className={`btn btn-sm ${sourceTab === 'all' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => handleTabChange('all')}
+              style={{ fontSize: '13.5px', padding: '5px 14px', height: '36px' }}
             >
-              Tất Cả ({notifications.length})
+              Tất cả
             </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: 1, justifyContent: 'flex-end', minWidth: '280px' }}>
-            <div className="search-input-group" style={{ flex: 1, maxWidth: '320px' }}>
-              <Search size={18} color="var(--text-muted)" />
-              <input
-                type="text"
-                placeholder="Tìm tiêu đề, nội dung, người gửi..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
-            </div>
 
             {sourceTab === 'outbox' && (
               <select
@@ -458,7 +456,7 @@ export const LandlordNotify = ({
                   setTargetFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                style={{ padding: '6px 10px', fontSize: '13px' }}
+                style={{ padding: '5px 12px', fontSize: '13.5px', height: '36px', borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
               >
                 <option value="all">Tất cả phạm vi</option>
                 <option value="AllTenants">🏠 Toàn bộ hệ thống</option>
@@ -473,17 +471,17 @@ export const LandlordNotify = ({
         <table className="custom-table">
           <thead>
             <tr>
-              <th style={{ width: '25%' }}>Tiêu Đề Thông Báo</th>
-              <th style={{ width: '31%' }}>Nội Dung Chi Tiết</th>
-              <th style={{ width: '18%' }}>Nguồn / Đối Tượng</th>
-              <th style={{ width: '12%' }}>Thời Gian</th>
-              <th style={{ width: '14%', minWidth: '135px' }}>Thao Tác</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px', width: '25%' }}>Tiêu Đề Thông Báo</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px', width: '31%' }}>Nội Dung Chi Tiết</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px', width: '18%' }}>Nguồn / Đối Tượng</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px', width: '12%' }}>Thời Gian</th>
+              <th style={{ padding: '10px 16px', fontSize: '14.5px', width: '14%', minWidth: '135px' }}>Thao Tác</th>
             </tr>
           </thead>
           <tbody>
             {paginatedNotifications.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <td colSpan="5" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '15px' }}>
                   <BellRing size={36} style={{ opacity: 0.3, margin: '0 auto 10px' }} />
                   <div>Chưa có thông báo nào trong mục này.</div>
                 </td>
@@ -493,9 +491,9 @@ export const LandlordNotify = ({
                 const isRepair = isRepairNotif(n);
                 return (
                   <tr key={n.id} style={isRepair ? { background: 'rgba(245, 158, 11, 0.03)' } : {}}>
-                    <td>
+                    <td style={{ padding: '8px 16px' }}>
                       <div
-                        style={{ fontWeight: '600', color: isRepair ? '#f59e0b' : 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        style={{ fontWeight: '700', fontSize: '15px', color: isRepair ? '#f59e0b' : 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                         onClick={() => setViewingNotif(n)}
                         title="Bấm để xem chi tiết thông báo"
                       >
@@ -503,11 +501,11 @@ export const LandlordNotify = ({
                         <span>{n.title}</span>
                       </div>
                     </td>
-                    <td>
+                    <td style={{ padding: '8px 16px' }}>
                       <div
                         style={{
                           color: 'var(--text-secondary)',
-                          fontSize: '13px',
+                          fontSize: '13.5px',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           display: '-webkit-box',
@@ -519,26 +517,27 @@ export const LandlordNotify = ({
                         {n.content}
                       </div>
                     </td>
-                    <td>{getTargetBadge(n)}</td>
-                    <td style={{ fontSize: '12.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }} title={formatDateTime(n.createdAt)}>
+                    <td style={{ padding: '8px 16px' }}>{getTargetBadge(n)}</td>
+                    <td style={{ padding: '8px 16px', fontSize: '13.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }} title={formatDateTime(n.createdAt)}>
                       {n.createdAt ? formatRelativeTime(n.createdAt) : 'Vừa xong'}
                     </td>
-                    <td>
+                    <td style={{ padding: '8px 16px' }}>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
                         {isRepair && (
                           <button
                             className="btn btn-sm"
                             style={{
-                              padding: '5px 10px',
-                              fontSize: '12px',
-                              fontWeight: 600,
+                              padding: '4px 10px',
+                              height: '32px',
+                              fontSize: '13px',
+                              fontWeight: 700,
                               background: '#f59e0b',
                               color: '#ffffff',
                               border: 'none',
                               borderRadius: '6px',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '5px',
+                              gap: '4px',
                               whiteSpace: 'nowrap',
                               flexShrink: 0,
                               cursor: 'pointer'
@@ -552,19 +551,19 @@ export const LandlordNotify = ({
                         )}
                         <button
                           className="btn btn-sm btn-secondary"
-                          style={{ padding: '5px 8px', borderRadius: '6px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ padding: '4px 8px', height: '32px', borderRadius: '6px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={() => setViewingNotif(n)}
                           title="Xem toàn văn thông báo"
                         >
-                          <Eye size={14} />
+                          <Eye size={15} />
                         </button>
                         <button
                           className="btn btn-sm btn-danger"
-                          style={{ padding: '5px 8px', borderRadius: '6px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ padding: '4px 8px', height: '32px', borderRadius: '6px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={() => handleDelete(n.id)}
                           title="Xóa thông báo này"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -576,13 +575,15 @@ export const LandlordNotify = ({
         </table>
 
         {/* Phân trang 7 thông báo 1 trang */}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalItems={filteredNotifications.length}
-          pageSize={pageSize}
-        />
+        <div style={{ padding: '8px 16px' }}>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredNotifications.length}
+            pageSize={pageSize}
+          />
+        </div>
       </div>
 
       {/* Modal Soạn & Phát Hành Thông Báo Mới (Khung rộng rãi, thoáng đẹp, chữ hiển thị đầy đủ không bị che) */}

@@ -250,20 +250,24 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
   };
 
   return (
-    <div>
-      <div className="page-header">
+    <div style={{ width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
+      <div className="page-header" style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h2 className="page-title"><UserCheck size={24} color="#6366f1" /> Quản Lý Người Thuê</h2>
-          <p className="page-subtitle">Thêm mới, cập nhật thông tin định danh, chuyển phòng và quản lý phương tiện gửi tại nhà trọ</p>
+          <h2 className="page-title" style={{ fontSize: '20px', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <UserCheck size={24} color="#6366f1" /> Quản Lý Người Thuê
+          </h2>
+          <p className="page-subtitle" style={{ fontSize: '12.5px', margin: '2px 0 0 0' }}>
+            Thêm mới, cập nhật thông tin định danh, chuyển phòng và quản lý phương tiện gửi tại nhà trọ
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={handleOpenAdd}>
+        <button className="btn btn-primary" onClick={handleOpenAdd} style={{ padding: '7px 18px', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}>
           <Plus size={18} /> Thêm Người Thuê Mới
         </button>
       </div>
 
       <div className="card-table-container">
-        <div className="table-toolbar">
-          <div className="search-input-group">
+        <div className="table-toolbar" style={{ padding: '10px 18px' }}>
+          <div className="search-input-group" style={{ padding: '6px 14px', minWidth: '280px' }}>
             <Search size={16} />
             <input
               type="text"
@@ -273,6 +277,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
+              style={{ fontSize: '13px' }}
             />
           </div>
         </div>
@@ -280,20 +285,20 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
         <table className="custom-table">
           <thead>
             <tr>
-              <th>Họ và Tên</th>
-              <th>Liên Hệ & Định Danh</th>
-              <th>Phòng & Khu Trọ</th>
-              <th>Mã Hợp Đồng</th>
-              <th>Ngày Chuyển Vào</th>
-              <th>Tiền Cọc</th>
-              <th>Chi Tiết CCCD</th>
-              <th>Thao Tác</th>
+              <th style={{ padding: '9px 16px', fontSize: '14px' }}>Họ và Tên</th>
+              <th style={{ padding: '9px 16px', fontSize: '14px' }}>Liên Hệ & Định Danh</th>
+              <th style={{ padding: '9px 16px', fontSize: '14px' }}>Phòng & Khu Trọ</th>
+              <th style={{ padding: '9px 16px', fontSize: '14px' }}>Mã Hợp Đồng</th>
+              <th style={{ padding: '9px 16px', fontSize: '14px' }}>Ngày Chuyển Vào</th>
+              <th style={{ padding: '9px 16px', fontSize: '14px' }}>Tiền Cọc</th>
+              <th style={{ padding: '9px 16px', fontSize: '14px' }}>Chi Tiết CCCD</th>
+              <th style={{ padding: '9px 16px', fontSize: '14px' }}>Thao Tác</th>
             </tr>
           </thead>
           <tbody>
             {paginatedTenants.length === 0 ? (
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '14.5px' }}>
                   Không tìm thấy khách thuê nào phù hợp.
                 </td>
               </tr>
@@ -323,8 +328,8 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
                 return (
                   <tr key={t.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <td style={{ padding: '7px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', border: '1.5px solid rgba(99,102,241,0.35)', background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#6366f1', flexShrink: 0 }}>
                           {t.avatarUrl ? (
                             <img src={getImageUrl(t.avatarUrl)} alt={t.fullName || t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -333,55 +338,56 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                           )}
                         </div>
                         <div>
-                          <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{t.fullName || t.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t.email}</div>
+                          <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '15px' }}>{t.fullName || t.name}</div>
+                          <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>{t.email}</div>
                         </div>
                       </div>
                     </td>
-                    <td>
-                      <div>{t.phone}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <td style={{ padding: '7px 16px' }}>
+                      <div style={{ fontSize: '14.5px', fontWeight: '600' }}>{t.phone}</div>
+                      <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
                         CCCD: <span style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}>{maskCCCD(t.cccd || t.CCCD)}</span>
                       </div>
                       {t.vehicleCount > 0 && (
-                        <div style={{ fontSize: '11px', color: '#10b981', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ fontSize: '12.5px', color: '#10b981', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <Bike size={12} /> {t.vehicleCount} xe {t.vehicleInfo ? `(${t.vehicleInfo})` : ''}
                         </div>
                       )}
                     </td>
-                    <td>
-                      <div style={{ fontWeight: '700', color: hasRoom ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                    <td style={{ padding: '7px 16px' }}>
+                      <div style={{ fontWeight: '700', color: hasRoom ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '15px' }}>
                         {hasRoom && roomNumber ? `Phòng ${roomNumber}` : isLiquidated ? '🔒 Đã trả phòng' : 'Chưa xếp phòng'}
                       </div>
-                      {hasRoom && zoneName && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🏢 {zoneName}</div>}
+                      {hasRoom && zoneName && <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>🏢 {zoneName}</div>}
                     </td>
-                    <td>
+                    <td style={{ padding: '7px 16px' }}>
                       {hasActiveContract && contractCode ? (
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '4px 8px', borderRadius: '6px', display: 'inline-block' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '3px 8px', borderRadius: '5px', display: 'inline-block' }}>
                           {contractCode}
                         </span>
                       ) : isLiquidated ? (
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#ef4444', background: 'rgba(239,68,68,0.12)', padding: '4px 8px', borderRadius: '6px', display: 'inline-block' }}>
+                        <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#ef4444', background: 'rgba(239,68,68,0.12)', padding: '3px 8px', borderRadius: '5px', display: 'inline-block' }}>
                           🔒 Đã thanh lý
                         </span>
                       ) : (
-                        <span style={{ fontSize: '11px', fontWeight: '600', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '4px 8px', borderRadius: '6px', display: 'inline-block' }}>
+                        <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '3px 8px', borderRadius: '5px', display: 'inline-block' }}>
                           ⚠️ Chưa có HĐ
                         </span>
                       )}
                     </td>
-                    <td>{formatDate(t.moveInDate)}</td>
-                    <td><strong style={{ color: '#34d399' }}>{formatVND(t.deposit)}</strong></td>
-                    <td>
-                      <button className="btn btn-sm btn-secondary" onClick={() => setViewingProfile(t)}>
+                    <td style={{ padding: '7px 16px', fontSize: '14.5px' }}>{formatDate(t.moveInDate)}</td>
+                    <td style={{ padding: '7px 16px', fontSize: '14.5px' }}><strong style={{ color: '#34d399' }}>{formatVND(t.deposit)}</strong></td>
+                    <td style={{ padding: '7px 16px' }}>
+                      <button className="btn btn-sm btn-secondary" onClick={() => setViewingProfile(t)} style={{ padding: '4px 10px', fontSize: '13px', height: '30px' }}>
                         <Eye size={14} /> Xem CCCD & Hồ sơ
                       </button>
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '6px' }}>
+                    <td style={{ padding: '7px 16px' }}>
+                      <div style={{ display: 'flex', gap: '5px' }}>
                         <button
                           className="btn btn-sm btn-secondary"
                           title="Đặt lại mật khẩu cho khách thuê"
+                          style={{ padding: '3px 8px', height: '30px' }}
                           onClick={() => {
                             setResetModalTenant(t);
                             setCustomNewPass('Tenant@123456');
@@ -389,10 +395,10 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                         >
                           <KeyRound size={14} color="#6366f1" />
                         </button>
-                        <button className="btn btn-sm btn-secondary" title="Sửa thông tin" onClick={() => handleOpenEdit(t)}>
+                        <button className="btn btn-sm btn-secondary" title="Sửa thông tin" style={{ padding: '3px 8px', height: '30px' }} onClick={() => handleOpenEdit(t)}>
                           <Edit size={14} />
                         </button>
-                        <button className="btn btn-sm btn-danger" title="Xóa" onClick={() => handleDelete(t.id)}>
+                        <button className="btn btn-sm btn-danger" title="Xóa" style={{ padding: '3px 8px', height: '30px' }} onClick={() => handleDelete(t.id)}>
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -404,13 +410,15 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
           </tbody>
         </table>
 
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalItems={filteredTenants.length}
-          pageSize={pageSize}
-        />
+        <div style={{ padding: '0 16px 10px' }}>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredTenants.length}
+            pageSize={pageSize}
+          />
+        </div>
       </div>
 
       {/* Profile Detail Modal */}
