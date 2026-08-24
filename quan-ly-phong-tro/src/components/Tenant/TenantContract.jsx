@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { FileText, Download, Clock, ShieldCheck, Printer, CheckCircle, AlertTriangle, Send, X } from 'lucide-react';
-import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
+import { formatVND, formatDate, exportToPDF, getContractStatusInfo, isContractExpired } from '../../utils/formatters';
 import { contractService } from '../../services';
 
 export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setContracts, onRefresh }) => {
   const activeContract = contracts.find(c => {
-    const s = (c.status || '').toLowerCase();
-    return s === 'active' || s === 'renewrequested' || s === 'renew_requested';
+    const info = getContractStatusInfo(c);
+    return info.isActive;
   });
   const myContract = activeContract || contracts[0] || null;
   const roomNum = myContract?.roomNumber || activeTenant?.roomNumber || '101';
@@ -18,13 +18,15 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
     notes: '',
   });
 
+  const statusInfo = getContractStatusInfo(myContract);
   const isRenewPending = myContract && !((myContract.status || '').toLowerCase() === 'liquidated') && (
     (myContract.status || '').toLowerCase() === 'renewrequested' ||
     (myContract.status || '').toLowerCase() === 'renew_requested' ||
     Boolean(myContract.requestedRenewMonths)
   );
 
-  const isLiquidated = myContract && (myContract.status || '').toLowerCase() === 'liquidated';
+  const isLiquidated = statusInfo.isLiquidated;
+  const isExpired = statusInfo.isExpired && !isRenewPending && !isLiquidated;
 
   const calculateNewEndDate = (currentEnd, months) => {
     try {
@@ -108,10 +110,11 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
               </button>
             ) : null}
             <button 
-              className={`btn ${isRenewPending ? 'btn-secondary' : 'btn-primary'}`} 
+              className={`btn ${isRenewPending ? 'btn-secondary' : isExpired ? 'btn-primary' : 'btn-primary'}`} 
               onClick={handleOpenRenewModal}
+              style={isExpired ? { background: '#ef4444', borderColor: '#ef4444', color: '#fff' } : undefined}
             >
-              <Clock size={18} /> {isRenewPending ? '✏️ Chỉnh Sửa Yêu Cầu Gia Hạn' : 'Đăng Ký Gia Hạn Hợp Đồng'}
+              <Clock size={18} /> {isRenewPending ? '✏️ Chỉnh Sửa Yêu Cầu Gia Hạn' : isExpired ? '⚠️ Đăng Ký Gia Hạn Hợp Đồng Ngay' : 'Đăng Ký Gia Hạn Hợp Đồng'}
             </button>
           </div>
         )}
@@ -133,6 +136,41 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
           <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
             <strong style={{ color: '#ef4444' }}>Hợp đồng đã thanh lý:</strong> Hợp đồng thuê nhà này đã hoàn tất thủ tục thanh lý và quyết toán tiền cọc. Dữ liệu hợp đồng được lưu trữ phục vụ mục đích tra cứu lịch sử của bạn.
           </div>
+        </div>
+      )}
+
+      {/* ⚠️ BANNER NẾU HỢP ĐỒNG ĐÃ HẾT HẠN */}
+      {!isLiquidated && isExpired && !isRenewPending && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.4)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <AlertTriangle size={24} color="#ef4444" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '15px', color: '#ef4444' }}>
+                Hợp Đồng Thuê Nhà Của Bạn Đã Hết Hạn ({formatDate(myContract?.endDate)})
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '4px', lineHeight: 1.5 }}>
+                Hợp đồng hết hạn vui lòng gia hạn hợp đồng để tiếp tục sử dụng các dịch vụ tiện ích và gửi yêu cầu sửa chữa thiết bị phòng trọ.
+              </div>
+            </div>
+          </div>
+          <button 
+            className="btn btn-primary" 
+            onClick={handleOpenRenewModal}
+            style={{ background: '#ef4444', borderColor: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Clock size={16} /> Gia Hạn Hợp Đồng Ngay
+          </button>
         </div>
       )}
 
@@ -175,17 +213,9 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
             <div>
               <h3 style={{ fontSize: '20px', color: 'var(--primary)' }}>{myContract.contractCode}</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
-                Trạng thái: {isLiquidated ? (
-                  <span className="status-pill liquidated" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: '#ef4444' }}>
-                    🔒 Đã thanh lý
-                  </span>
-                ) : isRenewPending ? (
-                  <span className="status-pill renew_requested" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: '#f59e0b' }}>
-                    ⏳ Chờ Chủ Trọ Phê Duyệt Gia Hạn
-                  </span>
-                ) : (
-                  <span className="status-pill active">Đang hiệu lực</span>
-                )}
+                Trạng thái: <span className={`status-pill ${statusInfo.className}`}>
+                  {statusInfo.label}
+                </span>
               </p>
             </div>
             <button className="btn btn-secondary" onClick={() => exportToPDF('tenant-contract-pdf', `${myContract.contractCode}.pdf`)}>

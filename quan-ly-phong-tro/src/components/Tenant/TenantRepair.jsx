@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
 import { Wrench, Plus, Upload, Trash2, Clock, CheckCircle, AlertTriangle, Image as ImageIcon, Eye } from 'lucide-react';
 import { maintenanceService } from '../../services';
+import { formatDate, getContractStatusInfo } from '../../utils/formatters';
 
-export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMaintenanceRequests, onRefresh }) => {
+export const TenantRepair = ({ activeTenant, contracts = [], setActiveTab, maintenanceRequests = [], setMaintenanceRequests, onRefresh }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [viewingImage, setViewingImage] = useState(null);
   const myRequests = Array.isArray(maintenanceRequests) ? maintenanceRequests : [];
+
+  const activeContract = contracts.find(c => {
+    const info = getContractStatusInfo(c);
+    return info.isActive;
+  });
+  const myContract = activeContract || contracts[0] || null;
+  const statusInfo = getContractStatusInfo(myContract);
+  const isRenewPending = statusInfo.isRenewPending;
+  const isLiquidated = statusInfo.isLiquidated || (!activeTenant?.roomNumber && !activeTenant?.roomId && !myContract);
+  const isExpired = (statusInfo.isExpired || (!myContract && !activeTenant?.roomNumber)) && !isRenewPending && !isLiquidated;
 
   const [formData, setFormData] = useState({
     issueType: 'Máy lạnh',
@@ -31,8 +42,26 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
     }
   };
 
+  const handleOpenCreateModal = () => {
+    if (isLiquidated) {
+      alert('Hợp đồng của bạn đã thanh lý. Không thể gửi yêu cầu sửa chữa.');
+      return;
+    }
+    if (isExpired) {
+      alert('Hợp đồng hết hạn vui lòng gia hạn hợp đồng');
+      if (setActiveTab) setActiveTab('tn_contract');
+      return;
+    }
+    setIsModalOpen(true);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
+    if (isExpired) {
+      alert('Hợp đồng hết hạn vui lòng gia hạn hợp đồng');
+      setIsModalOpen(false);
+      return;
+    }
     setSubmitting(true);
     try {
       const createFn = maintenanceService.createRequest || maintenanceService.create;
@@ -72,8 +101,6 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
     }
   };
 
-  const isLiquidated = !activeTenant?.roomNumber && !activeTenant?.roomId;
-
   return (
     <div>
       <div className="page-header">
@@ -82,8 +109,14 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
           <p className="page-subtitle">Gửi ảnh chụp sự cố máy lạnh, điện nước... cho chủ trọ để sắp xếp thợ sửa chữa</p>
         </div>
         {!isLiquidated && (
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} /> Tạo Báo Sửa Chữa Mới
+          <button 
+            className={`btn ${isExpired ? 'btn-secondary' : 'btn-primary'}`} 
+            onClick={handleOpenCreateModal}
+            title={isExpired ? 'Hợp đồng hết hạn vui lòng gia hạn hợp đồng' : 'Tạo Báo Sửa Chữa Mới'}
+            style={isExpired ? { opacity: 0.7, cursor: 'not-allowed', borderColor: 'rgba(239, 68, 68, 0.5)', color: '#ef4444' } : undefined}
+          >
+            {isExpired ? <AlertTriangle size={18} color="#ef4444" /> : <Plus size={18} />} 
+            {isExpired ? 'Hợp đồng hết hạn (Không thể báo sửa chữa)' : 'Tạo Báo Sửa Chữa Mới'}
           </button>
         )}
       </div>
@@ -107,6 +140,43 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
         </div>
       )}
 
+      {/* ⚠️ BANNER NẾU HỢP ĐỒNG ĐÃ HẾT HẠN */}
+      {!isLiquidated && isExpired && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.4)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <AlertTriangle size={24} color="#ef4444" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '15px', color: '#ef4444' }}>
+                Hợp đồng hết hạn vui lòng gia hạn hợp đồng
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
+                Hợp đồng thuê phòng của bạn đã hết hạn {myContract?.endDate ? `(vào ngày ${formatDate(myContract.endDate)})` : ''}. Bạn không thể gửi yêu cầu báo hỏng / sửa chữa thiết bị mới cho đến khi hợp đồng được gia hạn thành công.
+              </div>
+            </div>
+          </div>
+          {setActiveTab && (
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setActiveTab('tn_contract')}
+              style={{ background: '#ef4444', borderColor: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Clock size={16} /> Đi Đến Gia Hạn Hợp Đồng
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="card-table-container">
         <table className="custom-table">
           <thead>
@@ -126,7 +196,9 @@ export const TenantRepair = ({ activeTenant, maintenanceRequests = [], setMainte
                 <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
                   {isLiquidated 
                     ? 'Bạn không có lịch sử báo cáo sửa chữa nào.' 
-                    : 'Bạn chưa có báo cáo sửa chữa nào. Nhấn "+ Tạo Báo Sửa Chữa Mới" để gửi cho chủ trọ.'}
+                    : isExpired 
+                      ? '⚠️ Hợp đồng hết hạn vui lòng gia hạn hợp đồng để gửi yêu cầu sửa chữa mới.'
+                      : 'Bạn chưa có báo cáo sửa chữa nào. Nhấn "+ Tạo Báo Sửa Chữa Mới" để gửi cho chủ trọ.'}
                 </td>
               </tr>
             ) : (

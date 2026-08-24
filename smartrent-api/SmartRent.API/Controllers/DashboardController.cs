@@ -48,21 +48,31 @@ public class DashboardController(AppDbContext db) : ControllerBase
         }
         if (profile is null) return NotFound(new { message = "Không tìm thấy hồ sơ người thuê." });
 
-        var unpaidInvoices = await db.Invoices.CountAsync(i => (i.TenantProfileId == profile.Id || (profile.RoomId.HasValue && i.RoomId == profile.RoomId.Value)) && i.Status == InvoiceStatus.Unpaid);
-        var totalPaid = await db.Payments.Where(p => (p.Invoice.TenantProfileId == profile.Id || (profile.RoomId.HasValue && p.Invoice.RoomId == profile.RoomId.Value)) && p.Status == PaymentStatus.Completed).SumAsync(p => p.Amount);
-        var maintenanceCount = await db.MaintenanceRequests.CountAsync(m => m.TenantProfileId == profile.Id);
-        var activeContract = profile.Contracts.FirstOrDefault(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested);
+        var unpaidInvoices = await db.Invoices.CountAsync(i => (i.TenantProfileId == profile.Id || (i.TenantProfile != null && i.TenantProfile.UserId == CurrentUserId)) && i.Status == InvoiceStatus.Unpaid);
+        var totalPaid = await db.Payments.Where(p => (p.Invoice.TenantProfileId == profile.Id || (p.Invoice.TenantProfile != null && p.Invoice.TenantProfile.UserId == CurrentUserId)) && p.Status == PaymentStatus.Completed).SumAsync(p => p.Amount);
+        var maintenanceCount = await db.MaintenanceRequests.CountAsync(m => m.TenantProfileId == profile.Id || (m.TenantProfile != null && m.TenantProfile.UserId == CurrentUserId));
+        
+        var tenantContracts = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone)
+            .Where(c => c.TenantProfileId == profile.Id || (c.TenantProfile != null && c.TenantProfile.UserId == CurrentUserId))
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        var activeContract = tenantContracts.FirstOrDefault(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested);
+        var latestContract = tenantContracts.FirstOrDefault();
+
+        var room = activeContract?.Room ?? (latestContract != null && latestContract.Status != ContractStatus.Liquidated ? latestContract.Room : profile.Room);
 
         return Ok(new { 
-            roomNumber = profile.Room?.RoomNumber, 
-            zoneName = profile.Room?.Zone?.Name, 
-            rentAmount = profile.Room?.Price, 
-            deposit = profile.Deposit, 
-            moveInDate = profile.MoveInDate, 
+            roomNumber = room?.RoomNumber, 
+            zoneName = room?.Zone?.Name ?? profile.Room?.Zone?.Name, 
+            rentAmount = room?.Price ?? profile.Room?.Price, 
+            deposit = profile.Deposit > 0 ? profile.Deposit : (latestContract?.Deposit ?? 0), 
+            moveInDate = profile.MoveInDate ?? latestContract?.StartDate, 
             unpaidInvoices, 
             totalPaid, 
             maintenanceCount, 
-            contractEndDate = activeContract?.EndDate,
+            contractEndDate = activeContract?.EndDate ?? latestContract?.EndDate,
             vehicleCount = profile.VehicleCount,
             vehicleInfo = profile.VehicleInfo,
             cccd = profile.CCCD,

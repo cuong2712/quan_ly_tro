@@ -113,7 +113,16 @@ export default function TenantPage() {
       case 'tn_payment':
         return <TenantPayment activeTenant={activeTenant} invoices={invoices || []} payments={payments || []} setPayments={setPayments} onRefresh={refetchPayments} />;
       case 'tn_repairs':
-        return <TenantRepair activeTenant={activeTenant} maintenanceRequests={maintenanceRequests || []} setMaintenanceRequests={setMaintenanceRequests} onRefresh={refetchMaintenance} />;
+        return (
+          <TenantRepair 
+            activeTenant={activeTenant} 
+            contracts={contracts || []} 
+            setActiveTab={setActiveTab} 
+            maintenanceRequests={maintenanceRequests || []} 
+            setMaintenanceRequests={setMaintenanceRequests} 
+            onRefresh={refetchMaintenance} 
+          />
+        );
       case 'tn_notifications':
         return <TenantNotify notifications={notifications || []} setNotifications={setNotifications} />;
       default:

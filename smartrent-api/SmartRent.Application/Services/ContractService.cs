@@ -108,7 +108,7 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
             .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
-            .Where(c => c.TenantProfileId == profile.Id || c.TenantProfile.UserId == tenantUserId || (profile.RoomId.HasValue && c.RoomId == profile.RoomId.Value))
+            .Where(c => c.TenantProfileId == profile.Id || (c.TenantProfile != null && c.TenantProfile.UserId == tenantUserId))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
@@ -142,18 +142,18 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
 
             if (profile != null)
             {
-                query = query.Where(c => c.TenantProfileId == profile.Id || c.TenantProfile.UserId == currentUserId || (profile.RoomId.HasValue && c.RoomId == profile.RoomId.Value));
+                query = query.Where(c => c.TenantProfileId == profile.Id || (c.TenantProfile != null && c.TenantProfile.UserId == currentUserId));
             }
             else
             {
                 var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId);
                 if (user != null)
                 {
-                    query = query.Where(c => c.TenantProfile.UserId == currentUserId || (c.TenantProfile.User != null && c.TenantProfile.User.Email == user.Email));
+                    query = query.Where(c => (c.TenantProfile != null && c.TenantProfile.UserId == currentUserId) || (c.TenantProfile != null && c.TenantProfile.User != null && c.TenantProfile.User.Email == user.Email));
                 }
                 else
                 {
-                    query = query.Where(c => c.TenantProfile.UserId == currentUserId);
+                    query = query.Where(c => c.TenantProfile != null && c.TenantProfile.UserId == currentUserId);
                 }
             }
         }
@@ -380,7 +380,7 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
             .FirstOrDefaultAsync(c => c.Id == id && c.Room.Zone.LandlordId == landlordId) 
             ?? throw new KeyNotFoundException("Hợp đồng không tồn tại hoặc bạn không có quyền thao tác.");
 
-        c.Status = ContractStatus.Active;
+        c.Status = c.EndDate.Date < DateTime.UtcNow.Date ? ContractStatus.Expired : ContractStatus.Active;
         c.RequestedRenewMonths = null;
         c.RenewNotes = null;
         c.RenewRequestedAt = null;
@@ -420,11 +420,11 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
 
         if (profile != null)
         {
-            query = query.Where(c => c.TenantProfileId == profile.Id || c.TenantProfile.UserId == tenantUserId || (profile.RoomId.HasValue && c.RoomId == profile.RoomId.Value));
+            query = query.Where(c => c.TenantProfileId == profile.Id || (c.TenantProfile != null && c.TenantProfile.UserId == tenantUserId));
         }
         else
         {
-            query = query.Where(c => c.TenantProfile.UserId == tenantUserId);
+            query = query.Where(c => c.TenantProfile != null && c.TenantProfile.UserId == tenantUserId);
         }
 
         var c = await query.FirstOrDefaultAsync()
@@ -478,11 +478,11 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
 
         if (profile != null)
         {
-            query = query.Where(c => c.TenantProfileId == profile.Id || c.TenantProfile.UserId == tenantUserId || (profile.RoomId.HasValue && c.RoomId == profile.RoomId.Value));
+            query = query.Where(c => c.TenantProfileId == profile.Id || (c.TenantProfile != null && c.TenantProfile.UserId == tenantUserId));
         }
         else
         {
-            query = query.Where(c => c.TenantProfile.UserId == tenantUserId);
+            query = query.Where(c => c.TenantProfile != null && c.TenantProfile.UserId == tenantUserId);
         }
 
         var c = await query.FirstOrDefaultAsync()
@@ -495,7 +495,7 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
 
         if (c.Status == ContractStatus.RenewRequested)
         {
-            c.Status = ContractStatus.Active;
+            c.Status = c.EndDate.Date < DateTime.UtcNow.Date ? ContractStatus.Expired : ContractStatus.Active;
             c.RequestedRenewMonths = null;
             c.RenewNotes = null;
             c.RenewRequestedAt = null;
@@ -646,33 +646,42 @@ public class ContractService(AppDbContext db, NotificationService notificationSe
         return count;
     }
 
-    private static ContractDto MapContract(Contract c) => new(
-        c.Id,
-        c.ContractCode,
-        c.RoomId,
-        c.Room?.RoomNumber ?? "",
-        c.Room?.ZoneId ?? Guid.Empty,
-        c.Room?.Zone?.Name ?? "",
-        c.Room?.Zone?.Address ?? "",
-        c.Room?.Zone?.LandlordId ?? Guid.Empty,
-        c.Room?.Zone?.Landlord?.FullName ?? "",
-        c.Room?.Zone?.Landlord?.Phone ?? "",
-        c.Room?.Zone?.Landlord?.Email,
-        c.TenantProfileId,
-        c.TenantProfile?.User?.FullName ?? "",
-        c.TenantProfile?.User?.Phone ?? "",
-        c.TenantProfile?.CCCD,
-        c.StartDate,
-        c.EndDate,
-        c.RentAmount,
-        c.Deposit,
-        c.Status.ToString(),
-        c.PaymentTermDay,
-        c.Terms,
-        c.FileUrl,
-        c.CreatedAt,
-        c.RequestedRenewMonths,
-        c.RenewNotes,
-        c.RenewRequestedAt
-    );
+    private static ContractDto MapContract(Contract c)
+    {
+        var statusStr = c.Status.ToString();
+        if (c.Status == ContractStatus.Active && c.EndDate.Date < DateTime.UtcNow.Date)
+        {
+            statusStr = ContractStatus.Expired.ToString();
+        }
+
+        return new(
+            c.Id,
+            c.ContractCode,
+            c.RoomId,
+            c.Room?.RoomNumber ?? "",
+            c.Room?.ZoneId ?? Guid.Empty,
+            c.Room?.Zone?.Name ?? "",
+            c.Room?.Zone?.Address ?? "",
+            c.Room?.Zone?.LandlordId ?? Guid.Empty,
+            c.Room?.Zone?.Landlord?.FullName ?? "",
+            c.Room?.Zone?.Landlord?.Phone ?? "",
+            c.Room?.Zone?.Landlord?.Email,
+            c.TenantProfileId,
+            c.TenantProfile?.User?.FullName ?? "",
+            c.TenantProfile?.User?.Phone ?? "",
+            c.TenantProfile?.CCCD,
+            c.StartDate,
+            c.EndDate,
+            c.RentAmount,
+            c.Deposit,
+            statusStr,
+            c.PaymentTermDay,
+            c.Terms,
+            c.FileUrl,
+            c.CreatedAt,
+            c.RequestedRenewMonths,
+            c.RenewNotes,
+            c.RenewRequestedAt
+        );
+    }
 }

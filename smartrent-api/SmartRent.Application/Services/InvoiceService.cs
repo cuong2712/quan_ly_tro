@@ -66,7 +66,7 @@ public class InvoiceService(AppDbContext db, NotificationService notificationSer
             .Include(i => i.Room).ThenInclude(r => r.Zone)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
-            .Where(i => i.TenantProfileId == profile.Id || (profile.RoomId.HasValue && i.RoomId == profile.RoomId.Value))
+            .Where(i => i.TenantProfileId == profile.Id || (i.TenantProfile != null && i.TenantProfile.UserId == tenantUserId))
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync();
 
@@ -89,7 +89,7 @@ public class InvoiceService(AppDbContext db, NotificationService notificationSer
         }
         else if (role == "Tenant")
         {
-            query = query.Where(i => i.TenantProfile.UserId == currentUserId || (i.TenantProfile.RoomId.HasValue && i.RoomId == i.TenantProfile.RoomId.Value));
+            query = query.Where(i => (i.TenantProfile != null && i.TenantProfile.UserId == currentUserId) || i.TenantProfileId == currentUserId);
         }
 
         var i = await query.FirstOrDefaultAsync(i => i.Id == id);
@@ -307,11 +307,10 @@ public class InvoiceService(AppDbContext db, NotificationService notificationSer
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new KeyNotFoundException("Hóa đơn không tồn tại.");
 
-        if (inv.TenantProfile?.UserId != currentUserId && (inv.TenantProfile?.RoomId == null || inv.RoomId != inv.TenantProfile.RoomId.Value))
+        var myProfile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == currentUserId);
+        if (inv.TenantProfileId != (myProfile != null ? myProfile.Id : Guid.Empty) && inv.TenantProfile?.UserId != currentUserId)
         {
-            var myProfile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == currentUserId);
-            if (myProfile == null || myProfile.Id != inv.TenantProfileId)
-                throw new UnauthorizedAccessException("Bạn không có quyền báo cáo sai sót cho hóa đơn này.");
+            throw new UnauthorizedAccessException("Bạn không có quyền báo cáo sai sót cho hóa đơn này.");
         }
 
         var landlordId = inv.Room?.Zone?.LandlordId 
@@ -371,11 +370,10 @@ public class InvoiceService(AppDbContext db, NotificationService notificationSer
             .FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new KeyNotFoundException("Hóa đơn không tồn tại.");
 
-        if (inv.TenantProfile?.UserId != currentUserId && (inv.TenantProfile?.RoomId == null || inv.RoomId != inv.TenantProfile.RoomId.Value))
+        var myProfile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == currentUserId);
+        if (inv.TenantProfileId != (myProfile != null ? myProfile.Id : Guid.Empty) && inv.TenantProfile?.UserId != currentUserId)
         {
-            var myProfile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == currentUserId);
-            if (myProfile == null || myProfile.Id != inv.TenantProfileId)
-                throw new UnauthorizedAccessException("Bạn không có quyền thao tác với hóa đơn này.");
+            throw new UnauthorizedAccessException("Bạn không có quyền thao tác với hóa đơn này.");
         }
 
         inv.IsReported = false;

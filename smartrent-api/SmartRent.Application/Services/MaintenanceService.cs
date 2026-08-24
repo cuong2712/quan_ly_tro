@@ -74,6 +74,24 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
 
         if (profile == null) throw new KeyNotFoundException("Không tìm thấy hồ sơ người thuê.");
         
+        var today = DateTime.UtcNow.Date;
+        var currentContract = await db.Contracts
+            .Where(c => c.TenantProfileId == profile.Id || (c.TenantProfile != null && c.TenantProfile.UserId == tenantUserId))
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (currentContract == null || currentContract.Status == ContractStatus.Liquidated)
+        {
+            throw new InvalidOperationException("Hợp đồng phòng trọ của bạn đã kết thúc hoặc bạn chưa được gán phòng nên không thể gửi yêu cầu bảo trì mới.");
+        }
+
+        // Kiểm tra hợp đồng hết hạn
+        if (currentContract.Status == ContractStatus.Expired || 
+            (currentContract.Status != ContractStatus.RenewRequested && currentContract.EndDate.Date < today))
+        {
+            throw new InvalidOperationException("Hợp đồng hết hạn vui lòng gia hạn hợp đồng");
+        }
+
         Guid roomId = Guid.Empty;
         if (profile.RoomId.HasValue && profile.RoomId.Value != Guid.Empty)
         {
@@ -81,13 +99,9 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
         }
         else
         {
-            var activeContract = await db.Contracts.FirstOrDefaultAsync(c => c.TenantProfileId == profile.Id && c.Status == ContractStatus.Active);
-            if (activeContract != null)
-            {
-                roomId = activeContract.RoomId;
-                profile.RoomId = roomId;
-                await db.SaveChangesAsync();
-            }
+            roomId = currentContract.RoomId;
+            profile.RoomId = roomId;
+            await db.SaveChangesAsync();
         }
 
         if (roomId == Guid.Empty)

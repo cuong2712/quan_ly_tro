@@ -169,3 +169,83 @@ export const isValidCccd = (cccd) => {
   if (!cccd) return false;
   return /^0\d{11}$/.test(String(cccd).trim());
 };
+
+// ─── XỬ LÝ & ĐỊNH DẠNG TRẠNG THÁI HỢP ĐỒNG ──────────────────────
+export const getContractStatusInfo = (c) => {
+  if (!c) {
+    return { label: 'Chưa có hợp đồng', className: 'liquidated', type: 'none', isActive: false, isExpired: false, isLiquidated: false, isRenewPending: false };
+  }
+
+  const rawStatus = (c.status || '').toString().toLowerCase();
+
+  if (rawStatus === 'liquidated' || rawStatus === '4' || c.status === 4) {
+    return {
+      label: '🔒 Đã thanh lý',
+      className: 'liquidated',
+      type: 'liquidated',
+      isActive: false,
+      isLiquidated: true,
+      isExpired: false,
+      isRenewPending: false
+    };
+  }
+
+  if (rawStatus === 'renewrequested' || rawStatus === 'renew_requested' || rawStatus === '3' || c.status === 3 || Boolean(c.requestedRenewMonths)) {
+    return {
+      label: `⏳ Chờ gia hạn (+${c.requestedRenewMonths || 12}T)`,
+      className: 'renew_requested',
+      type: 'renew_requested',
+      isActive: true,
+      isRenewPending: true,
+      isExpired: false,
+      isLiquidated: false
+    };
+  }
+
+  if (rawStatus === 'expired' || rawStatus === '2' || c.status === 2) {
+    return {
+      label: '⏰ Đã hết hạn',
+      className: 'expired',
+      type: 'expired',
+      isActive: false,
+      isExpired: true,
+      isLiquidated: false,
+      isRenewPending: false
+    };
+  }
+
+  if (c.endDate) {
+    const endDateObj = parseVietnamDate(c.endDate) || new Date(c.endDate);
+    if (endDateObj && !isNaN(endDateObj.getTime())) {
+      endDateObj.setHours(23, 59, 59, 999);
+      if (endDateObj < new Date()) {
+        return {
+          label: '⏰ Đã hết hạn',
+          className: 'expired',
+          type: 'expired',
+          isActive: false,
+          isExpired: true,
+          isLiquidated: false,
+          isRenewPending: false
+        };
+      }
+    }
+  }
+
+  return {
+    label: 'Đang hiệu lực',
+    className: 'active',
+    type: 'active',
+    isActive: true,
+    isExpired: false,
+    isLiquidated: false,
+    isRenewPending: false
+  };
+};
+
+export const isContractExpired = (c) => {
+  if (!c) return false;
+  const info = getContractStatusInfo(c);
+  return info.isExpired;
+};
+

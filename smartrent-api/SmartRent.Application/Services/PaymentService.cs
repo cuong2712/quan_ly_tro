@@ -63,7 +63,7 @@ public class PaymentService(AppDbContext db, NotificationService notificationSer
         var payments = await db.Payments
             .AsNoTracking()
             .Include(p => p.Invoice).ThenInclude(i => i.Room)
-            .Where(p => p.Invoice.TenantProfileId == profile.Id || (profile.RoomId.HasValue && p.Invoice.RoomId == profile.RoomId.Value))
+            .Where(p => p.Invoice.TenantProfileId == profile.Id || (p.Invoice.TenantProfile != null && p.Invoice.TenantProfile.UserId == tenantUserId))
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
 
@@ -86,7 +86,7 @@ public class PaymentService(AppDbContext db, NotificationService notificationSer
         if (profile == null) throw new KeyNotFoundException("Không tìm thấy thông tin khách thuê.");
 
         var inv = await db.Invoices.Include(i => i.Room).ThenInclude(r => r.Zone)
-            .FirstOrDefaultAsync(i => i.Id == req.InvoiceId && (i.TenantProfileId == profile.Id || (profile.RoomId.HasValue && i.RoomId == profile.RoomId.Value)))
+            .FirstOrDefaultAsync(i => i.Id == req.InvoiceId && (i.TenantProfileId == profile.Id || (i.TenantProfile != null && i.TenantProfile.UserId == tenantUserId)))
             ?? throw new KeyNotFoundException("Hóa đơn không tồn tại hoặc không thuộc quyền thanh toán của bạn.");
 
         var method = Enum.Parse<PaymentMethod>(req.Method, ignoreCase: true);

@@ -1,18 +1,18 @@
 import React from 'react';
 import { Home, Receipt, FileText, Bell, CreditCard, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
-import { formatVND, formatDate } from '../../utils/formatters';
+import { formatVND, formatDate, getContractStatusInfo } from '../../utils/formatters';
 
 export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], notifications = [], setActiveTab, dashboard }) => {
   const currentInvoice = invoices.find(i => (i.status || '').toLowerCase() === 'unpaid') || invoices[0];
-  const myContract = contracts[0];
-  const hasActiveContract = contracts.some(c => {
-    const s = (c.status || '').toLowerCase();
-    return s === 'active' || s === 'renewrequested' || s === 'renew_requested';
+  const activeContract = contracts.find(c => {
+    const info = getContractStatusInfo(c);
+    return info.isActive;
   });
-  const isLiquidated = !hasActiveContract && (
-    contracts.some(c => (c.status || '').toLowerCase() === 'liquidated') || 
-    (!dashboard?.roomNumber && !activeTenant?.roomNumber)
-  );
+  const myContract = activeContract || contracts[0] || null;
+  const statusInfo = getContractStatusInfo(myContract);
+  const isRenewPending = statusInfo.isRenewPending;
+  const isLiquidated = statusInfo.isLiquidated || (!dashboard?.roomNumber && !activeTenant?.roomNumber && !myContract);
+  const isExpired = (statusInfo.isExpired || (!myContract && !activeTenant?.roomNumber)) && !isRenewPending && !isLiquidated;
 
   const roomNum = dashboard?.roomNumber || activeTenant?.roomNumber || (isLiquidated ? 'Đã trả phòng' : 'Chưa gán phòng');
   const zoneName = dashboard?.zoneName || activeTenant?.zoneName || '';
@@ -52,6 +52,41 @@ export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], n
         </div>
       )}
 
+      {/* ⚠️ BANNER THÔNG BÁO NẾU HỢP ĐỒNG ĐÃ HẾT HẠN */}
+      {!isLiquidated && isExpired && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.4)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.15)', padding: '10px', borderRadius: '50%', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#ef4444', margin: 0 }}>
+                Hợp đồng thuê phòng của bạn đã hết hạn {myContract?.endDate ? `(${formatDate(myContract.endDate)})` : ''}
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '13px', lineHeight: 1.5 }}>
+                Hợp đồng hết hạn vui lòng gia hạn hợp đồng để tiếp tục sử dụng các dịch vụ và báo sự cố sửa chữa.
+              </p>
+            </div>
+          </div>
+          {setActiveTab && (
+            <button className="btn btn-primary" onClick={() => setActiveTab('tn_contract')} style={{ background: '#ef4444', borderColor: '#ef4444', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={16} /> Gia Hạn Ngay
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Overview KPI Cards */}
       <div className="kpi-grid">
         <div className="kpi-card">
@@ -88,8 +123,16 @@ export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], n
           <div className="kpi-icon cyan"><FileText /></div>
           <div className="kpi-info">
             <h3>Thời Hạn Hợp Đồng</h3>
-            <div className="value" style={{ fontSize: '15px', color: isLiquidated ? '#ef4444' : undefined }}>
-              {isLiquidated ? '🔒 Đã thanh lý' : dashboard?.contractEndDate ? formatDate(dashboard.contractEndDate) : (myContract?.endDate ? formatDate(myContract.endDate) : 'Còn hiệu lực')}
+            <div className="value" style={{ fontSize: (isLiquidated || isExpired) ? '15px' : undefined, color: (isLiquidated || isExpired) ? '#ef4444' : undefined, fontWeight: isExpired ? 700 : undefined }}>
+              {isLiquidated 
+                ? '🔒 Đã thanh lý' 
+                : isExpired 
+                  ? `⏰ Đã hết hạn (${formatDate(myContract?.endDate || dashboard?.contractEndDate)})` 
+                  : isRenewPending 
+                    ? '⏳ Chờ gia hạn' 
+                    : dashboard?.contractEndDate 
+                      ? formatDate(dashboard.contractEndDate) 
+                      : (myContract?.endDate ? formatDate(myContract.endDate) : 'Còn hiệu lực')}
             </div>
           </div>
         </div>
