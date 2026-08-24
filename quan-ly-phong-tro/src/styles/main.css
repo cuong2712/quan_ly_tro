@@ -892,7 +892,9 @@ body.light-mode .custom-table th {
   width: 100%;
   max-width: 650px;
   max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   animation: modalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -908,6 +910,7 @@ body.light-mode .custom-table th {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .modal-title {
@@ -917,7 +920,10 @@ body.light-mode .custom-table th {
 }
 
 .modal-body {
-  padding: 28px;
+  padding: 24px 28px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .modal-footer {
@@ -927,6 +933,7 @@ body.light-mode .custom-table th {
   align-items: center;
   justify-content: flex-end;
   gap: 14px;
+  flex-shrink: 0;
 }
 
 /* Form Controls */

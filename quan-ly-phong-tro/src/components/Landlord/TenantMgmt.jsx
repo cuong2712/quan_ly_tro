@@ -174,6 +174,20 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       }
     }
 
+    // Kiểm tra sức chứa tối đa của phòng
+    const targetRoom = rooms.find(r => r.id === formData.roomId);
+    if (targetRoom) {
+      const roomTenants = tenants.filter(t => (t.roomId || t.RoomId) === targetRoom.id);
+      const otherTenantsCount = editingTenant
+        ? roomTenants.filter(t => t.id !== editingTenant.id).length
+        : roomTenants.length;
+      const max = targetRoom.maxTenants || targetRoom.MaxTenants || 2;
+      if (otherTenantsCount >= max) {
+        alert(`❌ Phòng ${targetRoom.roomNumber} đã đạt sức chứa tối đa (${otherTenantsCount}/${max} người). Vui lòng chọn phòng khác còn chỗ!`);
+        return;
+      }
+    }
+
     setSaving(true);
     let createdOrUpdated = null;
 
@@ -483,15 +497,15 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">{editingTenant ? 'Chỉnh Sửa Hồ Sơ Khách Thuê' : 'Thêm Khách Thuê Mới'}</h3>
               <button className="btn btn-sm btn-secondary" onClick={() => setIsModalOpen(false)}>✕</button>
             </div>
 
-            <form onSubmit={handleSave}>
-              <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <div className="modal-body">
                 {/* 1. Avatar Uploader */}
                 <div style={{ marginBottom: '18px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
                   <label className="form-label" style={{ marginBottom: '8px' }}>Ảnh Đại Diện Khách Thuê</label>
@@ -634,11 +648,21 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                       <option value="">-- Chọn phòng --</option>
                       {rooms
                         .filter(r => !selectedZoneId || r.zoneId === selectedZoneId || r.ZoneId === selectedZoneId)
-                        .map(r => (
-                          <option key={r.id} value={r.id}>
-                            Phòng {r.roomNumber} ({r.zoneName || 'Khu trọ'}) - {formatVND(r.price)}
-                          </option>
-                        ))}
+                        .map(r => {
+                          const roomTenants = tenants.filter(t => (t.roomId || t.RoomId) === r.id);
+                          const isCurrentRoom = editingTenant && (editingTenant.roomId || editingTenant.RoomId) === r.id;
+                          const otherTenantsCount = isCurrentRoom
+                            ? roomTenants.filter(t => t.id !== editingTenant.id).length
+                            : roomTenants.length;
+                          const max = r.maxTenants || r.MaxTenants || 2;
+                          const isFull = otherTenantsCount >= max;
+
+                          return (
+                            <option key={r.id} value={r.id} disabled={isFull}>
+                              Phòng {r.roomNumber} ({r.zoneName || 'Khu trọ'}) - {formatVND(r.price)} {isFull ? `[🚫 ĐÃ ĐẦY ${otherTenantsCount}/${max} người]` : `[Còn chỗ ${otherTenantsCount}/${max}]`}
+                            </option>
+                          );
+                        })}
                     </select>
                   </div>
                 </div>

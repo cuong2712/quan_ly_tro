@@ -119,6 +119,13 @@ public class TenantService(AppDbContext db)
             var newRoom = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId.Value && r.Zone.LandlordId == landlordId)
                 ?? throw new KeyNotFoundException("Phòng chuyển đến không tồn tại hoặc không thuộc quyền quản lý của bạn.");
 
+            if (newRoom.Status == RoomStatus.Locked || newRoom.Status == RoomStatus.Maintenance)
+                throw new InvalidOperationException($"Phòng {newRoom.RoomNumber} đang ở trạng thái bảo trì hoặc khóa, không thể chuyển người vào.");
+
+            var currentTenantsInNewRoom = await db.TenantProfiles.CountAsync(other => other.RoomId == newRoom.Id && other.Id != t.Id);
+            if (currentTenantsInNewRoom >= newRoom.MaxTenants)
+                throw new InvalidOperationException($"Phòng {newRoom.RoomNumber} đã đạt sức chứa tối đa ({currentTenantsInNewRoom}/{newRoom.MaxTenants} người). Vui lòng chọn phòng khác.");
+
             if (t.RoomId.HasValue)
             {
                 var oldRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Id == t.RoomId.Value);
