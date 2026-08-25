@@ -4,7 +4,7 @@ import { formatVND, formatDate } from '../../utils/formatters';
 import { utilityService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
-export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], setInvoices, utilityLogs = [], setUtilityLogs, utilityRates = [], setUtilityRates, onRefresh }) => {
+export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], utilityLogs = [], setUtilityLogs, utilityRates = [], onRefresh }) => {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);

@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { 
-  Receipt, Printer, Search, Eye, AlertTriangle, Send, X, 
-  CheckCircle, HelpCircle, Upload, Image as ImageIcon, 
-  Clock, Check, RefreshCw, MessageSquare, AlertCircle, Trash2
+  Receipt, Printer, Search, Eye, AlertTriangle, Send, 
+  CheckCircle, Upload, 
+  Clock, RefreshCw, MessageSquare, AlertCircle, Trash2
 } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { invoiceService, fileService } from '../../services';

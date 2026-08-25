@@ -52,7 +52,6 @@ export const AvatarUploader = ({
   onChange,
   size = 96,
   disabled = false,
-  fallbackName = 'U',
   compact = false
 }) => {
   const [uploading, setUploading] = useState(false);

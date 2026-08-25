@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserCheck, Plus, Search, Edit, Trash2, ArrowRightLeft, FileText, Upload, Eye, Shield, Bike, Image as ImageIcon, KeyRound } from 'lucide-react';
+import { UserCheck, Plus, Search, Edit, Trash2, Eye, Bike, Image as ImageIcon, KeyRound } from 'lucide-react';
 import { formatVND, formatDate, getImageUrl, sanitizeCccd, isValidCccd } from '../../utils/formatters';
 import { tenantService } from '../../services';
 import { Pagination } from '../Common/Pagination';
@@ -13,7 +13,7 @@ const maskCCCD = (cccd) => {
   return clean.slice(0, 4) + '******' + clean.slice(-3);
 };
 
-export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], contracts = [], setContracts, onRefresh }) => {
+export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], contracts = [], onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState(null);

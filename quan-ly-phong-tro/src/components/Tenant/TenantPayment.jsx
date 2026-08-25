@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, QrCode, Upload, CheckCircle, Clock, Image as ImageIcon, Eye, AlertTriangle } from 'lucide-react';
+import { CreditCard, Upload, CheckCircle, Clock, Image as ImageIcon, Eye } from 'lucide-react';
 import { formatVND, formatDate, getVietQRUrl } from '../../utils/formatters';
 import { paymentService } from '../../services';
 

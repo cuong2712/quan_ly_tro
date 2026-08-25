@@ -305,6 +305,11 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     loadZoneServices();
   }, [load, loadZoneServices]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter]);
+
   if (!zone || !zone.id) {
     return (
       <div style={{ padding: 20, textAlign: 'center' }}>
@@ -313,11 +318,6 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
       </div>
     );
   }
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 8;
-
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter]);
 
   const roomList = Array.isArray(rooms) ? rooms : [];
   const serviceList = Array.isArray(zoneServices) ? zoneServices : [];

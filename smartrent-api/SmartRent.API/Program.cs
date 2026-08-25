@@ -8,7 +8,6 @@ using SmartRent.API.Services;
 using SmartRent.Application.Services;
 using SmartRent.Core.Interfaces;
 using SmartRent.Infrastructure.Data;
-using SmartRent.Infrastructure.Repositories;
 using System.Text;
 
 // Fix cho Npgsql: cho phép DateTime với Kind=Unspecified (treat as UTC)
@@ -208,20 +207,6 @@ builder.Services.AddScoped<IRealtimeNotifier, RealtimeNotifier>();
 
 // Auth Interface
 builder.Services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
-
-// Repositories
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IZoneRepository, ZoneRepository>();
-builder.Services.AddScoped<IRoomRepository, RoomRepository>();
-builder.Services.AddScoped<ITenantRepository, TenantRepository>();
-builder.Services.AddScoped<IContractRepository, ContractRepository>();
-builder.Services.AddScoped<IUtilityRepository, UtilityRepository>();
-builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
-builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
-builder.Services.AddScoped<IMaintenanceRepository, MaintenanceRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<IComplaintRepository, ComplaintRepository>();
 
 // ===== Build App =====
 var app = builder.Build();
