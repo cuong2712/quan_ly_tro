@@ -41,10 +41,15 @@ public record RoomDetailDto(
     int Floor, decimal Price, decimal Area, int MaxTenants,
     string Status, decimal ElecMeter, decimal WaterMeter,
     string? Description, string? Amenities, DateTime CreatedAt,
-    List<TenantDto> Tenants,
+    List<TenantDto> Tenants,           // Toàn bộ thành viên trong phòng (Primary + Occupants)
     List<InvoiceDto> RecentInvoices,
     List<UtilityLogDto> UtilityLogs,
     ContractDto? ActiveContract,
     List<RoomEquipmentDto> Equipments,
-    decimal ServiceFee = 0
+    decimal ServiceFee = 0,
+    TenantDto? PrimaryTenant = null,   // Người đứng tên hợp đồng chính
+    List<TenantDto>? Occupants = null  // Danh sách thành viên ở ghép (không đứng tên HĐ)
 );
+
+// Yêu cầu thêm thành viên ở ghép vào phòng (không tạo hợp đồng mới)
+public record AddOccupantRequest(Guid TenantProfileId);

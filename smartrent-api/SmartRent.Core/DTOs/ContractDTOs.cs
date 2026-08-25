@@ -56,3 +56,12 @@ public record ContractSettlementDto(
     string? SettlementNotes,
     DateTime SettleDate
 );
+
+// Yêu cầu chuyển giao quyền đại diện hợp đồng sang thành viên ở ghép khác trong phòng
+// RemoveOldTenantFromRoom = true  -> gỡ người cũ ra khỏi phòng hoàn toàn
+// RemoveOldTenantFromRoom = false -> người cũ ở lại làm thành viên ở ghép (Occupant)
+public record TransferRepresentativeRequest(
+    Guid NewTenantProfileId,
+    bool RemoveOldTenantFromRoom = true,
+    string? Note = null
+);

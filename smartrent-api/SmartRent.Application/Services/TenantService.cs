@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SmartRent.Application.Common.Mappings;
 using SmartRent.Core.DTOs;
 using SmartRent.Core.Entities;
 using SmartRent.Core.Enums;
@@ -27,11 +28,11 @@ public class TenantService(AppDbContext db)
                 .Skip((p - 1) * ps)
                 .Take(ps)
                 .ToListAsync();
-            var dtos = items.Select(MapTenant);
+            var dtos = items.Select(t => t.ToTenantDto());
             return PagedResult<TenantDto>.Create(dtos, totalItems, p, ps);
         }
         var tenants = await query.OrderByDescending(t => t.MoveInDate).ToListAsync();
-        return tenants.Select(MapTenant);
+        return tenants.Select(t => t.ToTenantDto());
     }
 
     // Lấy thông tin chi tiết người thuê theo ID hồ sơ (TenantProfileId), bảo đảm thuộc quyền quản lý của Chủ trọ.
@@ -43,7 +44,7 @@ public class TenantService(AppDbContext db)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .Include(t => t.Contracts)
             .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)));
-        return t is null ? null : MapTenant(t);
+        return t is null ? null : t.ToTenantDto();
     }
 
     // Lấy thông tin hồ sơ người thuê theo ID tài khoản đăng nhập (UserId).
@@ -55,7 +56,7 @@ public class TenantService(AppDbContext db)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .Include(t => t.Contracts)
             .FirstOrDefaultAsync(t => t.UserId == userId);
-        return t is null ? null : MapTenant(t);
+        return t is null ? null : t.ToTenantDto();
     }
 
     // Tạo mới một tài khoản và hồ sơ Khách thuê (gán phòng, kiểm tra sức chứa tối đa của phòng).
@@ -96,7 +97,7 @@ public class TenantService(AppDbContext db)
         room.Status = RoomStatus.Occupied;
         await db.SaveChangesAsync();
         profile.User = user; profile.Room = room;
-        return MapTenant(profile);
+        return profile.ToTenantDto();
     }
 
     // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới, thông tin xe, avatar).
@@ -140,7 +141,7 @@ public class TenantService(AppDbContext db)
         }
 
         await db.SaveChangesAsync();
-        return MapTenant(t);
+        return t.ToTenantDto();
     }
 
     // Xóa hồ sơ khách thuê và xóa liên quan (hợp đồng, hóa đơn, sự cố, giải phóng phòng nếu trống).
@@ -150,7 +151,6 @@ public class TenantService(AppDbContext db)
             .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)));
         if (t is null) return false;
 
-        // 1. Release room status if no remaining tenants
         if (t.RoomId.HasValue)
         {
             var otherTenantsCount = await db.TenantProfiles.CountAsync(other => other.RoomId == t.RoomId.Value && other.Id != t.Id);
@@ -160,14 +160,12 @@ public class TenantService(AppDbContext db)
             }
         }
 
-        // 2. Cascade delete all contracts belonging to this tenant profile
         var tenantContracts = await db.Contracts.Where(c => c.TenantProfileId == id).ToListAsync();
         if (tenantContracts.Any())
         {
             db.Contracts.RemoveRange(tenantContracts);
         }
 
-        // 3. Cascade delete invoices & maintenance requests for this tenant
         var tenantInvoices = await db.Invoices.Where(i => i.TenantProfileId == id).ToListAsync();
         if (tenantInvoices.Any())
         {
@@ -180,7 +178,6 @@ public class TenantService(AppDbContext db)
             db.MaintenanceRequests.RemoveRange(tenantMaintenance);
         }
 
-        // 4. Remove TenantProfile & User account
         var user = await db.Users.FindAsync(t.UserId);
         db.TenantProfiles.Remove(t);
         if (user != null)
@@ -208,26 +205,6 @@ public class TenantService(AppDbContext db)
         await db.SaveChangesAsync();
         return true;
     }
-
-    private static TenantDto MapTenant(TenantProfile t) => new(
-        t.Id,
-        t.UserId,
-        t.User?.FullName ?? "",
-        t.User?.Email ?? "",
-        t.User?.Phone ?? "",
-        t.User?.AvatarUrl,
-        t.CCCD,
-        t.Hometown,
-        t.MoveInDate,
-        t.Deposit,
-        t.RoomId,
-        t.Room?.RoomNumber,
-        t.Room?.Zone?.Name,
-        t.CccdFrontUrl,
-        t.CccdBackUrl,
-        t.Contracts.Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested).OrderByDescending(c => c.CreatedAt).FirstOrDefault()?.ContractCode,
-        t.VehicleCount,
-        t.VehicleInfo
-    );
 }
+
 

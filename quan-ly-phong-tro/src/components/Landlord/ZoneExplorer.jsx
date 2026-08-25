@@ -4,7 +4,8 @@ import {
   ArrowLeft, Zap, Droplets, FileText, CreditCard, Wrench,
   Phone, Mail, Calendar, DollarSign, User, MapPin, Search,
   AlertCircle, CheckCircle, Clock, RefreshCw, MoreVertical, Shield, Settings,
-  LayoutGrid, Gauge, Download, FilePlus, Edit3, Maximize, Activity, Sparkles, StickyNote, Box, Wind, Flame, Sun, Tv, Car, Camera
+  LayoutGrid, Gauge, Download, FilePlus, Edit3, Maximize, Activity, Sparkles, StickyNote, Box, Wind, Flame, Sun, Tv, Car, Camera,
+  UserX, UserCheck, Info, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import {
   zoneService, roomService, tenantService,
@@ -830,6 +831,19 @@ const RoomDetail = ({ room, zone, onBack }) => {
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [maintForm, setMaintForm] = useState({ title: '', description: '', priority: 'Medium' });
 
+  // Modal Thêm thành viên ở ghép (Occupant)
+  const [showAddOccupantModal, setShowAddOccupantModal] = useState(false);
+  const [allTenants, setAllTenants] = useState([]);
+  const [occupantSearchText, setOccupantSearchText] = useState('');
+  const [addingOccupant, setAddingOccupant] = useState(false);
+
+  // Modal Chuyển quyền đại diện hợp đồng
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferForm, setTransferForm] = useState({ newTenantProfileId: '', removeOldTenant: true, note: '' });
+  const [transferring, setTransferring] = useState(false);
+
+  const [removingOccupant, setRemovingOccupant] = useState(null); // id đang xử lý
+
   const handleOpenInvoiceModal = () => {
     const now = new Date();
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -1067,7 +1081,10 @@ const RoomDetail = ({ room, zone, onBack }) => {
   const tenants = Array.isArray(rawTenants)
     ? [...rawTenants].sort((a, b) => new Date(a.moveInDate || a.createdAt || 0) - new Date(b.moveInDate || b.createdAt || 0))
     : [];
-  const mainTenant = tenants[0];
+  // Ưu tiên dùng primaryTenant từ API (người đứng tên HĐ), fallback về tenants[0]
+  const primaryTenant = roomDetail?.primaryTenant || tenants.find(t => t.id === roomDetail?.activeContract?.tenantProfileId) || tenants[0];
+  const occupants = roomDetail?.occupants || tenants.filter(t => t.id !== primaryTenant?.id);
+  const mainTenant = primaryTenant;
   const activeContract = roomDetail?.activeContract;
   const recentInvoices = roomDetail?.recentInvoices || [];
   const currentElec = roomDetail?.elecMeter ?? room.elecMeter;
@@ -1381,11 +1398,53 @@ const RoomDetail = ({ room, zone, onBack }) => {
       {/* ----------------- TAB 2: KHÁCH THUÊ & HỢP ĐỒNG ----------------- */}
       {activeTab === 'tenant' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: 24 }}>
-          {/* Card Khách Thuê */}
+
+          {/* ── Panel: Quản Lý Thành Viên Phòng ── */}
           <div className="panel">
-            <div className="panel-header">
-              <h3 className="panel-title"><Users size={18} color="#6366f1" /> Danh Sách Khách Thuê ({tenants.length} người)</h3>
-              <span className="status-pill active">Max {room.maxTenants} người</span>
+            <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Users size={18} color="#6366f1" /> Thành Viên Phòng
+                </h3>
+                <span className={`status-pill ${tenants.length >= (roomDetail?.maxTenants || room.maxTenants) ? 'pending' : 'active'}`} style={{ fontSize: '12px', padding: '3px 10px' }}>
+                  {tenants.length}/{roomDetail?.maxTenants || room.maxTenants} người
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {activeContract && occupants.length > 0 && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    title="Chuyển giao quyền đứng tên hợp đồng cho thành viên ở ghép"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700,
+                      borderColor: 'rgba(99, 102, 241, 0.4)', color: '#818cf8',
+                      background: 'rgba(99, 102, 241, 0.08)', padding: '6px 12px', borderRadius: 8, fontSize: 12.5
+                    }}
+                    onClick={() => {
+                      setTransferForm({ newTenantProfileId: occupants[0]?.id || '', removeOldTenant: true, note: '' });
+                      setShowTransferModal(true);
+                    }}
+                  >
+                    <RefreshCw size={13} /> Chuyển đại diện
+                  </button>
+                )}
+                <button
+                  className="btn btn-primary btn-sm"
+                  title="Thêm thành viên ở ghép (không tạo hợp đồng mới)"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: 12.5 }}
+                  onClick={async () => {
+                    try {
+                      const all = await tenantService.getTenants();
+                      setAllTenants(Array.isArray(all) ? all : (all?.data || []));
+                    } catch { setAllTenants([]); }
+                    setOccupantSearchText('');
+                    setShowAddOccupantModal(true);
+                  }}
+                >
+                  <Plus size={15} /> Thêm thành viên
+                </button>
+              </div>
             </div>
 
             {tenants.length === 0 ? (
@@ -1394,42 +1453,170 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 <p style={{ margin: 0, fontSize: 14 }}>Phòng hiện tại đang trống, chưa có khách thuê.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {tenants.map((t, idx) => (
-                  <div key={t.id || idx} style={{ padding: '18px', background: 'rgba(15,23,42,0.8)', borderRadius: 14, border: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 14 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, #10b981, #6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 18, flexShrink: 0 }}>
-                        {t.fullName?.charAt(0) || 'U'}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+                {/* ── 👑 Primary Tenant Card (Người Đứng Tên Hợp Đồng) ── */}
+                {primaryTenant && (
+                  <div style={{
+                    padding: '20px',
+                    background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                    borderRadius: 14,
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                  }}>
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 16 }}>
+                      <div style={{
+                        width: 50, height: 50, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #10b981, #047857)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontWeight: 800, fontSize: 20, flexShrink: 0,
+                        boxShadow: '0 0 15px rgba(16, 185, 129, 0.4)'
+                      }}>
+                        {primaryTenant.fullName?.charAt(0) || 'P'}
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {t.fullName}
-                          {idx === 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(16,185,129,0.3)' }}>Khách đại diện</span>}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 800, fontSize: 16.5, color: 'var(--text-primary)' }}>
+                            {primaryTenant.fullName}
+                          </span>
+                          <span style={{
+                            fontSize: 11.5, fontWeight: 700, color: '#10b981',
+                            background: 'rgba(16,185,129,0.15)', padding: '3px 10px',
+                            borderRadius: 6, border: '1px solid rgba(16,185,129,0.35)',
+                            display: 'inline-flex', alignItems: 'center', gap: 4
+                          }}>
+                            👑 Người đại diện HĐ
+                          </span>
                         </div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{t.email || 'Chưa cập nhật email'}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>
+                          {primaryTenant.email || 'Chưa cập nhật email'}
+                        </div>
                       </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                      <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Số Điện Thoại</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#10b981', marginTop: 2 }}><Phone size={12} style={{ display: 'inline', marginRight: 4 }} />{t.phone}</div>
+                      <div style={{ padding: '10px 12px', background: 'var(--bg-dark)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Phone size={12} color="#10b981" /> Số Điện Thoại
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#10b981', marginTop: 3 }}>{primaryTenant.phone}</div>
                       </div>
-                      <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Số CCCD</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{t.cccd}</div>
+                      <div style={{ padding: '10px 12px', background: 'var(--bg-dark)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <ShieldCheck size={12} color="#6366f1" /> Số CCCD / CMT
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 3 }}>{primaryTenant.cccd || '---'}</div>
                       </div>
-                      <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Quê Quán</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{t.hometown || 'Chưa cập nhật'}</div>
+                      <div style={{ padding: '10px 12px', background: 'var(--bg-dark)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MapPin size={12} color="#f59e0b" /> Quê Quán
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 3 }}>{primaryTenant.hometown || 'Chưa cập nhật'}</div>
                       </div>
-                      <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Ngày Chuyển Vào</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{t.moveInDate ? new Date(t.moveInDate).toLocaleDateString('vi-VN') : '-'}</div>
+                      <div style={{ padding: '10px 12px', background: 'var(--bg-dark)', borderRadius: 8, border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Calendar size={12} color="#3b82f6" /> Ngày Chuyển Vào
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 3 }}>
+                          {primaryTenant.moveInDate ? new Date(primaryTenant.moveInDate).toLocaleDateString('vi-VN') : '-'}
+                        </div>
                       </div>
                     </div>
+
+                    <div style={{
+                      marginTop: 14, padding: '10px 12px',
+                      background: 'rgba(16, 185, 129, 0.05)',
+                      borderRadius: 8, border: '1px dashed rgba(16, 185, 129, 0.25)',
+                      display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)'
+                    }}>
+                      <Info size={14} color="#10b981" style={{ flexShrink: 0 }} />
+                      <span>Người đại diện đứng tên hợp đồng chính và nhận hóa đơn tiền nhà hàng tháng.</span>
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {/* ── 👥 Thành Viên Ở Ghép (Occupants) ── */}
+                {occupants.length > 0 && (
+                  <div>
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      marginBottom: 10, paddingBottom: 6, borderBottom: '1px solid var(--border-color)'
+                    }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        👥 Thành viên ở ghép ({occupants.length} người)
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        Không đứng tên hợp đồng
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {occupants.map((t) => (
+                        <div
+                          key={t.id}
+                          style={{
+                            padding: '14px 18px', background: 'var(--bg-dark)',
+                            borderRadius: 12, border: '1px solid var(--border-color)',
+                            display: 'flex', gap: 12, alignItems: 'center',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <div style={{
+                            width: 42, height: 42, borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #6366f1, #818cf8)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontWeight: 800, fontSize: 16, flexShrink: 0
+                          }}>
+                            {t.fullName?.charAt(0) || 'O'}
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              {t.fullName}
+                              <span style={{
+                                fontSize: 10.5, fontWeight: 600, color: '#818cf8',
+                                background: 'rgba(99,102,241,0.12)', padding: '2px 8px',
+                                borderRadius: 6, border: '1px solid rgba(99,102,241,0.25)'
+                              }}>
+                                Ở ghép
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', gap: 12, marginTop: 3, flexWrap: 'wrap' }}>
+                              <span><Phone size={11} style={{ display: 'inline', marginRight: 4 }} />{t.phone || 'Chưa có SĐT'}</span>
+                              {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 4 }} />{t.cccd}</span>}
+                              <span><Calendar size={11} style={{ display: 'inline', marginRight: 4 }} />Vào: {t.moveInDate ? new Date(t.moveInDate).toLocaleDateString('vi-VN') : '-'}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            className="btn btn-sm btn-danger"
+                            title="Gỡ thành viên khỏi phòng"
+                            disabled={removingOccupant === t.id}
+                            style={{
+                              flexShrink: 0, width: 34, height: 34, padding: 0,
+                              borderRadius: 8, display: 'inline-flex', alignItems: 'center',
+                              justifyContent: 'center', opacity: removingOccupant === t.id ? 0.5 : 1
+                            }}
+                            onClick={async () => {
+                              if (!confirm(`Bạn có chắc chắn muốn gỡ "${t.fullName}" khỏi phòng này?`)) return;
+                              setRemovingOccupant(t.id);
+                              try {
+                                await roomService.removeOccupant(room.id, t.id);
+                                showToast(`✅ Đã gỡ ${t.fullName} khỏi phòng.`);
+                                await loadDetail();
+                              } catch (err) {
+                                alert(err.response?.data?.message || err.message);
+                              } finally { setRemovingOccupant(null); }
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
             )}
           </div>
@@ -1482,6 +1669,636 @@ const RoomDetail = ({ room, zone, onBack }) => {
           </div>
         </div>
       )}
+
+      {/* ── MODAL: THÊM THÀNH VIÊN Ở GHÉP ── */}
+      {showAddOccupantModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setShowAddOccupantModal(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, padding: '20px'
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 580, width: '100%', background: 'var(--bg-card)',
+              borderRadius: '16px', border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto'
+            }}
+          >
+            <div className="modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                <Users size={20} color="#6366f1" /> Thêm Thành Viên Ở Ghép - Phòng P.{roomDetail?.roomNumber || room.roomNumber}
+              </h3>
+              <button className="btn-close" onClick={() => setShowAddOccupantModal(false)}>✕</button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              
+              {/* Banner Thông Tin */}
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                borderRadius: '12px', padding: '12px 16px',
+                display: 'flex', gap: 12, alignItems: 'flex-start',
+                fontSize: '13px', lineHeight: '1.5'
+              }}>
+                <Info size={18} color="#6366f1" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <strong style={{ color: 'var(--text-primary)' }}>Nghiệp vụ thành viên ở ghép (Occupant):</strong>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: 3 }}>
+                    Thành viên ở ghép được liên kết vào phòng mà <strong>không tạo hợp đồng mới</strong>. Người đứng tên hợp đồng ({primaryTenant?.fullName || 'Đại diện'}) tiếp tục quản lý nghĩa vụ tiền phòng & hóa đơn.
+                  </div>
+                </div>
+              </div>
+
+              {/* Sức Chứa Phòng Hiện Tại */}
+              <div style={{
+                background: 'var(--bg-dark)', padding: '12px 16px',
+                borderRadius: '10px', border: '1px solid var(--border-color)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px'
+              }}>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Sức chứa hiện tại: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {tenants.length} / {roomDetail?.maxTenants || room.maxTenants} người
+                  </strong>
+                </div>
+                <span
+                  className={`status-pill ${tenants.length >= (roomDetail?.maxTenants || room.maxTenants) ? 'danger' : 'active'}`}
+                  style={{ fontSize: '12px' }}
+                >
+                  {tenants.length >= (roomDetail?.maxTenants || room.maxTenants)
+                    ? '⚠️ Phòng đã đạt sức chứa tối đa'
+                    : `Còn trống ${Math.max(0, (roomDetail?.maxTenants || room.maxTenants) - tenants.length)} chỗ`}
+                </span>
+              </div>
+
+              {/* Ô Tìm Kiếm Hồ Sơ */}
+              <div>
+                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
+                  Tìm kiếm hồ sơ khách thuê đã đăng ký
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Nhập tên khách, số điện thoại, CCCD hoặc email..."
+                    value={occupantSearchText}
+                    onChange={e => setOccupantSearchText(e.target.value)}
+                    style={{ paddingLeft: 38, height: 40, fontSize: '14px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Danh Sách Khách Thuê Khả Dụng */}
+              <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 2 }}>
+                {allTenants
+                  .filter(t => {
+                    const q = occupantSearchText.toLowerCase();
+                    const alreadyInThisRoom = tenants.some(rt => rt.id === t.id);
+                    return !alreadyInThisRoom && (
+                      !q ||
+                      t.fullName?.toLowerCase().includes(q) ||
+                      t.phone?.includes(q) ||
+                      t.email?.toLowerCase().includes(q) ||
+                      (t.cccd && t.cccd.includes(q))
+                    );
+                  })
+                  .map(t => (
+                    <div
+                      key={t.id}
+                      style={{
+                        padding: '12px 16px', background: 'var(--bg-dark)',
+                        borderRadius: '12px', border: '1px solid var(--border-color)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                        <div style={{
+                          width: 40, height: 40, borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0
+                        }}>
+                          {t.fullName?.charAt(0) || 'T'}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            {t.fullName}
+                            {t.roomId ? (
+                              <span style={{ fontSize: '10.5px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                                Đang ở P.{t.roomNumber || 'khác'}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '10.5px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                Chưa có phòng
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
+                            <span><Phone size={11} style={{ display: 'inline', marginRight: 3 }} />{t.phone}</span>
+                            {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 3 }} />{t.cccd}</span>}
+                            {t.hometown && <span><MapPin size={11} style={{ display: 'inline', marginRight: 3 }} />{t.hometown}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        className="btn btn-sm btn-primary"
+                        disabled={addingOccupant || (tenants.length >= (roomDetail?.maxTenants || room.maxTenants))}
+                        style={{ flexShrink: 0, padding: '6px 14px', fontSize: '12.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        onClick={async () => {
+                          if (!confirm(`Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`)) return;
+                          setAddingOccupant(true);
+                          try {
+                            await roomService.addOccupant(room.id, t.id);
+                            showToast(`✅ Đã thêm ${t.fullName} vào phòng thành công.`);
+                            setShowAddOccupantModal(false);
+                            await loadDetail();
+                          } catch (err) {
+                            alert(err.response?.data?.message || err.message);
+                          } finally { setAddingOccupant(false); }
+                        }}
+                      >
+                        <Plus size={14} /> Thêm
+                      </button>
+                    </div>
+                  ))
+                }
+
+                {allTenants.filter(t => !tenants.some(rt => rt.id === t.id)).length === 0 && (
+                  <div style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)', fontSize: 13 }}>
+                    <Users size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                    <p style={{ margin: 0 }}>Không có hồ sơ khách thuê nào khả dụng.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '14px 24px', display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAddOccupantModal(false)}>
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: THÊM THÀNH VIÊN Ở GHÉP (LAYOUT CỐ ĐỊNH) ── */}
+      {showAddOccupantModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setShowAddOccupantModal(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, padding: '20px'
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 580, width: '100%', maxHeight: '88vh',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              background: 'var(--bg-card)', borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto'
+            }}
+          >
+            {/* Header Cố Định */}
+            <div className="modal-header" style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-card)', padding: '18px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                <Users size={20} color="#6366f1" /> Thêm Thành Viên Ở Ghép - Phòng P.{roomDetail?.roomNumber || room.roomNumber}
+              </h3>
+              <button className="btn-close" onClick={() => setShowAddOccupantModal(false)}>✕</button>
+            </div>
+
+            {/* Body Cuộn Độc Lập */}
+            <div className="modal-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+              
+              {/* Banner Thông Tin */}
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                borderRadius: '12px', padding: '12px 16px',
+                display: 'flex', gap: 12, alignItems: 'flex-start',
+                fontSize: '13px', lineHeight: '1.5', flexShrink: 0
+              }}>
+                <Info size={18} color="#6366f1" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <strong style={{ color: 'var(--text-primary)' }}>Nghiệp vụ thành viên ở ghép (Occupant):</strong>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: 3 }}>
+                    Thành viên ở ghép được liên kết vào phòng mà <strong>không tạo hợp đồng mới</strong>. Người đứng tên hợp đồng ({primaryTenant?.fullName || 'Đại diện'}) tiếp tục quản lý nghĩa vụ tiền phòng & hóa đơn.
+                  </div>
+                </div>
+              </div>
+
+              {/* Sức Chứa Phòng Hiện Tại */}
+              <div style={{
+                background: 'var(--bg-dark)', padding: '12px 16px',
+                borderRadius: '10px', border: '1px solid var(--border-color)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', flexShrink: 0
+              }}>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Sức chứa hiện tại: </span>
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {tenants.length} / {roomDetail?.maxTenants || room.maxTenants} người
+                  </strong>
+                </div>
+                <span
+                  className={`status-pill ${tenants.length >= (roomDetail?.maxTenants || room.maxTenants) ? 'danger' : 'active'}`}
+                  style={{ fontSize: '12px' }}
+                >
+                  {tenants.length >= (roomDetail?.maxTenants || room.maxTenants)
+                    ? '⚠️ Phòng đã đạt sức chứa tối đa'
+                    : `Còn trống ${Math.max(0, (roomDetail?.maxTenants || room.maxTenants) - tenants.length)} chỗ`}
+                </span>
+              </div>
+
+              {/* Ô Tìm Kiếm Hồ Sơ */}
+              <div style={{ flexShrink: 0 }}>
+                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
+                  Tìm kiếm hồ sơ khách thuê đã đăng ký
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Nhập tên khách, số điện thoại, CCCD hoặc email..."
+                    value={occupantSearchText}
+                    onChange={e => setOccupantSearchText(e.target.value)}
+                    style={{ paddingLeft: 38, height: 40, fontSize: '14px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Danh Sách Khách Thuê Khả Dụng */}
+              <div style={{ flex: 1, minHeight: 160, maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
+                {allTenants
+                  .filter(t => {
+                    const q = occupantSearchText.toLowerCase();
+                    const alreadyInThisRoom = tenants.some(rt => rt.id === t.id);
+                    return !alreadyInThisRoom && (
+                      !q ||
+                      t.fullName?.toLowerCase().includes(q) ||
+                      t.phone?.includes(q) ||
+                      t.email?.toLowerCase().includes(q) ||
+                      (t.cccd && t.cccd.includes(q))
+                    );
+                  })
+                  .map(t => (
+                    <div
+                      key={t.id}
+                      style={{
+                        padding: '12px 16px', background: 'var(--bg-dark)',
+                        borderRadius: '12px', border: '1px solid var(--border-color)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                        transition: 'all 0.2s', flexShrink: 0
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                        <div style={{
+                          width: 40, height: 40, borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0
+                        }}>
+                          {t.fullName?.charAt(0) || 'T'}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            {t.fullName}
+                            {t.roomId ? (
+                              <span style={{ fontSize: '10.5px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                                Đang ở P.{t.roomNumber || 'khác'}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '10.5px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                Chưa có phòng
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
+                            <span><Phone size={11} style={{ display: 'inline', marginRight: 3 }} />{t.phone}</span>
+                            {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 3 }} />{t.cccd}</span>}
+                            {t.hometown && <span><MapPin size={11} style={{ display: 'inline', marginRight: 3 }} />{t.hometown}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        className="btn btn-sm btn-primary"
+                        disabled={addingOccupant || (tenants.length >= (roomDetail?.maxTenants || room.maxTenants))}
+                        style={{ flexShrink: 0, padding: '6px 14px', fontSize: '12.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        onClick={async () => {
+                          if (!confirm(`Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`)) return;
+                          setAddingOccupant(true);
+                          try {
+                            await roomService.addOccupant(room.id, t.id);
+                            showToast(`✅ Đã thêm ${t.fullName} vào phòng thành công.`);
+                            setShowAddOccupantModal(false);
+                            await loadDetail();
+                          } catch (err) {
+                            alert(err.response?.data?.message || err.message);
+                          } finally { setAddingOccupant(false); }
+                        }}
+                      >
+                        <Plus size={14} /> Thêm
+                      </button>
+                    </div>
+                  ))
+                }
+
+                {allTenants.filter(t => !tenants.some(rt => rt.id === t.id)).length === 0 && (
+                  <div style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)', fontSize: 13 }}>
+                    <Users size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                    <p style={{ margin: 0 }}>Không có hồ sơ khách thuê nào khả dụng.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Cố Định */}
+            <div className="modal-footer" style={{ position: 'sticky', bottom: 0, zIndex: 10, background: 'var(--bg-card)', padding: '14px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAddOccupantModal(false)}>
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: CHUYỂN QUYỀN ĐẠI DIỆN HỢP ĐỒNG ── */}
+      {showTransferModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setShowTransferModal(false)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, padding: '20px'
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 600, width: '100%', maxHeight: '88vh',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              background: 'var(--bg-card)', borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto'
+            }}
+          >
+            {/* Header Cố Định */}
+            <div className="modal-header" style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-card)', padding: '18px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                <RefreshCw size={20} color="#f59e0b" /> Chuyển Quyền Đại Diện Hợp Đồng
+              </h3>
+              <button className="btn-close" onClick={() => setShowTransferModal(false)}>✕</button>
+            </div>
+
+            {/* Body Cuộn Độc Lập */}
+            <div className="modal-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+              
+              {/* Banner Thông Tin */}
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                borderRadius: '12px', padding: '12px 16px',
+                display: 'flex', gap: 12, alignItems: 'flex-start',
+                fontSize: '13px', lineHeight: '1.5', flexShrink: 0
+              }}>
+                <AlertTriangle size={18} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <strong style={{ color: '#f59e0b' }}>Chuyển giao quyền đứng tên hợp đồng {activeContract?.contractCode}:</strong>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: 3 }}>
+                    Dùng khi người đại diện cũ chuyển đi nhưng các thành viên ở ghép vẫn tiếp tục thuê. Hợp đồng chính và các hóa đơn chưa thanh toán sẽ được bàn giao sang người đại diện mới.
+                  </div>
+                </div>
+              </div>
+
+              {/* Minh Họa Trực Quan: Người Đại Diện Cũ -> Người Đại Diện Mới */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12,
+                alignItems: 'center', background: 'var(--bg-dark)',
+                padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)',
+                flexShrink: 0
+              }}>
+                {/* Đại diện hiện tại */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>
+                    Đại diện hiện tại
+                  </div>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #10b981, #047857)',
+                    margin: '0 auto 6px', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 16
+                  }}>
+                    {primaryTenant?.fullName?.charAt(0) || 'P'}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>
+                    {primaryTenant?.fullName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {primaryTenant?.phone}
+                  </div>
+                </div>
+
+                {/* Mũi tên chuyển giao */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: '#f59e0b' }}>
+                  <ChevronRight size={22} />
+                  <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', padding: '2px 6px', borderRadius: 4 }}>
+                    BÀN GIAO
+                  </span>
+                </div>
+
+                {/* Đại diện mới */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>
+                    Đại diện mới nhận HĐ
+                  </div>
+                  {(() => {
+                    const selectedOccupant = occupants.find(o => o.id === transferForm.newTenantProfileId);
+                    return selectedOccupant ? (
+                      <>
+                        <div style={{
+                          width: 44, height: 44, borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                          margin: '0 auto 6px', display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 16
+                        }}>
+                          {selectedOccupant.fullName?.charAt(0) || 'N'}
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#818cf8' }}>
+                          {selectedOccupant.fullName}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          {selectedOccupant.phone}
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ padding: '12px 6px', border: '1px dashed var(--border-color)', borderRadius: '10px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                        Chưa chọn thành viên
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Chọn Thành Viên Ở Ghép Nhận Chuyển Giao */}
+              <div style={{ flexShrink: 0 }}>
+                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
+                  Chọn thành viên ở ghép đứng tên đại diện mới <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                  {occupants.map(o => {
+                    const isSelected = transferForm.newTenantProfileId === o.id;
+                    return (
+                      <div
+                        key={o.id}
+                        onClick={() => setTransferForm({ ...transferForm, newTenantProfileId: o.id })}
+                        style={{
+                          padding: '12px 14px', borderRadius: '10px', cursor: 'pointer',
+                          border: isSelected ? '2px solid #6366f1' : '1px solid var(--border-color)',
+                          background: isSelected ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-dark)',
+                          display: 'flex', alignItems: 'center', gap: 10, transition: 'all 0.2s',
+                          boxShadow: isSelected ? '0 0 12px rgba(99, 102, 241, 0.2)' : 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: 34, height: 34, borderRadius: '50%',
+                          background: isSelected ? '#6366f1' : 'rgba(99, 102, 241, 0.2)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontWeight: 800, fontSize: 13, flexShrink: 0
+                        }}>
+                          {o.fullName?.charAt(0) || 'U'}
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 700, fontSize: '13.5px', color: isSelected ? '#818cf8' : 'var(--text-primary)' }}>
+                            {o.fullName}
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{o.phone}</div>
+                        </div>
+                        {isSelected && <CheckCircle size={16} color="#6366f1" style={{ flexShrink: 0 }} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Xử Lý Người Đại Diện Cũ */}
+              <div style={{ flexShrink: 0 }}>
+                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
+                  Phương án đối với người đại diện cũ ({primaryTenant?.fullName}) <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div
+                    onClick={() => setTransferForm({ ...transferForm, removeOldTenant: true })}
+                    style={{
+                      padding: '14px 16px', borderRadius: '12px', cursor: 'pointer',
+                      border: transferForm.removeOldTenant ? '2px solid #ef4444' : '1px solid var(--border-color)',
+                      background: transferForm.removeOldTenant ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-dark)',
+                      transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: 6,
+                      boxShadow: transferForm.removeOldTenant ? '0 0 12px rgba(239, 68, 68, 0.15)' : 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: '13.5px', color: '#ef4444' }}>
+                        <UserX size={16} color="#ef4444" /> Gỡ khỏi phòng
+                      </span>
+                      <input type="radio" checked={transferForm.removeOldTenant} readOnly style={{ accentColor: '#ef4444' }} />
+                    </div>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      Người cũ dọn đi hoàn toàn, gỡ khỏi danh sách thành viên phòng này.
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => setTransferForm({ ...transferForm, removeOldTenant: false })}
+                    style={{
+                      padding: '14px 16px', borderRadius: '12px', cursor: 'pointer',
+                      border: !transferForm.removeOldTenant ? '2px solid #6366f1' : '1px solid var(--border-color)',
+                      background: !transferForm.removeOldTenant ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-dark)',
+                      transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: 6,
+                      boxShadow: !transferForm.removeOldTenant ? '0 0 12px rgba(99, 102, 241, 0.15)' : 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: '13.5px', color: '#818cf8' }}>
+                        <Users size={16} color="#6366f1" /> Giữ lại Ở ghép
+                      </span>
+                      <input type="radio" checked={!transferForm.removeOldTenant} readOnly style={{ accentColor: '#6366f1' }} />
+                    </div>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      Người cũ vẫn ở phòng nhưng chuyển thành Thành viên ở ghép.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ghi Chú */}
+              <div style={{ flexShrink: 0 }}>
+                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
+                  Ghi chú bàn giao (Tùy chọn)
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  placeholder="Lý do chuyển giao, thỏa thuận tiền cọc giữa các bên..."
+                  value={transferForm.note}
+                  onChange={e => setTransferForm({ ...transferForm, note: e.target.value })}
+                  style={{ resize: 'vertical', fontSize: '13.5px' }}
+                />
+              </div>
+            </div>
+
+            {/* Footer Cố Định */}
+            <div className="modal-footer" style={{ position: 'sticky', bottom: 0, zIndex: 10, background: 'var(--bg-card)', padding: '14px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: 10, flexShrink: 0 }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowTransferModal(false)}>
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!transferForm.newTenantProfileId || transferring}
+                onClick={async () => {
+                  setTransferring(true);
+                  try {
+                    await contractService.transferRepresentative(activeContract.id, {
+                      newTenantProfileId: transferForm.newTenantProfileId,
+                      removeOldTenantFromRoom: transferForm.removeOldTenant,
+                      note: transferForm.note
+                    });
+                    showToast('✅ Đã chuyển quyền đại diện hợp đồng thành công!');
+                    setShowTransferModal(false);
+                    await loadDetail();
+                  } catch (err) {
+                    alert(err.response?.data?.message || err.message);
+                  } finally { setTransferring(false); }
+                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+              >
+                <CheckCircle size={16} /> {transferring ? 'Đang xử lý...' : 'Xác Nhận Chuyển Quyền'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* ----------------- TAB 3: ĐIỆN NƯỚC & HÓA ĐƠN ----------------- */}
       {activeTab === 'utilities' && (

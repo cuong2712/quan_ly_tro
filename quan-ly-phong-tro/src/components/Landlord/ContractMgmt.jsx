@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft } from 'lucide-react';
+import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft, RefreshCw, ChevronRight, UserCheck, ShieldCheck, Info } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
-import { contractService } from '../../services';
+import { contractService, roomService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
 export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants = [], zones = [], onRefresh }) => {
@@ -36,6 +36,18 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingContract, setDeletingContract] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ─── Modal Chuyển Quyền Đại Diện HĐ (Cố định layout) ───
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [transferringContract, setTransferringContract] = useState(null);
+  const [transferOccupants, setTransferOccupants] = useState([]);
+  const [loadingOccupants, setLoadingOccupants] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    newTenantProfileId: '',
+    removeOldTenant: true,
+    note: ''
+  });
+  const [isTransferring, setIsTransferring] = useState(false);
 
   const [formData, setFormData] = useState({
     contractCode: '',
@@ -1051,6 +1063,17 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                       <Clock size={15} /> Gia Hạn HĐ
                     </button>
                   )}
+
+                  {statusInfo.isActive && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => handleOpenTransfer(viewingContract, true)}
+                      style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <RefreshCw size={15} /> Chuyển Đại Diện
+                    </button>
+                  )}
                 </div>
 
                 <button
@@ -1658,6 +1681,279 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
               >
                 <Trash2 size={16} /> {isDeleting ? 'Đang xóa...' : 'Xác Nhận Xóa Vĩnh Viễn'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: CHUYỂN QUYỀN ĐẠI DIỆN HỢP ĐỒNG (CỐ ĐỊNH LAYOUT) ── */}
+      {transferModalOpen && transferringContract && (
+        <div
+          className="modal-backdrop"
+          onClick={handleCloseTransferModal}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 10000, padding: '20px'
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '600px', width: '100%', maxHeight: '88vh',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              background: 'var(--bg-card)', borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto'
+            }}
+          >
+            {/* Header Cố Định */}
+            <div className="modal-header" style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg-card)', padding: '18px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {modalReturnToDetail && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    disabled={isTransferring}
+                    onClick={handleCloseTransferModal}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 12 }}
+                    title="Quay lại xem chi tiết hợp đồng"
+                  >
+                    <ArrowLeft size={14} /> Quay lại
+                  </button>
+                )}
+                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '18px', fontWeight: 800, margin: 0 }}>
+                  <RefreshCw size={20} color="#f59e0b" /> Chuyển Quyền Đại Diện Hợp Đồng
+                </h3>
+              </div>
+              <button className="btn-close" disabled={isTransferring} onClick={handleCloseTransferModal}>✕</button>
+            </div>
+
+            {/* Body Cuộn Độc Lập */}
+            <div className="modal-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+              
+              {/* Banner Thông Tin */}
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                borderRadius: '12px', padding: '12px 16px',
+                display: 'flex', gap: 12, alignItems: 'flex-start',
+                fontSize: '13px', lineHeight: '1.5', flexShrink: 0
+              }}>
+                <AlertTriangle size={18} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <strong style={{ color: '#f59e0b' }}>Chuyển giao hợp đồng {transferringContract.contractCode}:</strong>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: 3 }}>
+                    Chuyển quyền đứng tên hợp đồng chính và bàn giao nghĩa vụ thanh toán tiền phòng sang thành viên ở ghép khi người đại diện cũ dọn đi.
+                  </div>
+                </div>
+              </div>
+
+              {/* Minh Họa Trực Quan: Cũ -> Mới */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12,
+                alignItems: 'center', background: 'var(--bg-dark)',
+                padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border-color)',
+                flexShrink: 0
+              }}>
+                {/* Đại diện hiện tại */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>
+                    Đại diện hiện tại
+                  </div>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #10b981, #047857)',
+                    margin: '0 auto 6px', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 16
+                  }}>
+                    {transferringContract.tenantName?.charAt(0) || 'P'}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>
+                    {transferringContract.tenantName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {transferringContract.tenantPhone}
+                  </div>
+                </div>
+
+                {/* Mũi tên chuyển giao */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: '#f59e0b' }}>
+                  <ChevronRight size={22} />
+                  <span style={{ fontSize: '10px', fontWeight: 800, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', padding: '2px 6px', borderRadius: 4 }}>
+                    BÀN GIAO
+                  </span>
+                </div>
+
+                {/* Đại diện mới */}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>
+                    Đại diện mới nhận HĐ
+                  </div>
+                  {(() => {
+                    const selectedOccupant = transferOccupants.find(o => o.id === transferForm.newTenantProfileId);
+                    return selectedOccupant ? (
+                      <>
+                        <div style={{
+                          width: 44, height: 44, borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                          margin: '0 auto 6px', display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 16
+                        }}>
+                          {selectedOccupant.fullName?.charAt(0) || 'N'}
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#818cf8' }}>
+                          {selectedOccupant.fullName}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          {selectedOccupant.phone}
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ padding: '12px 6px', border: '1px dashed var(--border-color)', borderRadius: '10px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                        Chưa chọn thành viên
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Chọn Thành Viên Ở Ghép */}
+              <div style={{ flexShrink: 0 }}>
+                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
+                  Chọn thành viên ở ghép đứng tên đại diện mới <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                {loadingOccupants ? (
+                  <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)', fontSize: 13 }}>Đang tải danh sách thành viên...</div>
+                ) : transferOccupants.length === 0 ? (
+                  <div style={{ padding: 16, background: 'rgba(15,23,42,0.6)', borderRadius: 10, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Phòng này hiện không có thành viên ở ghép nào để chuyển giao.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                    {transferOccupants.map(o => {
+                      const isSelected = transferForm.newTenantProfileId === o.id;
+                      return (
+                        <div
+                          key={o.id}
+                          onClick={() => setTransferForm({ ...transferForm, newTenantProfileId: o.id })}
+                          style={{
+                            padding: '12px 14px', borderRadius: '10px', cursor: 'pointer',
+                            border: isSelected ? '2px solid #6366f1' : '1px solid var(--border-color)',
+                            background: isSelected ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-dark)',
+                            display: 'flex', alignItems: 'center', gap: 10, transition: 'all 0.2s',
+                            boxShadow: isSelected ? '0 0 12px rgba(99, 102, 241, 0.2)' : 'none'
+                          }}
+                        >
+                          <div style={{
+                            width: 34, height: 34, borderRadius: '50%',
+                            background: isSelected ? '#6366f1' : 'rgba(99, 102, 241, 0.2)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontWeight: 800, fontSize: 13, flexShrink: 0
+                          }}>
+                            {o.fullName?.charAt(0) || 'U'}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: '13.5px', color: isSelected ? '#818cf8' : 'var(--text-primary)' }}>
+                              {o.fullName}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{o.phone}</div>
+                          </div>
+                          {isSelected && <CheckCircle size={16} color="#6366f1" style={{ flexShrink: 0 }} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Xử Lý Người Đại Diện Cũ */}
+              <div style={{ flexShrink: 0 }}>
+                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
+                  Phương án đối với người đại diện cũ ({transferringContract.tenantName}) <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div
+                    onClick={() => setTransferForm({ ...transferForm, removeOldTenant: true })}
+                    style={{
+                      padding: '14px 16px', borderRadius: '12px', cursor: 'pointer',
+                      border: transferForm.removeOldTenant ? '2px solid #ef4444' : '1px solid var(--border-color)',
+                      background: transferForm.removeOldTenant ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-dark)',
+                      transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: 6,
+                      boxShadow: transferForm.removeOldTenant ? '0 0 12px rgba(239, 68, 68, 0.15)' : 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: '13.5px', color: '#ef4444' }}>
+                        <UserX size={16} color="#ef4444" /> Gỡ khỏi phòng
+                      </span>
+                      <input type="radio" checked={transferForm.removeOldTenant} readOnly style={{ accentColor: '#ef4444' }} />
+                    </div>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      Người cũ dọn đi hoàn toàn, gỡ khỏi danh sách thành viên phòng này.
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => setTransferForm({ ...transferForm, removeOldTenant: false })}
+                    style={{
+                      padding: '14px 16px', borderRadius: '12px', cursor: 'pointer',
+                      border: !transferForm.removeOldTenant ? '2px solid #6366f1' : '1px solid var(--border-color)',
+                      background: !transferForm.removeOldTenant ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-dark)',
+                      transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: 6,
+                      boxShadow: !transferForm.removeOldTenant ? '0 0 12px rgba(99, 102, 241, 0.15)' : 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: '13.5px', color: '#818cf8' }}>
+                        <Users size={16} color="#6366f1" /> Giữ lại Ở ghép
+                      </span>
+                      <input type="radio" checked={!transferForm.removeOldTenant} readOnly style={{ accentColor: '#6366f1' }} />
+                    </div>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      Người cũ vẫn ở phòng nhưng chuyển thành Thành viên ở ghép.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ghi Chú */}
+              <div style={{ flexShrink: 0 }}>
+                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
+                  Ghi chú bàn giao (Tùy chọn)
+                </label>
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  placeholder="Lý do chuyển giao, thỏa thuận tiền cọc giữa các bên..."
+                  value={transferForm.note}
+                  onChange={e => setTransferForm({ ...transferForm, note: e.target.value })}
+                  style={{ resize: 'vertical', fontSize: '13.5px' }}
+                />
+              </div>
+            </div>
+
+            {/* Footer Cố Định */}
+            <div className="modal-footer" style={{ position: 'sticky', bottom: 0, zIndex: 10, background: 'var(--bg-card)', padding: '14px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: 10, flexShrink: 0 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={isTransferring}
+                onClick={handleCloseTransferModal}
+              >
+                {modalReturnToDetail ? '⬅ Quay Lại Chi Tiết' : 'Hủy Bỏ'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!transferForm.newTenantProfileId || isTransferring}
+                onClick={handleConfirmTransfer}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+              >
+                <CheckCircle size={16} /> {isTransferring ? 'Đang xử lý...' : 'Xác Nhận Chuyển Quyền'}
               </button>
             </div>
           </div>

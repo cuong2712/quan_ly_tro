@@ -54,6 +54,9 @@ export const roomService = {
   addEquipment: (roomId, data) => apiClient.post(`/rooms/${roomId}/equipments`, data).then(r => r.data),
   updateEquipment: (equipmentId, data) => apiClient.put(`/rooms/equipments/${equipmentId}`, data).then(r => r.data),
   deleteEquipment: (equipmentId) => apiClient.delete(`/rooms/equipments/${equipmentId}`).then(r => r.data),
+  // Quản lý thành viên ở ghép (Occupants) - không tạo Hợp đồng mới
+  addOccupant: (roomId, tenantProfileId) => apiClient.post(`/rooms/${roomId}/occupants`, { tenantProfileId }).then(r => r.data),
+  removeOccupant: (roomId, tenantId) => apiClient.delete(`/rooms/${roomId}/occupants/${tenantId}`).then(r => r.data),
 };
 
 export const tenantService = {
@@ -79,6 +82,8 @@ export const contractService = {
   settle: (id, data) => apiClient.post(`/contracts/${id}/settle`, data).then(r => r.data),
   settleContract: (id, data) => apiClient.post(`/contracts/${id}/settle`, data).then(r => r.data),
   checkExpiring: () => apiClient.post('/contracts/check-expiring').then(r => r.data),
+  // Chuyển quyền đại diện hợp đồng sang thành viên ở ghép
+  transferRepresentative: (id, data) => apiClient.post(`/contracts/${id}/transfer-representative`, data).then(r => r.data),
 };
 
 export const utilityService = {
