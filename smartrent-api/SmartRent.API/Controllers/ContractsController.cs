@@ -155,6 +155,21 @@ public class ContractsController(ContractService contractService) : ControllerBa
         }
     }
 
+    // Chuyển giao quyền đại diện hợp đồng sang thành viên ở ghép (khi người đứng tên rời đi mà các thành viên khác vẫn ở)
+    [HttpPost("{id:guid}/transfer-representative")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> TransferRepresentative(Guid id, [FromBody] TransferRepresentativeRequest request)
+    {
+        try
+        {
+            var result = await contractService.TransferRepresentativeAsync(id, CurrentUserId, request);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     // Tự động quét và phát hành thông báo hợp đồng sắp hết hạn trong 30 ngày
     [HttpPost("check-expiring")]
     [Authorize(Roles = "Landlord")]

@@ -80,4 +80,35 @@ public class RoomsController(RoomService roomService) : ControllerBase
     [HttpDelete("equipments/{equipmentId:guid}")]
     public async Task<IActionResult> DeleteEquipment(Guid equipmentId)
         => await roomService.DeleteEquipmentAsync(equipmentId, LandlordId) ? NoContent() : NotFound(new { message = "Không tìm thấy thiết bị hoặc không có quyền xóa." });
+
+    // Thêm thành viên ở ghép (Occupant) vào phòng mà KHÔNG tạo Hợp đồng mới.
+    // Chỉ cập nhật TenantProfile.RoomId để liên kết người thuê với phòng.
+    [HttpPost("{roomId:guid}/occupants")]
+    public async Task<IActionResult> AddOccupant(Guid roomId, [FromBody] AddOccupantRequest request)
+    {
+        try
+        {
+            var result = await roomService.AddOccupantAsync(roomId, LandlordId, request);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Gỡ thành viên ở ghép (Occupant) khỏi phòng khi họ rời đi.
+    // Không ảnh hưởng đến Hợp đồng chính của phòng.
+    // Sẽ từ chối nếu người được gỡ là Primary Tenant (người đứng tên Hợp đồng chính).
+    [HttpDelete("{roomId:guid}/occupants/{tenantId:guid}")]
+    public async Task<IActionResult> RemoveOccupant(Guid roomId, Guid tenantId)
+    {
+        try
+        {
+            await roomService.RemoveOccupantAsync(roomId, LandlordId, tenantId);
+            return Ok(new { message = "Đã gỡ thành viên ở ghép khỏi phòng thành công." });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

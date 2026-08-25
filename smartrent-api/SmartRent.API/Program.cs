@@ -170,7 +170,22 @@ builder.Services.AddSwaggerGen(c =>
 
 
 // ===== Services Registration =====
-// Application Services
+// Application Domain Sub-Services
+builder.Services.AddScoped<SmartRent.Application.Services.Contracts.ContractQueryService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Contracts.ContractLifecycleService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Contracts.ContractSettlementService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Contracts.ContractTransferService>();
+
+builder.Services.AddScoped<SmartRent.Application.Services.Invoices.InvoiceQueryService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Invoices.BillingEngine>();
+builder.Services.AddScoped<SmartRent.Application.Services.Invoices.InvoiceLifecycleService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Invoices.InvoiceDisputeService>();
+
+builder.Services.AddScoped<SmartRent.Application.Services.Rooms.RoomQueryService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Rooms.RoomLifecycleService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Rooms.RoomOccupantService>();
+
+// Application Services & Facades
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<ZoneService>();
@@ -187,8 +202,6 @@ builder.Services.AddScoped<ComplaintService>();
 builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<ReportService>();
-
-
 
 // Realtime Notifier
 builder.Services.AddScoped<IRealtimeNotifier, RealtimeNotifier>();
