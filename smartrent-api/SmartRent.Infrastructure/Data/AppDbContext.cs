@@ -42,6 +42,9 @@ public class AppDbContext : DbContext
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.FullName).HasMaxLength(256);
             e.Property(x => x.Phone).HasMaxLength(20);
+            e.Property(x => x.BankName).HasMaxLength(100);
+            e.Property(x => x.BankAccountNumber).HasMaxLength(50);
+            e.Property(x => x.BankAccountName).HasMaxLength(256);
         });
 
         // Zone

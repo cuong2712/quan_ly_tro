@@ -16,7 +16,10 @@ public record InvoiceDto(
     DateTime? DisputeResolvedAt = null,
     string? DisputeReply = null,
     decimal? SuggestedElecNumber = null,
-    decimal? SuggestedWaterNumber = null
+    decimal? SuggestedWaterNumber = null,
+    string? LandlordBankName = null,
+    string? LandlordBankAccountNumber = null,
+    string? LandlordBankAccountName = null
 );
 
 public record InvoiceItemDto(Guid Id, string Name, decimal Amount);

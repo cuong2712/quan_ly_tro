@@ -13,7 +13,7 @@ public class InvoiceQueryService(AppDbContext db)
     {
         var query = db.Invoices
             .AsNoTracking()
-            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
             .Where(i => i.Room.Zone.LandlordId == landlordId).AsQueryable();
@@ -43,7 +43,7 @@ public class InvoiceQueryService(AppDbContext db)
     {
         var invoices = await db.Invoices
             .AsNoTracking()
-            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(i => i.Items)
             .Where(i => i.TenantProfileId == tenantProfileId)
             .OrderByDescending(i => i.CreatedAt)
@@ -68,7 +68,7 @@ public class InvoiceQueryService(AppDbContext db)
 
         var invoices = await db.Invoices
             .AsNoTracking()
-            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
             .Where(i => i.TenantProfileId == profile.Id || (i.TenantProfile != null && i.TenantProfile.UserId == tenantUserId))
@@ -83,7 +83,7 @@ public class InvoiceQueryService(AppDbContext db)
     {
         var query = db.Invoices
             .AsNoTracking()
-            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
             .AsQueryable();

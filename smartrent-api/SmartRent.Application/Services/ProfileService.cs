@@ -33,7 +33,10 @@ public class ProfileService(AppDbContext db)
             tp?.Room?.RoomNumber,
             tp?.Room?.Zone?.Name,
             tp?.CccdFrontUrl,
-            tp?.CccdBackUrl
+            tp?.CccdBackUrl,
+            u.BankName,
+            u.BankAccountNumber,
+            u.BankAccountName
         );
     }
 
@@ -46,7 +49,7 @@ public class ProfileService(AppDbContext db)
         return new UpdateVehicleRequest(tp.VehicleCount, tp.VehicleInfo);
     }
 
-    // Cập nhật thông tin cá nhân (Họ tên, Số điện thoại, Ảnh đại diện, CCCD).
+    // Cập nhật thông tin cá nhân (Họ tên, Số điện thoại, Ảnh đại diện, CCCD, Tài khoản ngân hàng).
     public async Task<UserProfileDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest req)
     {
         var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
@@ -58,7 +61,7 @@ public class ProfileService(AppDbContext db)
         }
         if (!System.Text.RegularExpressions.Regex.IsMatch(req.FullName.Trim(), @"^[\p{L}\s]+$"))
         {
-            throw new InvalidOperationException("Họ và tên không hợp lệ! Tên không được chứa số hoặc ký tự đặc biệt.");
+            throw new InvalidOperationException("Họ và tên không hợp lệ! Tên chỉ được chứa chữ cái, không được chứa số hoặc ký tự đặc biệt.");
         }
 
         // 2. Kiểm tra số điện thoại (đúng 10 chữ số và bắt đầu bằng số 0)
@@ -73,23 +76,48 @@ public class ProfileService(AppDbContext db)
             throw new InvalidOperationException("Số CCCD không hợp lệ! Vui lòng nhập đúng 12 chữ số và bắt đầu bằng số 0.");
         }
 
+        // 4. Kiểm tra Tên chủ tài khoản ngân hàng nếu có nhập (chỉ gồm chữ cái, không có số và ký tự đặc biệt)
+        if (!string.IsNullOrWhiteSpace(req.BankAccountName))
+        {
+            var cleanBankAccName = req.BankAccountName.Trim();
+            if (cleanBankAccName.Length < 2 || !System.Text.RegularExpressions.Regex.IsMatch(cleanBankAccName, @"^[\p{L}\s]+$"))
+            {
+                throw new InvalidOperationException("Tên chủ tài khoản ngân hàng không hợp lệ! Tên chỉ được chứa chữ cái, không được chứa số hoặc ký tự đặc biệt.");
+            }
+        }
+
+        // 5. Kiểm tra Số tài khoản ngân hàng nếu có nhập (chỉ gồm chữ số từ 6 đến 20 số)
+        if (!string.IsNullOrWhiteSpace(req.BankAccountNumber))
+        {
+            var cleanBankAccNum = req.BankAccountNumber.Trim();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(cleanBankAccNum, @"^\d{6,20}$"))
+            {
+                throw new InvalidOperationException("Số tài khoản ngân hàng không hợp lệ! Số tài khoản chỉ gồm các chữ số (từ 6 đến 20 số).");
+            }
+        }
+
         u.FullName = req.FullName.Trim();
         u.Phone = req.Phone.Trim();
         u.AvatarUrl = req.AvatarUrl;
+
+        // Cập nhật thông tin ngân hàng của chủ trọ (nếu có)
+        if (req.BankName != null) u.BankName = req.BankName.Trim();
+        if (req.BankAccountNumber != null) u.BankAccountNumber = req.BankAccountNumber.Trim();
+        if (req.BankAccountName != null) u.BankAccountName = req.BankAccountName.Trim().ToUpper();
 
         var tp = await db.TenantProfiles
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .FirstOrDefaultAsync(t => t.UserId == userId);
 
-        if (tp == null && (req.Cccd != null || req.Hometown != null || req.CccdFrontUrl != null || req.CccdBackUrl != null || u.Role == Core.Enums.UserRole.Tenant))
+        if (tp == null && (req.Cccd != null || req.Hometown != null || req.CccdFrontUrl != null || req.CccdBackUrl != null || u.Role == Core.Enums.UserRole.Tenant || u.Role == Core.Enums.UserRole.Landlord))
         {
             tp = new Core.Entities.TenantProfile
             {
                 UserId = userId,
                 CCCD = req.Cccd ?? string.Empty,
                 Hometown = req.Hometown,
-                //CccdFrontUrl = req.CccdFrontUrl,
-                //CccdBackUrl = req.CccdBackUrl
+                CccdFrontUrl = req.CccdFrontUrl,
+                CccdBackUrl = req.CccdBackUrl
             };
             db.TenantProfiles.Add(tp);
         }
@@ -118,7 +146,10 @@ public class ProfileService(AppDbContext db)
             tp?.Room?.RoomNumber,
             tp?.Room?.Zone?.Name,
             tp?.CccdFrontUrl,
-            tp?.CccdBackUrl
+            tp?.CccdBackUrl,
+            u.BankName,
+            u.BankAccountNumber,
+            u.BankAccountName
         );
     }
 

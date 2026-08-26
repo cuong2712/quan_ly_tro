@@ -32,6 +32,9 @@ public static class InvoiceMappingExtensions
         i.DisputeResolvedAt,
         i.DisputeReply,
         i.SuggestedElecNumber,
-        i.SuggestedWaterNumber
+        i.SuggestedWaterNumber,
+        i.Room?.Zone?.Landlord?.BankName,
+        i.Room?.Zone?.Landlord?.BankAccountNumber,
+        i.Room?.Zone?.Landlord?.BankAccountName ?? i.Room?.Zone?.Landlord?.FullName
     );
 }

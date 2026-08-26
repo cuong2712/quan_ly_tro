@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   Award, User, Phone, Mail, Key, Check, ShieldCheck,
-  CreditCard, MapPin, Building2, Calendar, Lock, Sparkles, AlertCircle, Save
+  CreditCard, MapPin, Building2, Calendar, Lock, Sparkles, AlertCircle, Save, QrCode, Landmark
 } from 'lucide-react';
 import { profileService } from '../../services';
 import { AvatarUploader, CccdCardUploader } from '../Common/ImageUploader';
-import { sanitizeCccd, isValidCccd, isValidFullName, sanitizePhone, isValidPhone } from '../../utils/formatters';
+import { 
+  sanitizeCccd, isValidCccd, isValidFullName, sanitizePhone, isValidPhone,
+  VIETNAM_BANKS, sanitizeBankAccountNumber, isValidBankAccountNumber,
+  sanitizeBankAccountName, isValidBankAccountName, getVietQRUrl
+} from '../../utils/formatters';
 
 export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
   const [profileData, setProfileData] = useState({
@@ -17,6 +21,9 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
     hometown: activeLandlord?.hometown || '',
     cccdFrontUrl: activeLandlord?.cccdFrontUrl || '',
     cccdBackUrl: activeLandlord?.cccdBackUrl || '',
+    bankName: activeLandlord?.bankName || 'BIDV',
+    bankAccountNumber: activeLandlord?.bankAccountNumber || '',
+    bankAccountName: activeLandlord?.bankAccountName || '',
     role: activeLandlord?.role || 'Landlord',
     createdAt: activeLandlord?.createdAt || null,
   });
@@ -42,6 +49,9 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
           hometown: p.hometown || prev.hometown,
           cccdFrontUrl: p.cccdFrontUrl || prev.cccdFrontUrl,
           cccdBackUrl: p.cccdBackUrl || prev.cccdBackUrl,
+          bankName: p.bankName || prev.bankName || 'BIDV',
+          bankAccountNumber: p.bankAccountNumber || prev.bankAccountNumber || '',
+          bankAccountName: p.bankAccountName || prev.bankAccountName || (p.fullName ? p.fullName.toUpperCase() : ''),
           role: p.role || 'Landlord',
           createdAt: p.createdAt || prev.createdAt,
         }));
@@ -70,6 +80,18 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
       return;
     }
 
+    // 4. Kiểm tra Tên chủ tài khoản ngân hàng (nếu có nhập)
+    if (profileData.bankAccountName && !isValidBankAccountName(profileData.bankAccountName)) {
+      setErrorMsg('Tên chủ tài khoản ngân hàng không hợp lệ! Tên chỉ được chứa chữ cái, không được chứa số hoặc ký tự đặc biệt.');
+      return;
+    }
+
+    // 5. Kiểm tra Số tài khoản ngân hàng (nếu có nhập)
+    if (profileData.bankAccountNumber && !isValidBankAccountNumber(profileData.bankAccountNumber)) {
+      setErrorMsg('Số tài khoản ngân hàng không hợp lệ! Số tài khoản chỉ gồm các chữ số (từ 6 đến 20 số).');
+      return;
+    }
+
     setSaving(true);
     setErrorMsg('');
     try {
@@ -81,11 +103,14 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
         hometown: profileData.hometown,
         cccdFrontUrl: profileData.cccdFrontUrl,
         cccdBackUrl: profileData.cccdBackUrl,
+        bankName: profileData.bankName?.trim() || 'BIDV',
+        bankAccountNumber: profileData.bankAccountNumber?.trim() || '',
+        bankAccountName: profileData.bankAccountName?.trim().toUpperCase() || profileData.fullName.trim().toUpperCase(),
       });
       if (setActiveLandlord) {
         setActiveLandlord(prev => ({ ...prev, ...profileData, ...updated }));
       }
-      setSuccessMsg('✅ Đã cập nhật thông tin cá nhân và hồ sơ CCCD thành công!');
+      setSuccessMsg('✅ Đã cập nhật thông tin cá nhân và tài khoản ngân hàng thành công!');
       setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err) {
       setErrorMsg(err.response?.data?.message || err.message || 'Lỗi cập nhật hồ sơ');
@@ -417,6 +442,115 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
                     </div>
                   </div>
                 </div>
+
+                {/* ─── PHẦN TÀI KHOẢN NGÂN HÀNG NHẬN TIỀN (VIETQR) ─── */}
+                <div style={{ paddingTop: '16px', borderTop: '1px solid var(--border-color)', marginBottom: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Landmark size={18} color="#6366f1" />
+                      <span style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                        Tài Khoản Ngân Hàng Nhận Tiền Thuê Trọ (VietQR Tự Động)
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      * Khách thuê quét mã QR sẽ tự động chuyển vào tài khoản này
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '14px' }}>
+                    {/* 1. Chọn ngân hàng */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Ngân Hàng Thụ Hưởng *</label>
+                      <select
+                        className="form-control"
+                        value={profileData.bankName}
+                        onChange={(e) => setProfileData({ ...profileData, bankName: e.target.value })}
+                        style={{ height: '40px', fontSize: '13px', padding: '6px 12px' }}
+                      >
+                        {VIETNAM_BANKS.map(b => (
+                          <option key={b.code} value={b.code}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                      <small style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                        Mã ngân hàng: <strong>{profileData.bankName}</strong>
+                      </small>
+                    </div>
+
+                    {/* 2. Số tài khoản */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Số Tài Khoản Ngân Hàng *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="VD: 6531211114..."
+                        maxLength={20}
+                        inputMode="numeric"
+                        value={profileData.bankAccountNumber}
+                        onChange={(e) => setProfileData({ ...profileData, bankAccountNumber: sanitizeBankAccountNumber(e.target.value) })}
+                        style={{ height: '40px', fontSize: '13.5px', fontWeight: '600', color: '#6366f1' }}
+                      />
+                      <small style={{ fontSize: '11px', color: profileData.bankAccountNumber && !isValidBankAccountNumber(profileData.bankAccountNumber) ? '#ef4444' : 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                        {profileData.bankAccountNumber && !isValidBankAccountNumber(profileData.bankAccountNumber)
+                          ? '⚠️ Số tài khoản chỉ gồm chữ số (từ 6 đến 20 số)'
+                          : 'Chỉ nhập số, không chứa chữ cái'}
+                      </small>
+                    </div>
+
+                    {/* 3. Tên chủ tài khoản */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px' }}>Tên Chủ Tài Khoản (In Hoa) *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="VD: NGUYEN VAN A"
+                        value={profileData.bankAccountName}
+                        onChange={(e) => setProfileData({ ...profileData, bankAccountName: sanitizeBankAccountName(e.target.value) })}
+                        style={{ height: '40px', fontSize: '13.5px', fontWeight: '600', textTransform: 'uppercase' }}
+                      />
+                      <small style={{ fontSize: '11px', color: profileData.bankAccountName && !isValidBankAccountName(profileData.bankAccountName) ? '#ef4444' : 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                        {profileData.bankAccountName && !isValidBankAccountName(profileData.bankAccountName)
+                          ? '⚠️ Tên không được chứa số hoặc ký tự đặc biệt'
+                          : 'Chỉ gồm chữ cái và khoảng trắng'}
+                      </small>
+                    </div>
+                  </div>
+
+                  {/* Khung quét thử mã VietQR mẫu để chủ trọ kiểm tra */}
+                  {profileData.bankAccountNumber && (
+                    <div style={{ background: 'var(--bg-dark, rgba(0,0,0,0.25))', border: '1px dashed var(--border-color)', borderRadius: '12px', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ background: '#fff', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)', flexShrink: 0 }}>
+                          <img 
+                            src={getVietQRUrl({
+                              bankId: profileData.bankName || 'BIDV',
+                              accountNo: profileData.bankAccountNumber || '6531211114',
+                              accountName: profileData.bankAccountName || profileData.fullName || 'CHU TRO',
+                              amount: 0,
+                              addInfo: 'Quet thu nghiem'
+                            })} 
+                            alt="Mã QR xem trước" 
+                            style={{ width: '88px', height: '88px', display: 'block' }}
+                          />
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: '700', fontSize: '13px', marginBottom: '4px' }}>
+                            <Check size={15} /> Xem Trước Mã VietQR Của Bạn
+                          </div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: '1.6' }}>
+                            Ngân hàng: <strong>{VIETNAM_BANKS.find(b => b.code === profileData.bankName)?.shortName || profileData.bankName}</strong> | STK: <strong style={{ color: '#6366f1' }}>{profileData.bankAccountNumber}</strong>
+                            <br />
+                            Chủ tài khoản: <strong>{profileData.bankAccountName || profileData.fullName?.toUpperCase()}</strong>
+                          </div>
+                          <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                            💡 Bạn có thể dùng app ngân hàng trên điện thoại quét thử để kiểm tra xem đã nhận đúng tên và STK chưa.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Nút lưu cuối form đặt ngay góc dưới cùng */}
@@ -427,7 +561,7 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
                   disabled={saving}
                   style={{ padding: '9px 26px', fontSize: '14px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)', borderRadius: '8px' }}
                 >
-                  <Save size={15} /> {saving ? '⏳ Đang lưu...' : 'Lưu Thay Đổi Hồ Sơ & CCCD'}
+                  <Save size={15} /> {saving ? '⏳ Đang lưu...' : 'Lưu Thay Đổi Hồ Sơ & Tài Khoản'}
                 </button>
               </div>
             </form>

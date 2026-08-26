@@ -11,6 +11,9 @@ public class User
     public string Phone { get; set; } = string.Empty;
     public UserRole Role { get; set; }
     public string? AvatarUrl { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountNumber { get; set; }
+    public string? BankAccountName { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }

@@ -230,13 +230,12 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 
-// ===== Seed Data =====
-using (var scope = app.Services.CreateScope())
+// ===== Seed Data & Schema Sync =====
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
-        await DataSeeder.SeedAsync(db);
+        await db.Database.ExecuteSqlRawAsync(@"
     }
     catch (Exception ex)
     {

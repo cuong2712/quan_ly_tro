@@ -181,6 +181,53 @@ export const isValidPhone = (phone) => {
   return /^0\d{9}$/.test(String(phone).trim());
 };
 
+// ─── DANH SÁCH NGÂN HÀNG VIỆT NAM (HỖ TRỢ VIETQR) ───────────────
+export const VIETNAM_BANKS = [
+  { code: 'BIDV', name: 'BIDV - Ngân hàng Đầu tư và Phát triển Việt Nam', shortName: 'BIDV' },
+  { code: 'VCB', name: 'Vietcombank - Ngân hàng Ngoại thương Việt Nam', shortName: 'Vietcombank' },
+  { code: 'MB', name: 'MBBank - Ngân hàng Quân Đội', shortName: 'MBBank' },
+  { code: 'TCB', name: 'Techcombank - Ngân hàng Kỹ Thương Việt Nam', shortName: 'Techcombank' },
+  { code: 'ICB', name: 'VietinBank - Ngân hàng Công Thương Việt Nam', shortName: 'VietinBank' },
+  { code: 'ACB', name: 'ACB - Ngân hàng Á Châu', shortName: 'ACB' },
+  { code: 'VPB', name: 'VPBank - Ngân hàng Việt Nam Thịnh Vượng', shortName: 'VPBank' },
+  { code: 'TPB', name: 'TPBank - Ngân hàng Tiên Phong', shortName: 'TPBank' },
+  { code: 'VBA', name: 'Agribank - Ngân hàng Nông nghiệp & PTNT Việt Nam', shortName: 'Agribank' },
+  { code: 'STB', name: 'Sacombank - Ngân hàng Sài Gòn Thương Tín', shortName: 'Sacombank' },
+  { code: 'HDB', name: 'HDBank - Ngân hàng Phát triển TP.HCM', shortName: 'HDBank' },
+  { code: 'VIB', name: 'VIB - Ngân hàng Quốc Tế', shortName: 'VIB' },
+  { code: 'SHB', name: 'SHB - Ngân hàng Sài Gòn - Hà Nội', shortName: 'SHB' },
+  { code: 'MSB', name: 'MSB - Ngân hàng Hàng Hải', shortName: 'MSB' },
+  { code: 'OCB', name: 'OCB - Ngân hàng Phương Đông', shortName: 'OCB' },
+  { code: 'LPB', name: 'LPBank - Ngân hàng Lộc Phát Việt Nam', shortName: 'LPBank' },
+  { code: 'SEAB', name: 'SeABank - Ngân hàng Đông Nam Á', shortName: 'SeABank' },
+  { code: 'CAKE', name: 'CAKE by VPBank', shortName: 'CAKE' },
+  { code: 'TIMO', name: 'Timo by BVBank', shortName: 'Timo' },
+];
+
+// ─── CHUẨN HÓA & KIỂM TRA SỐ TÀI KHOẢN NGÂN HÀNG (CHỈ CHỨA CHỮ SỐ, TỪ 6-20 KÝ TỰ) ───
+export const sanitizeBankAccountNumber = (raw) => {
+  if (!raw) return '';
+  return String(raw).replace(/\D/g, '').slice(0, 20);
+};
+
+export const isValidBankAccountNumber = (accNo) => {
+  if (!accNo) return false;
+  return /^\d{6,20}$/.test(String(accNo).trim());
+};
+
+// ─── CHUẨN HÓA & KIỂM TRA TÊN CHỦ TÀI KHOẢN (CHỈ CHỨA CHỮ CÁI VÀ KHOẢNG TRẮNG, IN HOA) ───
+export const isValidBankAccountName = (name) => {
+  if (!name || typeof name !== 'string') return false;
+  const trimmed = name.trim();
+  if (trimmed.length < 2 || trimmed.length > 70) return false;
+  return /^[\p{L}\s]+$/u.test(trimmed);
+};
+
+export const sanitizeBankAccountName = (raw) => {
+  if (!raw) return '';
+  return String(raw).toUpperCase();
+};
+
 
 // ─── XỬ LÝ & ĐỊNH DẠNG TRẠNG THÁI HỢP ĐỒNG ──────────────────────
 export const getContractStatusInfo = (c) => {
