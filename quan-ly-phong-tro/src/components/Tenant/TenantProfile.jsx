@@ -4,6 +4,17 @@ import { profileService } from '../../services';
 import { AvatarUploader, CccdCardUploader } from '../Common/ImageUploader';
 import { formatDate, sanitizeCccd, isValidCccd, isValidFullName, sanitizePhone, isValidPhone } from '../../utils/formatters';
 
+const parsePlatesFromInfo = (info, count) => {
+  if (!info) {
+    return Array(Math.max(0, count || 0)).fill('');
+  }
+  const items = String(info).split(/[,;\n\r]+/).map(s => s.trim()).filter(Boolean);
+  if (items.length < count) {
+    return [...items, ...Array(count - items.length).fill('')];
+  }
+  return items.slice(0, count);
+};
+
 export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   const [profileData, setProfileData] = useState({
     fullName: activeTenant?.fullName || activeTenant?.name || '',
@@ -24,11 +35,13 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   const [vehicleData, setVehicleData] = useState({
     vehicleCount: activeTenant?.vehicleCount ?? 0,
     vehicleInfo: activeTenant?.vehicleInfo ?? '',
+    plates: parsePlatesFromInfo(activeTenant?.vehicleInfo, activeTenant?.vehicleCount ?? 0),
   });
 
   const [passwordData, setPasswordData] = useState({ oldPass: '', newPass: '', confirmPass: '' });
   const [successMsg, setSuccessMsg] = useState('');
   const [vehicleSuccessMsg, setVehicleSuccessMsg] = useState('');
+  const [vehicleErrorMsg, setVehicleErrorMsg] = useState('');
   const [passSuccessMsg, setPassSuccessMsg] = useState('');
   const [savingInfo, setSavingInfo] = useState(false);
   const [savingVehicle, setSavingVehicle] = useState(false);
@@ -52,9 +65,14 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
           roomNumber: p.roomNumber || prev.roomNumber,
           zoneName: p.zoneName || prev.zoneName,
         }));
+        const vCount = p.vehicleCount !== undefined && p.vehicleCount !== null ? p.vehicleCount : (activeTenant?.vehicleCount || 0);
+        const vInfo = p.vehicleInfo !== undefined && p.vehicleInfo !== null ? p.vehicleInfo : (activeTenant?.vehicleInfo || '');
         setVehicleData({
           vehicleCount: p.vehicleCount !== undefined && p.vehicleCount !== null ? p.vehicleCount : (activeTenant?.vehicleCount || 0),
           vehicleInfo: p.vehicleInfo !== undefined && p.vehicleInfo !== null ? p.vehicleInfo : (activeTenant?.vehicleInfo || ''),
+          vehicleCount: vCount,
+          vehicleInfo: vInfo,
+          plates: parsePlatesFromInfo(vInfo, vCount),
         });
       }
     }).catch(err => {
@@ -62,15 +80,52 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
       if (profileService.getVehicle) {
         profileService.getVehicle().then(v => {
           if (v) {
+            const vCount = v.vehicleCount ?? 0;
+            const vInfo = v.vehicleInfo ?? '';
             setVehicleData({
               vehicleCount: v.vehicleCount ?? 0,
               vehicleInfo: v.vehicleInfo ?? '',
+              vehicleCount: vCount,
+              vehicleInfo: vInfo,
+              plates: parsePlatesFromInfo(vInfo, vCount),
             });
           }
         }).catch(e => console.warn('Get vehicle error:', e));
       }
     });
   }, [activeTenant]);
+
+  const handleVehicleCountChange = (val) => {
+    setVehicleErrorMsg('');
+    const num = Math.max(0, Math.min(10, parseInt(val, 10) || 0));
+    setVehicleData(prev => {
+      let currentPlates = prev.plates || [];
+      if (currentPlates.length < num) {
+        currentPlates = [...currentPlates, ...Array(num - currentPlates.length).fill('')];
+      } else if (currentPlates.length > num) {
+        currentPlates = currentPlates.slice(0, num);
+      }
+      return {
+        ...prev,
+        vehicleCount: num,
+        plates: currentPlates,
+        vehicleInfo: currentPlates.filter(Boolean).join(', ')
+      };
+    });
+  };
+
+  const handlePlateChange = (index, val) => {
+    setVehicleErrorMsg('');
+    setVehicleData(prev => {
+      const newPlates = [...(prev.plates || [])];
+      newPlates[index] = val;
+      return {
+        ...prev,
+        plates: newPlates,
+        vehicleInfo: newPlates.filter(Boolean).join(', ')
+      };
+    });
+  };
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
@@ -123,11 +178,46 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
 
   const handleUpdateVehicle = async (e) => {
     e.preventDefault();
+    setVehicleErrorMsg('');
+    const count = Number(vehicleData.vehicleCount || 0);
+    const currentPlates = vehicleData.plates || [];
+
+    if (count > 0) {
+      const emptyPlates = [];
+      const validPlates = [];
+
+      for (let i = 0; i < count; i++) {
+        const plate = (currentPlates[i] || '').trim();
+        if (!plate) {
+          emptyPlates.push(`Xe #${i + 1}`);
+        } else {
+          validPlates.push(plate);
+        }
+      }
+
+      if (emptyPlates.length > 0) {
+        const errorText = `⚠️ Bạn đã đăng ký ${count} xe nhưng chưa nhập biển số cho: ${emptyPlates.join(', ')}. Vui lòng nhập đủ ${count} biển số xe trước khi lưu!`;
+        setVehicleErrorMsg(errorText);
+        alert(errorText);
+        return;
+      }
+
+      if (validPlates.length < count) {
+        const errorText = `⚠️ Bạn đã đăng ký ${count} xe nhưng mới chỉ nhập ${validPlates.length} biển số xe. Vui lòng nhập đủ ${count} biển số xe!`;
+        setVehicleErrorMsg(errorText);
+        alert(errorText);
+        return;
+      }
+    }
+
     setSavingVehicle(true);
     try {
+      const cleanedInfo = count > 0 ? (vehicleData.plates || []).map(p => p.trim()).filter(Boolean).join(', ') : '';
       const payload = {
         vehicleCount: Number(vehicleData.vehicleCount || 0),
         vehicleInfo: vehicleData.vehicleInfo || '',
+        vehicleCount: count,
+        vehicleInfo: cleanedInfo,
       };
       const res = await profileService.updateVehicle(payload);
       if (res) {
@@ -136,17 +226,32 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
           vehicleInfo: res.vehicleInfo !== undefined ? res.vehicleInfo : payload.vehicleInfo,
         });
       }
+      const newCount = res?.vehicleCount !== undefined ? res.vehicleCount : payload.vehicleCount;
+      const newInfo = res?.vehicleInfo !== undefined ? res.vehicleInfo : payload.vehicleInfo;
+
+      setVehicleData({
+        vehicleCount: newCount,
+        vehicleInfo: newInfo,
+        plates: parsePlatesFromInfo(newInfo, newCount),
+      });
+
       if (setActiveTenant) {
         setActiveTenant(prev => ({ 
           ...prev, 
           vehicleCount: payload.vehicleCount,
           vehicleInfo: payload.vehicleInfo
+          vehicleCount: newCount,
+          vehicleInfo: newInfo
         }));
       }
       setVehicleSuccessMsg('✅ Đã cập nhật thông tin xe gửi thành công!');
+      setVehicleSuccessMsg(`✅ Đã cập nhật đăng ký ${newCount} xe gửi thành công!`);
       setTimeout(() => setVehicleSuccessMsg(''), 4000);
     } catch (err) {
       alert('Lỗi cập nhật thông tin xe: ' + (err.response?.data?.message || err.message));
+      const errMsg = err.response?.data?.message || err.message;
+      setVehicleErrorMsg(`❌ ${errMsg}`);
+      alert('Lỗi cập nhật thông tin xe: ' + errMsg);
     } finally {
       setSavingVehicle(false);
     }
@@ -477,10 +582,27 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
             <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Car size={18} color="#3b82f6" /> Đăng Ký Phương Tiện & Giữ Xe
             </h3>
+          {/* Card 4: Đăng Ký Thông Tin Xe Cộ */}
+          <div className="card" style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '17px', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                <Car size={20} color="#3b82f6" /> Đăng Ký Phương Tiện & Giữ Xe
+              </h3>
+              <span className="badge" style={{ background: vehicleData.vehicleCount > 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(156, 163, 175, 0.15)', color: vehicleData.vehicleCount > 0 ? '#10b981' : 'var(--text-muted)', fontSize: '12.5px', fontWeight: 700, padding: '4px 10px', borderRadius: '12px' }}>
+                {vehicleData.vehicleCount > 0 ? `Đang đăng ký ${vehicleData.vehicleCount} xe` : 'Chưa đăng ký xe'}
+              </span>
+            </div>
 
             {vehicleSuccessMsg && (
               <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#34d399', padding: '10px 14px', borderRadius: '8px', marginBottom: '14px', fontSize: '13px', fontWeight: '600' }}>
+              <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#34d399', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '13.5px', fontWeight: '600' }}>
                 {vehicleSuccessMsg}
+              </div>
+            )}
+
+            {vehicleErrorMsg && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#f87171', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '13.5px', fontWeight: '600' }}>
+                {vehicleErrorMsg}
               </div>
             )}
 
@@ -492,11 +614,25 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
                     type="number"
                     min="0"
                     max="10"
+              <div className="form-row" style={{ marginBottom: '18px' }}>
+                <div className="form-group" style={{ flex: '0 0 260px' }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>Số Lượng Xe Gửi Tại Nhà Trọ *</label>
+                  <select
                     className="form-control"
                     required
                     value={vehicleData.vehicleCount}
                     onChange={(e) => setVehicleData({ ...vehicleData, vehicleCount: e.target.value })}
                   />
+                    onChange={(e) => handleVehicleCountChange(e.target.value)}
+                    style={{ height: '44px', fontWeight: 700, fontSize: '14px' }}
+                  >
+                    <option value={0}>0 xe (Không gửi xe tại trọ)</option>
+                    <option value={1}>1 xe máy / xe điện</option>
+                    <option value={2}>2 xe máy / xe điện</option>
+                    <option value={3}>3 xe máy / xe điện</option>
+                    <option value={4}>4 xe máy / xe điện</option>
+                    <option value={5}>5 xe máy / xe điện</option>
+                  </select>
                 </div>
 
                 <div className="form-group" style={{ flex: '1 1 260px' }}>
@@ -508,12 +644,69 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
                     value={vehicleData.vehicleInfo || ''}
                     onChange={(e) => setVehicleData({ ...vehicleData, vehicleInfo: e.target.value })}
                   />
+                <div style={{ flex: '1 1 280px', display: 'flex', alignItems: 'center' }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                    {vehicleData.vehicleCount === 0 
+                      ? '💡 Bạn không đăng ký xe. Nếu có xe mới, hãy chọn số lượng xe và điền đầy đủ biển số tương ứng.'
+                      : `💡 Bạn đã chọn đăng ký ${vehicleData.vehicleCount} xe. Hệ thống yêu cầu nhập đầy đủ đúng ${vehicleData.vehicleCount} biển số xe bên dưới để được lưu và cấp vé/thẻ xe.`}
+                  </p>
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
                 <button type="submit" className="btn btn-primary" disabled={savingVehicle}>
                   {savingVehicle ? '⏳ Đang lưu...' : 'Cập Nhật Đăng Ký Xe'}
+              {/* Danh sách nhập biển số từng xe riêng biệt */}
+              {vehicleData.vehicleCount > 0 && (
+                <div style={{ background: 'var(--bg-dark, rgba(0,0,0,0.2))', padding: '18px 20px', borderRadius: '12px', marginBottom: '18px', border: '1px solid var(--border-color)' }}>
+                  <label className="form-label" style={{ fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--primary)', fontSize: '14px' }}>
+                    <Bike size={16} /> Danh Sách Biển Số Của {vehicleData.vehicleCount} Xe Đăng Ký (Bắt buộc đủ {vehicleData.vehicleCount} xe) *
+                  </label>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
+                    {Array.from({ length: vehicleData.vehicleCount }).map((_, index) => {
+                      const val = (vehicleData.plates && vehicleData.plates[index]) || '';
+                      const isMissing = !val.trim();
+                      return (
+                        <div key={index} className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Biển số Xe #{index + 1} *</span>
+                            {isMissing ? (
+                              <span style={{ color: '#ef4444', fontSize: '11.5px', fontWeight: 600 }}>Chưa nhập</span>
+                            ) : (
+                              <span style={{ color: '#10b981', fontSize: '11.5px', fontWeight: 600 }}>✓ Hợp lệ</span>
+                            )}
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            required
+                            placeholder={`VD: 29A1-1234${index + 1} (Honda Vision)`}
+                            value={val}
+                            onChange={(e) => handlePlateChange(index, e.target.value)}
+                            style={{
+                              borderColor: isMissing ? 'rgba(239, 68, 68, 0.6)' : 'var(--border-color)',
+                              background: 'var(--bg-card)',
+                              height: '42px',
+                              fontSize: '13.5px',
+                              fontWeight: 600
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={savingVehicle} 
+                  style={{ padding: '9px 26px', fontWeight: 800, fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {savingVehicle ? '⏳ Đang lưu...' : 'Lưu Đăng Ký Xe Gửi'}
                 </button>
               </div>
             </form>
