@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserCheck, Plus, Search, Edit, Trash2, Eye, Bike, Image as ImageIcon, KeyRound } from 'lucide-react';
-import { formatVND, formatDate, getImageUrl, sanitizeCccd, isValidCccd } from '../../utils/formatters';
+import { formatVND, formatDate, getImageUrl, sanitizeCccd, isValidCccd, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { tenantService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 import { AvatarUploader, CccdCardUploader, ImageLightboxModal } from '../Common/ImageUploader';
@@ -711,10 +711,12 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                   <div className="form-group">
                     <label className="form-label">Tiền Cọc (VNĐ)</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
-                      value={formData.deposit}
-                      onChange={(e) => setFormData({ ...formData, deposit: e.target.value })}
+                      placeholder="0"
+                      value={formatNumberWithDots(formData.deposit)}
+                      onChange={(e) => setFormData({ ...formData, deposit: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
                 </div>

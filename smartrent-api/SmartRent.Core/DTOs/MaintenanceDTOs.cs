@@ -10,8 +10,13 @@ public record MaintenanceRequestDto(
 );
 
 public record CreateMaintenanceRequest(
-    string IssueType, string Title, string? Description,
-    string Priority, string? ImageUrl
+    Guid? RoomId,
+    string? IssueType,
+    string Title,
+    string? Description,
+    string Priority,
+    string? ImageUrl,
+    string? AssignedTo = null
 );
 
 public record UpdateMaintenanceRequest(

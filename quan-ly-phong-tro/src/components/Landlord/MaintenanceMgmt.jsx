@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wrench, CheckCircle, Clock, XCircle, UserCheck, AlertTriangle, Eye } from 'lucide-react';
+import { Wrench, CheckCircle, Clock, XCircle, UserCheck, AlertTriangle, Eye, Trash2 } from 'lucide-react';
 import { maintenanceService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
@@ -44,6 +44,18 @@ export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceReques
       alert('Lỗi cập nhật bảo trì: ' + (err.response?.data?.message || err.message));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Bạn có chắc muốn xóa phiếu bảo trì này?')) return;
+    try {
+      await maintenanceService.delete(id);
+      setMaintenanceRequests(maintenanceRequests.filter(r => r.id !== id));
+      alert('✅ Đã xóa phiếu bảo trì thành công!');
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi xóa bảo trì: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -124,9 +136,14 @@ export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceReques
                       </span>
                     </td>
                     <td>
-                      <button className="btn btn-sm btn-primary" onClick={() => handleOpenAssignModal(r)}>
-                        Phân Công & Tiến Độ
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-sm btn-primary" onClick={() => handleOpenAssignModal(r)}>
+                          Phân Công & Tiến Độ
+                        </button>
+                        <button className="btn btn-sm btn-danger" style={{ padding: '4px 8px' }} title="Xóa phiếu" onClick={() => handleDelete(r.id)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

@@ -155,12 +155,13 @@ export const paymentService = {
 };
 
 export const maintenanceService = {
-  getRequests: () => apiClient.get('/maintenance').then(r => r.data),
+  getRequests: (params) => apiClient.get('/maintenance', { params }).then(r => r.data),
   create: (data) => apiClient.post('/maintenance', data).then(r => r.data),
   createRequest: (data) => apiClient.post('/maintenance', data).then(r => r.data),
   update: (id, data) => apiClient.put(`/maintenance/${id}`, data).then(r => r.data),
   cancel: (id) => apiClient.patch(`/maintenance/${id}/cancel`).then(r => r.data),
   cancelRequest: (id) => apiClient.patch(`/maintenance/${id}/cancel`).then(r => r.data),
+  delete: (id) => apiClient.delete(`/maintenance/${id}`).then(r => r.data),
 };
 
 export const notificationService = {

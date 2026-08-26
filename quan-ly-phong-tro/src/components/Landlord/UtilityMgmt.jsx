@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Zap, Droplet, Plus, Edit, Settings, History, Calculator, AlertTriangle, CheckCircle, FileText, Filter, Trash2 } from 'lucide-react';
-import { formatVND, formatDate } from '../../utils/formatters';
+import { formatVND, formatDate, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { utilityService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
@@ -466,23 +466,25 @@ export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], u
                 <div className="form-group">
                   <label className="form-label">Đơn giá Điện (VNĐ / kWh) *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     className="form-control"
                     required
-                    min="0"
-                    value={tempRates.elecPrice}
-                    onChange={(e) => setTempRates({ ...tempRates, elecPrice: e.target.value })}
+                    placeholder="0"
+                    value={formatNumberWithDots(tempRates.elecPrice)}
+                    onChange={(e) => setTempRates({ ...tempRates, elecPrice: parseNumberFromDots(e.target.value) })}
                   />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Đơn giá Nước (VNĐ / m³) *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     className="form-control"
                     required
-                    min="0"
-                    value={tempRates.waterPrice}
-                    onChange={(e) => setTempRates({ ...tempRates, waterPrice: e.target.value })}
+                    placeholder="0"
+                    value={formatNumberWithDots(tempRates.waterPrice)}
+                    onChange={(e) => setTempRates({ ...tempRates, waterPrice: parseNumberFromDots(e.target.value) })}
                   />
                 </div>
               </div>

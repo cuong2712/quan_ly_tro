@@ -5,13 +5,13 @@ import {
   Phone, Mail, Calendar, DollarSign, User, MapPin, Search,
   AlertCircle, CheckCircle, Clock, RefreshCw, MoreVertical, Shield, Settings,
   LayoutGrid, Gauge, Download, FilePlus, Edit3, Maximize, Activity, Sparkles, StickyNote, Box, Wind, Flame, Sun, Tv, Car, Camera,
-  UserX, UserCheck, Info, ShieldCheck, AlertTriangle
+  UserX, UserCheck, Info, ShieldCheck, AlertTriangle, Eye
 } from 'lucide-react';
 import {
   zoneService, roomService, tenantService,
-  invoiceService, utilityService, contractService, serviceMgmtService
+  invoiceService, utilityService, contractService, serviceMgmtService, maintenanceService
 } from '../../services';
-import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
+import { formatVND, formatDate, exportToPDF, formatNumberWithDots, parseNumberFromDots, getImageUrl } from '../../utils/formatters';
 import { ServiceMgmt } from './ServiceMgmt';
 import { ErrorBoundary } from '../Common/ErrorBoundary';
 import { Pagination } from '../Common/Pagination';
@@ -26,6 +26,8 @@ const STATUS_CONFIG = {
 // ─── LEVEL 1: Danh sách khu trọ (Giao diện sạch đẹp, tối giản) ────
 const ZoneList = ({ onSelectZone, onRefresh }) => {
   const [zones, setZones] = useState([]);
+  const [services, setServices] = useState([]);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingZone, setEditingZone] = useState(null);
@@ -34,9 +36,26 @@ const ZoneList = ({ onSelectZone, onRefresh }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 7;
 
+  const loadServices = useCallback(async () => {
+    try {
+      const res = await serviceMgmtService.getServices();
+      setServices(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error('Lỗi tải danh sách dịch vụ:', e);
+      setServices([]);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
-    try { setZones(await zoneService.getZones()); }
+    try {
+      const [zonesRes, servRes] = await Promise.all([
+        zoneService.getZones().catch(() => []),
+        serviceMgmtService.getServices().catch(() => [])
+      ]);
+      setZones(Array.isArray(zonesRes) ? zonesRes : []);
+      setServices(Array.isArray(servRes) ? servRes : []);
+    }
     catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -77,7 +96,22 @@ const ZoneList = ({ onSelectZone, onRefresh }) => {
           <h2 className="page-title"><Building2 size={24} color="#6366f1" /> Danh Sách Khu Trọ</h2>
           <p className="page-subtitle">Nhấp vào một khu trọ để xem các phòng và thống kê chi tiết</p>
         </div>
-        <button className="btn btn-primary" onClick={openAdd}><Plus size={18} /> Thêm Khu Trọ Mới</button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              loadServices();
+              setIsServiceModalOpen(true);
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, borderRadius: '12px', padding: '10px 18px' }}
+          >
+            <Settings size={18} color="#6366f1" /> Bảng Giá & Dịch Vụ
+          </button>
+          <button className="btn btn-primary" onClick={openAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700, borderRadius: '12px', padding: '10px 18px' }}>
+            <Plus size={18} /> Thêm Khu Trọ Mới
+          </button>
+        </div>
       </div>
 
       {zones.length === 0 ? (
@@ -252,6 +286,53 @@ const ZoneList = ({ onSelectZone, onRefresh }) => {
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Quản Lý Dịch Vụ Toàn Diện */}
+      {isServiceModalOpen && (
+        <div
+          className="modal-overlay"
+          onClick={() => setIsServiceModalOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999,
+            padding: '20px'
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '1060px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: 'var(--bg-card)',
+              borderRadius: '18px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              padding: '26px 30px'
+            }}
+          >
+            <ServiceMgmt
+              services={services}
+              setServices={setServices}
+              zones={zones}
+              targetZone={null}
+              onRefresh={loadServices}
+              onClose={() => setIsServiceModalOpen(false)}
+            />
           </div>
         </div>
       )}
@@ -740,7 +821,15 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                       </div>
                       <div className="form-group">
                         <label className="form-label">Giá thuê phòng (VNĐ/tháng) *</label>
-                        <input type="number" className="form-control" required min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="form-control"
+                          required
+                          placeholder="0"
+                          value={formatNumberWithDots(form.price)}
+                          onChange={e => setForm({ ...form, price: parseNumberFromDots(e.target.value) })}
+                        />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Diện tích (m²) *</label>
@@ -841,12 +930,17 @@ const RoomDetail = ({ room, zone, onBack }) => {
   });
 
   const [maintenanceLogs, setMaintenanceLogs] = useState([]);
+  const [maintFilter, setMaintFilter] = useState('all'); // 'all' | 'Pending' | 'InProgress' | 'Completed' | 'Cancelled'
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [maintForm, setMaintForm] = useState({ issueType: 'Điện / Nước', title: '', description: '', priority: 'Medium', assignedTo: '' });
+  const [editingMaint, setEditingMaint] = useState(null);
+  const [editMaintForm, setEditMaintForm] = useState({ status: 'InProgress', assignedTo: '', completionNote: '' });
+  const [savingMaint, setSavingMaint] = useState(false);
+  const [viewingMaintImage, setViewingMaintImage] = useState(null);
   const [utilityRates, setUtilityRates] = useState(null);
   const [zoneServices, setZoneServices] = useState([]);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [eqForm, setEqForm] = useState({ name: '', brand: '', quantity: 1, condition: 'Mới 100%' });
-  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
-  const [maintForm, setMaintForm] = useState({ title: '', description: '', priority: 'Medium' });
 
   // Modal Thêm thành viên ở ghép (Occupant)
   const [showAddOccupantModal, setShowAddOccupantModal] = useState(false);
@@ -931,9 +1025,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
     try {
       const mRes = await maintenanceService.getRequests();
-      if (Array.isArray(mRes)) {
-        setMaintenanceLogs(mRes.filter(m => m.roomId === room.id));
-      }
+      const list = Array.isArray(mRes) ? mRes : (mRes?.items || []);
+      setMaintenanceLogs(list.filter(m => (m.roomId || m.RoomId) === room.id));
     } catch (err) {
       console.error('Lỗi lấy bảo trì:', err);
     } finally {
@@ -1049,23 +1142,74 @@ const RoomDetail = ({ room, zone, onBack }) => {
 
   const handleCreateMaintenance = async (e) => {
     e.preventDefault();
+    if (!maintForm.title.trim()) {
+      alert('Vui lòng nhập tiêu đề sự cố!');
+      return;
+    }
     setSubmitting(true);
     try {
       await maintenanceService.create({
         roomId: room.id,
-        title: maintForm.title,
+        issueType: maintForm.issueType || 'Cơ sở vật chất',
+        title: maintForm.title.trim(),
         description: maintForm.description,
-        priority: maintForm.priority
+        priority: maintForm.priority || 'Medium',
+        assignedTo: maintForm.assignedTo || null
       });
-      showToast('Tạo yêu cầu bảo trì thành công!');
+      showToast('✅ Tạo phiếu bảo trì sửa chữa thành công!');
       setShowMaintenanceModal(false);
-      setMaintForm({ title: '', description: '', priority: 'Medium' });
+      setMaintForm({ issueType: 'Điện / Nước', title: '', description: '', priority: 'Medium', assignedTo: '' });
       await loadDetail();
     } catch (err) {
-      console.error(err);
-      showToast('⚠️ Lỗi tạo yêu cầu bảo trì!');
+      console.error('Lỗi tạo bảo trì:', err);
+      const msg = err.response?.data?.message || err.message || 'Lỗi tạo yêu cầu bảo trì!';
+      alert('⚠️ ' + msg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOpenEditMaint = (m) => {
+    setEditingMaint(m);
+    setEditMaintForm({
+      status: m.status || 'InProgress',
+      assignedTo: m.assignedTo || '',
+      completionNote: m.completionNote || ''
+    });
+  };
+
+  const handleUpdateMaintProgress = async (e) => {
+    e.preventDefault();
+    if (!editingMaint) return;
+    setSavingMaint(true);
+    try {
+      await maintenanceService.update(editingMaint.id, {
+        status: editMaintForm.status,
+        assignedTo: editMaintForm.assignedTo,
+        completionNote: editMaintForm.completionNote
+      });
+      showToast('✅ Cập nhật tiến độ bảo trì thành công!');
+      setEditingMaint(null);
+      await loadDetail();
+    } catch (err) {
+      console.error('Lỗi cập nhật bảo trì:', err);
+      const msg = err.response?.data?.message || err.message || 'Lỗi cập nhật tiến độ!';
+      alert('⚠️ ' + msg);
+    } finally {
+      setSavingMaint(false);
+    }
+  };
+
+  const handleDeleteMaintenance = async (mId) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa phiếu bảo trì này?')) return;
+    try {
+      await maintenanceService.delete(mId);
+      showToast('✅ Đã xóa phiếu bảo trì thành công!');
+      await loadDetail();
+    } catch (err) {
+      console.error('Lỗi xóa bảo trì:', err);
+      const msg = err.response?.data?.message || err.message || 'Không thể xóa phiếu bảo trì!';
+      alert('⚠️ ' + msg);
     }
   };
 
@@ -2473,54 +2617,217 @@ const RoomDetail = ({ room, zone, onBack }) => {
       )}
 
       {/* ----------------- TAB 4: BẢO TRÌ & BÁO LỖI ----------------- */}
-      {activeTab === 'maintenance' && (
-        <div className="panel">
-          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 className="panel-title"><Wrench size={18} color="#f43f5e" /> Yêu Cầu Bảo Trì & Sửa Chữa ({maintenanceLogs.length})</h3>
-            <button className="btn btn-primary btn-sm" onClick={() => setShowMaintenanceModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Plus size={15} /> Tạo Yêu Cầu Sửa Chữa
-            </button>
-          </div>
+      {activeTab === 'maintenance' && (() => {
+        const filteredLogs = maintenanceLogs.filter(m => {
+          if (maintFilter === 'all') return true;
+          const st = (m.status || '').toLowerCase();
+          if (maintFilter === 'Pending') return st === 'pending';
+          if (maintFilter === 'InProgress') return st === 'inprogress' || st === 'in_progress';
+          if (maintFilter === 'Completed') return st === 'completed' || st === 'resolved';
+          if (maintFilter === 'Cancelled') return st === 'cancelled' || st === 'canceled';
+          return true;
+        });
 
-          {maintenanceLogs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', background: 'rgba(15,23,42,0.6)', borderRadius: 12 }}>
-              <Wrench size={40} style={{ opacity: 0.3, marginBottom: 10 }} />
-              <p style={{ margin: 0, fontSize: 14 }}>Chưa có yêu cầu bảo trì / sửa chữa nào cho phòng này.</p>
+        const pendingCount = maintenanceLogs.filter(m => (m.status || '').toLowerCase() === 'pending').length;
+        const inProgressCount = maintenanceLogs.filter(m => ['inprogress', 'in_progress'].includes((m.status || '').toLowerCase())).length;
+        const completedCount = maintenanceLogs.filter(m => ['completed', 'resolved'].includes((m.status || '').toLowerCase())).length;
+
+        return (
+          <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Header + Actions */}
+            <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Wrench size={20} color="#f43f5e" /> Yêu Cầu Bảo Trì & Sửa Chữa ({maintenanceLogs.length})
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+                  Theo dõi lịch sử hỏng hóc, sự cố và tiếp nhận báo lỗi cho phòng P.{roomDetail?.roomNumber || room.roomNumber}
+                </p>
+              </div>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setMaintForm({ issueType: 'Điện / Nước', title: '', description: '', priority: 'Medium', assignedTo: '' });
+                  setShowMaintenanceModal(true);
+                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Plus size={16} /> Tạo Phiếu Bảo Trì Mới
+              </button>
             </div>
-          ) : (
-            <div className="table-responsive">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>Tiêu đề sự cố / Mô tả</th>
-                    <th>Mức độ ưu tiên</th>
-                    <th>Ngày tạo</th>
-                    <th>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {maintenanceLogs.map(m => (
-                    <tr key={m.id}>
-                      <td><strong>{m.title || m.description || 'Sửa chữa'}</strong></td>
-                      <td>
-                        <span className={`status-pill ${m.priority === 'High' ? 'danger' : 'pending'}`}>
-                          {m.priority === 'High' ? '🔴 Cao' : m.priority === 'Low' ? '🟢 Thấp' : '🟡 Vừa phải'}
-                        </span>
-                      </td>
-                      <td>{m.createdAt ? new Date(m.createdAt).toLocaleDateString('vi-VN') : '-'}</td>
-                      <td>
-                        <span className={`status-pill ${m.status === 'Completed' || m.status === 'Resolved' ? 'active' : 'pending'}`}>
-                          {m.status === 'Completed' || m.status === 'Resolved' ? 'Đã xử lý xong' : m.status || 'Đang xử lý'}
-                        </span>
-                      </td>
+
+            {/* Thống kê nhanh + Bộ lọc trạng thái */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, background: 'var(--bg-dark)', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { key: 'all', label: `Tất cả (${maintenanceLogs.length})` },
+                  { key: 'Pending', label: `⏳ Chờ xử lý (${pendingCount})` },
+                  { key: 'InProgress', label: `⚙️ Đang xử lý (${inProgressCount})` },
+                  { key: 'Completed', label: `✅ Đã xong (${completedCount})` },
+                  { key: 'Cancelled', label: '❌ Đã hủy' }
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`btn btn-sm ${maintFilter === tab.key ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: 12.5, padding: '4px 10px', borderRadius: 6 }}
+                    onClick={() => setMaintFilter(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Danh sách sự cố */}
+            {filteredLogs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)', background: 'rgba(15,23,42,0.4)', borderRadius: 12, border: '1px dashed var(--border-color)' }}>
+                <Wrench size={44} style={{ opacity: 0.3, marginBottom: 12 }} />
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  {maintenanceLogs.length === 0
+                    ? 'Chưa có yêu cầu bảo trì / sửa chữa nào cho phòng này.'
+                    : 'Không tìm thấy yêu cầu bảo trì nào với trạng thái đã chọn.'}
+                </p>
+                <p style={{ margin: '6px 0 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+                  Chủ trọ có thể bấm nút "Tạo Phiếu Bảo Trì Mới" để ghi nhận sự cố hoặc lên lịch sửa chữa.
+                </p>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="custom-table" style={{ width: '100%', fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 180 }}>Sự cố & Mô tả</th>
+                      <th style={{ width: 80, textAlign: 'center' }}>Ảnh chụp</th>
+                      <th style={{ minWidth: 140 }}>Người báo / Thợ phụ trách</th>
+                      <th style={{ width: 120 }}>Mức ưu tiên</th>
+                      <th style={{ width: 130 }}>Trạng thái</th>
+                      <th style={{ width: 120 }}>Ngày tạo</th>
+                      <th style={{ width: 120, textAlign: 'center' }}>Thao tác</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                  </thead>
+                  <tbody>
+                    {filteredLogs.map(m => {
+                      const stLower = (m.status || '').toLowerCase();
+                      const isDone = stLower === 'completed' || stLower === 'resolved';
+                      const isDoing = stLower === 'inprogress' || stLower === 'in_progress';
+                      const isCancelled = stLower === 'cancelled' || stLower === 'canceled';
+
+                      const img = m.imageUrl || m.image || m.ImageUrl;
+
+                      return (
+                        <tr key={m.id}>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', fontWeight: 700 }}>
+                                  {m.issueType || 'Cơ sở vật chất'}
+                                </span>
+                                <strong style={{ color: 'var(--text-primary)', fontSize: 13.5 }}>{m.title}</strong>
+                              </div>
+                              {m.description && (
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                  {m.description}
+                                </div>
+                              )}
+                              {m.completionNote && (
+                                <div style={{ fontSize: 11.5, color: '#10b981', background: 'rgba(16, 185, 129, 0.08)', padding: '4px 8px', borderRadius: 4, marginTop: 2 }}>
+                                  📝 <strong>Ghi chú:</strong> {m.completionNote}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          <td style={{ textAlign: 'center' }}>
+                            {img ? (
+                              <button
+                                type="button"
+                                onClick={() => setViewingMaintImage(getImageUrl(img))}
+                                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                                title="Bấm để xem ảnh phóng to"
+                              >
+                                <img
+                                  src={getImageUrl(img)}
+                                  alt="Sự cố"
+                                  style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border-color)' }}
+                                />
+                              </button>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                            )}
+                          </td>
+
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                👤 {m.tenantName || 'Khách thuê'}
+                              </div>
+                              {m.tenantPhone && (
+                                <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                                  📞 {m.tenantPhone}
+                                </div>
+                              )}
+                              <div style={{ fontSize: 11.5, color: m.assignedTo ? '#38bdf8' : 'var(--text-muted)' }}>
+                                🔧 {m.assignedTo ? `Thợ: ${m.assignedTo}` : 'Chưa gán thợ'}
+                              </div>
+                            </div>
+                          </td>
+
+                          <td>
+                            <span className={`status-pill ${m.priority === 'High' ? 'danger' : m.priority === 'Low' ? 'active' : 'pending'}`} style={{ fontSize: 11.5 }}>
+                              {m.priority === 'High' ? '🔴 Cao' : m.priority === 'Low' ? '🟢 Thấp' : '🟡 Vừa'}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span className={`status-pill ${isDone ? 'active' : isDoing ? 'vacant' : isCancelled ? 'danger' : 'pending'}`} style={{ fontSize: 11.5 }}>
+                              {isDone ? '✅ Đã xử lý' : isDoing ? '⚙️ Đang xử lý' : isCancelled ? '❌ Đã hủy' : '⏳ Chờ xử lý'}
+                            </span>
+                          </td>
+
+                          <td>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                              {m.createdAt ? formatDate(m.createdAt) : '—'}
+                            </div>
+                            {isDone && m.completedAt && (
+                              <div style={{ fontSize: 11, color: '#10b981', marginTop: 2 }}>
+                                Xong: {formatDate(m.completedAt)}
+                              </div>
+                            )}
+                          </td>
+
+                          <td>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-primary"
+                                style={{ padding: '5px 8px' }}
+                                title="Cập nhật tiến độ & Phân công thợ"
+                                onClick={() => handleOpenEditMaint(m)}
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-danger"
+                                style={{ padding: '5px 8px' }}
+                                title="Xóa phiếu bảo trì"
+                                onClick={() => handleDeleteMaintenance(m.id)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {/* 🧾 MODAL LẬP HÓA ĐƠN THÁNG */}
       {showInvoiceModal && (
         <div className="modal-backdrop" onClick={() => setShowInvoiceModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
@@ -2573,24 +2880,22 @@ const RoomDetail = ({ room, zone, onBack }) => {
                   <div>
                     <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Tiền Thuê Phòng (VNĐ) *</label>
                     <input
-                      type="number"
-                      min="0"
-                      step="1000"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
-                      value={invoiceForm.rentFee}
-                      onChange={e => setInvoiceForm({ ...invoiceForm, rentFee: e.target.value })}
+                      value={formatNumberWithDots(invoiceForm.rentFee)}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, rentFee: parseNumberFromDots(e.target.value) })}
                       required
                     />
                   </div>
                   <div>
                     <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Tiền Điện (VNĐ)</label>
                     <input
-                      type="number"
-                      min="0"
-                      step="1000"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
-                      value={invoiceForm.elecFee}
-                      onChange={e => setInvoiceForm({ ...invoiceForm, elecFee: e.target.value })}
+                      value={formatNumberWithDots(invoiceForm.elecFee)}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, elecFee: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -2599,23 +2904,21 @@ const RoomDetail = ({ room, zone, onBack }) => {
                   <div>
                     <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Tiền Nước (VNĐ)</label>
                     <input
-                      type="number"
-                      min="0"
-                      step="1000"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
-                      value={invoiceForm.waterFee}
-                      onChange={e => setInvoiceForm({ ...invoiceForm, waterFee: e.target.value })}
+                      value={formatNumberWithDots(invoiceForm.waterFee)}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, waterFee: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
                   <div>
                     <label className="form-label" style={{ fontSize: '13px', fontWeight: 600 }}>Phí Dịch Vụ / Xe (VNĐ)</label>
                     <input
-                      type="number"
-                      min="0"
-                      step="1000"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
-                      value={invoiceForm.serviceFee}
-                      onChange={e => setInvoiceForm({ ...invoiceForm, serviceFee: e.target.value })}
+                      value={formatNumberWithDots(invoiceForm.serviceFee)}
+                      onChange={e => setInvoiceForm({ ...invoiceForm, serviceFee: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -2668,8 +2971,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
                   <input type="number" className="form-control" value={editForm.floor} onChange={e => setEditForm({ ...editForm, floor: e.target.value })} required />
                 </div>
                 <div>
-                  <label className="form-label">Giá Thuê / Tháng (đ)</label>
-                  <input type="number" className="form-control" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} required />
+                  <label className="form-label">Giá Thuê / Tháng (VNĐ)</label>
+                  <input type="text" inputMode="numeric" className="form-control" value={formatNumberWithDots(editForm.price)} onChange={e => setEditForm({ ...editForm, price: parseNumberFromDots(e.target.value) })} required />
                 </div>
                 <div>
                   <label className="form-label">Diện Tích (m²)</label>
@@ -2757,39 +3060,174 @@ const RoomDetail = ({ room, zone, onBack }) => {
       {/* 🛠️ MODAL TẠO BÁO LỖI / BẢO TRÌ */}
       {showMaintenanceModal && (
         <div className="modal-backdrop" onClick={() => setShowMaintenanceModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 520, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Wrench size={20} color="#f43f5e" /> Tạo Yêu Cầu Bảo Trì Mới
+                <Wrench size={20} color="#f43f5e" /> Tạo Phiếu Bảo Trì / Sửa Chữa Mới
               </h3>
               <button className="btn-close" onClick={() => setShowMaintenanceModal(false)}>✕</button>
             </div>
             <form onSubmit={handleCreateMaintenance}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div>
-                  <label className="form-label">Tiêu đề sự cố / Thiết bị *</label>
-                  <input type="text" className="form-control" placeholder="VD: Máy lạnh chảy nước, Chập điện..." value={maintForm.title} onChange={e => setMaintForm({ ...maintForm, title: e.target.value })} required />
+                <div style={{ background: 'var(--bg-dark)', padding: '10px 14px', borderRadius: 8, fontSize: 13, border: '1px solid var(--border-color)' }}>
+                  Phòng: <strong style={{ color: '#10b981' }}>P.{roomDetail?.roomNumber || room.roomNumber}</strong> ({zone.name})
                 </div>
-                <div>
-                  <label className="form-label">Mô tả chi tiết</label>
-                  <textarea className="form-control" rows={3} placeholder="Mô tả cụ thể sự cố cần hỗ trợ..." value={maintForm.description} onChange={e => setMaintForm({ ...maintForm, description: e.target.value })} />
-                </div>
-                <div>
-                  <label className="form-label">Mức độ ưu tiên</label>
-                  <select className="form-control" value={maintForm.priority} onChange={e => setMaintForm({ ...maintForm, priority: e.target.value })}>
-                    <option value="Low">🟢 Thấp</option>
-                    <option value="Medium">🟡 Vừa phải</option>
-                    <option value="High">🔴 Cao (Khẩn cấp)</option>
+
+                <div className="form-group">
+                  <label className="form-label">Loại sự cố / Hạng mục *</label>
+                  <select
+                    className="form-control"
+                    value={maintForm.issueType}
+                    onChange={e => setMaintForm({ ...maintForm, issueType: e.target.value })}
+                  >
+                    <option value="Điện / Đèn">⚡ Điện / Đèn / Ổ cắm</option>
+                    <option value="Nước / Ống nước">💧 Nước / Vòi sen / Bồn cầu / Thoát sàn</option>
+                    <option value="Máy lạnh / Điện lạnh">❄️ Máy lạnh / Tủ lạnh</option>
+                    <option value="Khóa cửa / Cửa sổ">🔑 Khóa cửa / Cửa sổ / Bản lề</option>
+                    <option value="Tường / Trần / Thấm dột">🏠 Tường / Sơn / Thấm dột</option>
+                    <option value="Nội thất / Thiết bị">🛏️ Nội thất / Thiết bị phòng</option>
+                    <option value="Khác">🔧 Hạng mục khác</option>
                   </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Tiêu đề sự cố *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="VD: Máy lạnh chảy nước, Ổ cắm bị chập..."
+                    value={maintForm.title}
+                    onChange={e => setMaintForm({ ...maintForm, title: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Mô tả cụ thể tình trạng</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    placeholder="Mô tả cụ thể vị trí hư hỏng, tình trạng hiện tại để thợ tiện chuẩn bị đồ nghề..."
+                    value={maintForm.description}
+                    onChange={e => setMaintForm({ ...maintForm, description: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Mức độ ưu tiên</label>
+                    <select
+                      className="form-control"
+                      value={maintForm.priority}
+                      onChange={e => setMaintForm({ ...maintForm, priority: e.target.value })}
+                    >
+                      <option value="Low">🟢 Thấp (Bảo dưỡng định kỳ)</option>
+                      <option value="Medium">🟡 Vừa phải (Khắc phục sớm)</option>
+                      <option value="High">🔴 Cao (Khẩn cấp, ảnh hưởng sinh hoạt)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Thợ / Người xử lý</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="VD: Thợ điện Tuấn (090...)"
+                      value={maintForm.assignedTo}
+                      onChange={e => setMaintForm({ ...maintForm, assignedTo: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer" style={{ marginTop: 16 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowMaintenanceModal(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Đang gửi...' : 'Gửi Yêu Cầu'}
+                  {submitting ? 'Đang tạo...' : 'Tạo Phiếu Bảo Trì'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ⚙️ MODAL CẬP NHẬT TIẾN ĐỘ & PHÂN CÔNG THỢ */}
+      {editingMaint && (
+        <div className="modal-backdrop" onClick={() => setEditingMaint(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 500, width: '100%', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Edit3 size={20} color="#6366f1" /> Cập Nhật Tiến Độ Sửa Chữa
+              </h3>
+              <button className="btn-close" onClick={() => setEditingMaint(null)}>✕</button>
+            </div>
+            <form onSubmit={handleUpdateMaintProgress}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ background: 'var(--bg-dark)', padding: '12px 14px', borderRadius: 8, fontSize: 13, border: '1px solid var(--border-color)' }}>
+                  <div>Sự cố: <strong style={{ color: '#f43f5e' }}>{editingMaint.title}</strong></div>
+                  <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>Loại: <strong>{editingMaint.issueType}</strong> | Người báo: <strong>{editingMaint.tenantName || 'Khách thuê'}</strong></div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Trạng thái xử lý *</label>
+                  <select
+                    className="form-control"
+                    value={editMaintForm.status}
+                    onChange={e => setEditMaintForm({ ...editMaintForm, status: e.target.value })}
+                  >
+                    <option value="Pending">⏳ Chờ xử lý</option>
+                    <option value="InProgress">⚙️ Đang xử lý</option>
+                    <option value="Completed">✅ Đã hoàn thành (Xử lý xong)</option>
+                    <option value="Cancelled">❌ Đã hủy bỏ</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Thợ / Người trực tiếp sửa chữa</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="VD: Anh Nam thợ điện nước (0912...)"
+                    value={editMaintForm.assignedTo}
+                    onChange={e => setEditMaintForm({ ...editMaintForm, assignedTo: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Ghi chú kết quả / Vật tư thay thế</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    placeholder="Ghi chú chi tiết kết quả xử lý, linh kiện đã thay mới để lưu hồ sơ phòng..."
+                    value={editMaintForm.completionNote}
+                    onChange={e => setEditMaintForm({ ...editMaintForm, completionNote: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 16 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingMaint(null)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" disabled={savingMaint}>
+                  {savingMaint ? 'Đang lưu...' : 'Lưu Cập Nhật'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🖼️ MODAL XEM PHÓNG TO ẢNH SỰ CỐ */}
+      {viewingMaintImage && (
+        <div className="modal-backdrop" onClick={() => setViewingMaintImage(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 700, width: '100%', background: 'var(--bg-card)', borderRadius: 16, border: '1px solid var(--border-color)', padding: 16, textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h4 style={{ margin: 0, fontSize: 16, color: 'var(--text-primary)' }}>📷 Ảnh Chụp Sự Cố Thực Tế</h4>
+              <button className="btn-close" onClick={() => setViewingMaintImage(null)}>✕</button>
+            </div>
+            <div style={{ maxHeight: '75vh', overflow: 'auto', borderRadius: 8, background: '#000' }}>
+              <img src={viewingMaintImage} alt="Ảnh sự cố phóng to" style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '72vh', objectFit: 'contain', margin: 'auto' }} />
+            </div>
+            <div style={{ marginTop: 14, textAlign: 'right' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setViewingMaintImage(null)}>Đóng</button>
+            </div>
           </div>
         </div>
       )}

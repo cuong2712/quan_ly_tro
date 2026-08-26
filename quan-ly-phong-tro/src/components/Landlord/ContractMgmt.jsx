@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Plus, Search, Edit, Trash2, Download, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft, RefreshCw, ChevronRight, UserCheck, ShieldCheck, Info } from 'lucide-react';
-import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
+import { formatVND, formatDate, exportToPDF, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { contractService, roomService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
@@ -1238,22 +1238,26 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                   <div className="form-group">
                     <label className="form-label">Giá Thuê Tháng (VND)</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
                       required
-                      value={formData.rentAmount}
-                      onChange={(e) => setFormData({ ...formData, rentAmount: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      value={formatNumberWithDots(formData.rentAmount)}
+                      onChange={(e) => setFormData({ ...formData, rentAmount: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Tiền Đặt Cọc (VND)</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
                       required
-                      value={formData.deposit}
-                      onChange={(e) => setFormData({ ...formData, deposit: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      value={formatNumberWithDots(formData.deposit)}
+                      onChange={(e) => setFormData({ ...formData, deposit: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -1351,22 +1355,24 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 <div className="form-group">
                   <label className="form-label">Khấu Trừ Hư Hỏng Thiết Bị (VND)</label>
                   <input
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
                     className="form-control"
-                    value={settleForm.damageDeductionAmount}
-                    onChange={(e) => setSettleForm({ ...settleForm, damageDeductionAmount: e.target.value })}
+                    placeholder="0"
+                    value={formatNumberWithDots(settleForm.damageDeductionAmount)}
+                    onChange={(e) => setSettleForm({ ...settleForm, damageDeductionAmount: parseNumberFromDots(e.target.value) })}
                   />
                 </div>
 
                 <div className="form-group">
                   <label className="form-label">Khấu Trừ Chi Phí Khác (VND)</label>
                   <input
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
                     className="form-control"
-                    value={settleForm.otherDeductionAmount}
-                    onChange={(e) => setSettleForm({ ...settleForm, otherDeductionAmount: e.target.value })}
+                    placeholder="0"
+                    value={formatNumberWithDots(settleForm.otherDeductionAmount)}
+                    onChange={(e) => setSettleForm({ ...settleForm, otherDeductionAmount: parseNumberFromDots(e.target.value) })}
                   />
                 </div>
 
@@ -1479,13 +1485,13 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                 <div>
                   <label className="form-label" style={{ fontWeight: 700 }}>Giá Thuê Mới (VNĐ/tháng)</label>
                   <input
-                    type="number"
-                    min="0"
-                    step="10000"
+                    type="text"
+                    inputMode="numeric"
                     className="form-control"
                     required
-                    value={renewForm.newRentAmount}
-                    onChange={e => setRenewForm({ ...renewForm, newRentAmount: e.target.value })}
+                    placeholder="0"
+                    value={formatNumberWithDots(renewForm.newRentAmount)}
+                    onChange={e => setRenewForm({ ...renewForm, newRentAmount: parseNumberFromDots(e.target.value) })}
                   />
                   <small style={{ color: 'var(--text-muted)' }}>Giá hiện tại: {formatVND(renewingContract.rentAmount || 0)}</small>
                 </div>

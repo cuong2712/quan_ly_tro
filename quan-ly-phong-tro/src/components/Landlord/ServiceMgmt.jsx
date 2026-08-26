@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Settings, Plus, Edit, Trash2, Wifi, Bike, Trash, ShieldCheck, Loader2 } from 'lucide-react';
-import { formatVND } from '../../utils/formatters';
+import { formatVND, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { serviceMgmtService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
-export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone = null, onRefresh }) => {
+export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone = null, onRefresh, onClose }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -127,8 +127,8 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
 
   return (
     <div>
-      <div className="page-header">
-        <div>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h2 className="page-title">
             <Settings size={24} color="#6366f1" />{' '}
             {targetZone ? `Quản Lý Dịch Vụ - ${targetZone.name}` : 'Quản Lý Dịch Vụ Phụ Phí Theo Khu'}
@@ -139,9 +139,22 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
               : 'Cấu hình đơn giá dịch vụ (Internet, giữ xe, rác, vệ sinh...) linh hoạt riêng cho từng khu vực hoặc toàn hệ thống.'}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={handleOpenAdd} disabled={saving}>
-          <Plus size={18} /> Thêm Dịch Vụ Mới
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <button className="btn btn-primary" onClick={handleOpenAdd} disabled={saving} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
+            <Plus size={18} /> Thêm Dịch Vụ Mới
+          </button>
+          {onClose && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+              style={{ borderRadius: '50%', width: 38, height: 38, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}
+              title="Đóng"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Zone Filter Tabs (chỉ hiện khi ở chế độ xem tổng quan không chọn targetZone cụ thể) */}
@@ -337,14 +350,14 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
                   <div className="form-group">
                     <label className="form-label">Đơn Giá (VND) *</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
                       required
-                      step="1000"
-                      min="0"
-                      value={formData.price}
+                      placeholder="0"
+                      value={formatNumberWithDots(formData.price)}
                       onChange={(e) =>
-                        setFormData({ ...formData, price: parseInt(e.target.value) || 0 })
+                        setFormData({ ...formData, price: parseNumberFromDots(e.target.value) })
                       }
                     />
                   </div>

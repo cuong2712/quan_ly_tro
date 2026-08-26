@@ -112,12 +112,13 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == roomId)
             ?? throw new KeyNotFoundException("Phòng trọ không tồn tại.");
 
-        var priority = Enum.Parse<MaintenancePriority>(req.Priority, ignoreCase: true);
+        var priority = Enum.TryParse<MaintenancePriority>(req.Priority, true, out var pr) ? pr : MaintenancePriority.Medium;
+        var issueType = string.IsNullOrWhiteSpace(req.IssueType) ? "Cơ sở vật chất" : req.IssueType;
         var m = new MaintenanceRequest
         {
             RoomId = roomId,
             TenantProfileId = profile.Id,
-            IssueType = req.IssueType,
+            IssueType = issueType,
             Title = req.Title,
             Description = req.Description,
             Priority = priority,
@@ -140,7 +141,7 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
             await notificationService.SendNotificationAsync(
                 tenantUserId,
                 $"🛠️ Báo cáo sự cố: Phòng P.{room.RoomNumber} - {req.Title}",
-                $"Khách thuê {senderName} (Phòng P.{room.RoomNumber} - {zoneName}) vừa gửi báo cáo sự cố '{req.Title}' (Loại: {req.IssueType}, Mức độ: {priority}). Vui lòng vào mục Bảo trì để kiểm tra và xử lý.",
+                $"Khách thuê {senderName} (Phòng P.{room.RoomNumber} - {zoneName}) vừa gửi báo cáo sự cố '{req.Title}' (Loại: {issueType}, Mức độ: {priority}). Vui lòng vào mục Bảo trì để kiểm tra và xử lý.",
                 NotificationTarget.User,
                 landlordId
             );
@@ -152,6 +153,97 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
             .FirstAsync(x => x.Id == m.Id);
 
         return MapReq(full);
+    }
+
+    // Chủ trọ chủ động tạo phiếu bảo trì / sửa chữa cho phòng
+    public async Task<MaintenanceRequestDto> CreateByLandlordAsync(Guid landlordId, CreateMaintenanceRequest req)
+    {
+        if (!req.RoomId.HasValue || req.RoomId.Value == Guid.Empty)
+        {
+            throw new InvalidOperationException("Vui lòng chọn phòng cần bảo trì.");
+        }
+
+        var room = await db.Rooms
+            .Include(r => r.Zone)
+            .Include(r => r.Tenants).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(r => r.Id == req.RoomId.Value && r.Zone.LandlordId == landlordId)
+            ?? throw new KeyNotFoundException("Phòng trọ không tồn tại hoặc bạn không có quyền quản lý.");
+
+        var tenantProfile = await db.TenantProfiles
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.RoomId == room.Id)
+            ?? await db.Contracts
+                .Where(c => c.RoomId == room.Id && c.Status == ContractStatus.Active)
+                .Select(c => c.TenantProfile)
+                .Include(t => t.User)
+                .FirstOrDefaultAsync()
+            ?? await db.TenantProfiles.FirstOrDefaultAsync(t => t.LandlordId == landlordId || (t.Room != null && t.Room.Zone.LandlordId == landlordId))
+            ?? await db.TenantProfiles.FirstOrDefaultAsync();
+
+        if (tenantProfile == null)
+        {
+            tenantProfile = new TenantProfile
+            {
+                UserId = landlordId,
+                LandlordId = landlordId,
+                CCCD = "000000000000",
+                RoomId = room.Id
+            };
+            db.TenantProfiles.Add(tenantProfile);
+            await db.SaveChangesAsync();
+        }
+
+        var priority = Enum.TryParse<MaintenancePriority>(req.Priority, true, out var p) ? p : MaintenancePriority.Medium;
+        var issueType = string.IsNullOrWhiteSpace(req.IssueType) ? "Cơ sở vật chất" : req.IssueType;
+
+        var m = new MaintenanceRequest
+        {
+            RoomId = room.Id,
+            TenantProfileId = tenantProfile.Id,
+            IssueType = issueType,
+            Title = req.Title,
+            Description = req.Description,
+            Priority = priority,
+            Status = !string.IsNullOrWhiteSpace(req.AssignedTo) ? MaintenanceStatus.InProgress : MaintenanceStatus.Pending,
+            AssignedTo = req.AssignedTo,
+            ImageUrl = req.ImageUrl
+        };
+
+        db.MaintenanceRequests.Add(m);
+        await db.SaveChangesAsync();
+
+        // Gửi thông báo đến khách thuê nếu phòng đang có khách ở
+        var activeTenantUser = room.Tenants.FirstOrDefault()?.User;
+        if (activeTenantUser != null && activeTenantUser.Id != landlordId)
+        {
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"🛠️ Thông báo bảo trì: Phòng P.{room.RoomNumber} - {req.Title}",
+                $"Chủ trọ đã lên lịch bảo trì/sửa chữa: '{req.Title}' cho phòng của bạn. Mức độ ưu tiên: {priority}.",
+                NotificationTarget.User,
+                activeTenantUser.Id
+            );
+        }
+
+        var full = await db.MaintenanceRequests
+            .Include(x => x.Room).ThenInclude(r => r.Zone)
+            .Include(x => x.TenantProfile).ThenInclude(t => t.User)
+            .FirstAsync(x => x.Id == m.Id);
+
+        return MapReq(full);
+    }
+
+    // Chủ trọ xóa yêu cầu bảo trì
+    public async Task<bool> DeleteAsync(Guid id, Guid landlordId)
+    {
+        var m = await db.MaintenanceRequests
+            .Include(x => x.Room).ThenInclude(r => r.Zone)
+            .FirstOrDefaultAsync(x => x.Id == id && x.Room.Zone.LandlordId == landlordId)
+            ?? throw new KeyNotFoundException("Yêu cầu bảo trì không tồn tại hoặc bạn không có quyền xóa.");
+
+        db.MaintenanceRequests.Remove(m);
+        await db.SaveChangesAsync();
+        return true;
     }
 
     // Chủ trọ cập nhật tiến độ sửa chữa, người thực hiện và ghi chú hoàn thành bảo trì (kiểm tra quyền sở hữu).

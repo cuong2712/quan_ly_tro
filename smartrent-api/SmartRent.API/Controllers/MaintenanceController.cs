@@ -25,13 +25,19 @@ public class MaintenanceController(MaintenanceService maintenanceService) : Cont
         return Ok(await maintenanceService.GetByTenantUserIdAsync(CurrentUserId));
     }
 
-    // Khách thuê gửi báo cáo hỏng hóc/bảo trì kèm ảnh chụp thực tế.
+    // Gửi báo cáo / tạo phiếu bảo trì sửa chữa (Khách thuê hoặc Chủ trọ).
     [HttpPost]
-    [Authorize(Roles = "Tenant")]
+    [Authorize(Roles = "Tenant,Landlord")]
     public async Task<IActionResult> Create([FromBody] CreateMaintenanceRequest request)
     {
-        try { return Ok(await maintenanceService.CreateAsync(CurrentUserId, request)); }
+        try 
+        { 
+            if (CurrentRole == "Landlord")
+                return Ok(await maintenanceService.CreateByLandlordAsync(CurrentUserId, request));
+            return Ok(await maintenanceService.CreateAsync(CurrentUserId, request)); 
+        }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -41,6 +47,16 @@ public class MaintenanceController(MaintenanceService maintenanceService) : Cont
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateMaintenanceRequest request)
     {
         try { return Ok(await maintenanceService.UpdateAsync(id, CurrentUserId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Chủ trọ xóa phiếu bảo trì
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        try { return Ok(await maintenanceService.DeleteAsync(id, CurrentUserId)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }

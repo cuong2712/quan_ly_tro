@@ -7,6 +7,21 @@ export const formatVND = (amount) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 };
 
+// Định dạng chuỗi số với dấu chấm phân cách hàng nghìn (VD: 1000000 -> "1.000.000")
+export const formatNumberWithDots = (val) => {
+  if (val === null || val === undefined || val === '') return '';
+  const numStr = String(val).replace(/\D/g, '');
+  if (!numStr) return '';
+  return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
+// Chuyển đổi chuỗi có dấu chấm phân cách thành số nguyên (VD: "1.000.000" -> 1000000)
+export const parseNumberFromDots = (str) => {
+  if (str === null || str === undefined || str === '') return 0;
+  const numStr = String(str).replace(/\D/g, '');
+  return numStr ? parseInt(numStr, 10) : 0;
+};
+
 // Chuẩn hóa chuỗi thời gian đảm bảo tính toán chính xác theo UTC -> Múi giờ Việt Nam (GMT+7)
 export const parseVietnamDate = (dateStr) => {
   if (!dateStr) return null;

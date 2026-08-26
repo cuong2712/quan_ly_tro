@@ -5,7 +5,7 @@ import {
   MessageSquare, Check, X, Eye, ArrowRight, DollarSign,
   Home, BarChart3, FileSpreadsheet, Download, Building2, Filter
 } from 'lucide-react';
-import { formatVND, formatDate, exportToPDF, exportToExcel } from '../../utils/formatters';
+import { formatVND, formatDate, exportToPDF, exportToExcel, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { invoiceService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
@@ -775,22 +775,24 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                       <div className="form-group">
                         <label className="form-label">Tiền Thuê Phòng (VND)</label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           className="form-control"
                           required
-                          value={disputeResolveData.rentFee}
-                          onChange={(e) => setDisputeResolveData({ ...disputeResolveData, rentFee: parseInt(e.target.value) || 0 })}
+                          value={formatNumberWithDots(disputeResolveData.rentFee)}
+                          onChange={(e) => setDisputeResolveData({ ...disputeResolveData, rentFee: parseNumberFromDots(e.target.value) })}
                         />
                       </div>
 
                       <div className="form-group">
                         <label className="form-label">Tiền Điện (VND)</label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           className="form-control"
                           required
-                          value={disputeResolveData.elecFee}
-                          onChange={(e) => setDisputeResolveData({ ...disputeResolveData, elecFee: parseInt(e.target.value) || 0 })}
+                          value={formatNumberWithDots(disputeResolveData.elecFee)}
+                          onChange={(e) => setDisputeResolveData({ ...disputeResolveData, elecFee: parseNumberFromDots(e.target.value) })}
                         />
                       </div>
                     </div>
@@ -799,22 +801,24 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                       <div className="form-group">
                         <label className="form-label">Tiền Nước (VND)</label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           className="form-control"
                           required
-                          value={disputeResolveData.waterFee}
-                          onChange={(e) => setDisputeResolveData({ ...disputeResolveData, waterFee: parseInt(e.target.value) || 0 })}
+                          value={formatNumberWithDots(disputeResolveData.waterFee)}
+                          onChange={(e) => setDisputeResolveData({ ...disputeResolveData, waterFee: parseNumberFromDots(e.target.value) })}
                         />
                       </div>
 
                       <div className="form-group">
                         <label className="form-label">Phí Dịch Vụ Khác (VND)</label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           className="form-control"
                           required
-                          value={disputeResolveData.serviceFee}
-                          onChange={(e) => setDisputeResolveData({ ...disputeResolveData, serviceFee: parseInt(e.target.value) || 0 })}
+                          value={formatNumberWithDots(disputeResolveData.serviceFee)}
+                          onChange={(e) => setDisputeResolveData({ ...disputeResolveData, serviceFee: parseNumberFromDots(e.target.value) })}
                         />
                       </div>
                     </div>
@@ -887,22 +891,24 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                   <div className="form-group">
                     <label className="form-label">Tiền Thuê Phòng (VND)</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
                       required
-                      value={formData.rentFee}
-                      onChange={(e) => setFormData({ ...formData, rentFee: parseInt(e.target.value) || 0 })}
+                      value={formatNumberWithDots(formData.rentFee)}
+                      onChange={(e) => setFormData({ ...formData, rentFee: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Tiền Điện (VND)</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
                       required
-                      value={formData.elecFee}
-                      onChange={(e) => setFormData({ ...formData, elecFee: parseInt(e.target.value) || 0 })}
+                      value={formatNumberWithDots(formData.elecFee)}
+                      onChange={(e) => setFormData({ ...formData, elecFee: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -911,22 +917,24 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                   <div className="form-group">
                     <label className="form-label">Tiền Nước (VND)</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
                       required
-                      value={formData.waterFee}
-                      onChange={(e) => setFormData({ ...formData, waterFee: parseInt(e.target.value) || 0 })}
+                      value={formatNumberWithDots(formData.waterFee)}
+                      onChange={(e) => setFormData({ ...formData, waterFee: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Phí Dịch Vụ Khác (VND)</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="form-control"
                       required
-                      value={formData.serviceFee}
-                      onChange={(e) => setFormData({ ...formData, serviceFee: parseInt(e.target.value) || 0 })}
+                      value={formatNumberWithDots(formData.serviceFee)}
+                      onChange={(e) => setFormData({ ...formData, serviceFee: parseNumberFromDots(e.target.value) })}
                     />
                   </div>
                 </div>
