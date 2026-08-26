@@ -175,33 +175,6 @@ public class ProfileService(AppDbContext db)
 
         profile.VehicleCount = req.VehicleCount >= 0 ? req.VehicleCount : 0;
         profile.VehicleInfo = req.VehicleInfo;
-        int count = req.VehicleCount >= 0 ? req.VehicleCount : 0;
-        string? info = req.VehicleInfo?.Trim();
-
-        if (count > 0)
-        {
-            if (string.IsNullOrWhiteSpace(info))
-            {
-                throw new ArgumentException($"Bạn đã đăng ký {count} xe, vui lòng nhập đầy đủ biển số cho {count} xe.");
-            }
-
-            var plates = info.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                             .Select(p => p.Trim())
-                             .Where(p => !string.IsNullOrEmpty(p))
-                             .ToList();
-
-            if (plates.Count < count)
-            {
-                throw new ArgumentException($"Bạn đã đăng ký {count} xe nhưng mới chỉ nhập {plates.Count} biển số. Vui lòng nhập đủ {count} biển số xe.");
-            }
-        }
-        else
-        {
-            info = null;
-        }
-
-        profile.VehicleCount = count;
-        profile.VehicleInfo = info;
 
         await db.SaveChangesAsync();
         var activeContract = profile.Contracts.FirstOrDefault(c => c.Status == Core.Enums.ContractStatus.Active);
