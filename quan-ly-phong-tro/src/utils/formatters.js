@@ -261,3 +261,117 @@ export const isContractExpired = (c) => {
   return info.isExpired;
 };
 
+// Xuất file Excel mẫu để chủ trọ nhập chỉ số điện nước
+export const exportUtilityTemplateExcel = (rooms = [], zones = [], month = new Date().toISOString().slice(0, 7), targetZoneId = '') => {
+  try {
+    const filteredRooms = rooms.filter(r => !targetZoneId || (r.zoneId || r.ZoneId) === targetZoneId);
+    
+    const rows = filteredRooms.map((r, index) => {
+      const z = zones.find(zone => (zone.id || zone.Id) === (r.zoneId || r.ZoneId));
+      const activeTenant = r.currentTenantName || r.CurrentTenantName || r.tenants?.[0]?.user?.fullName || r.tenants?.[0]?.fullName || r.tenantName || 'Trống';
+      
+      return {
+        'STT': index + 1,
+        'Khu Trọ': z?.name || z?.Name || r.zoneName || r.ZoneName || 'Mặc định',
+        'Số Phòng': r.roomNumber || r.RoomNumber || '',
+        'Khách Đại Diện': activeTenant,
+        'Tháng Chốt': month,
+        'Số Điện Cũ (kWh)': Number(r.elecMeter ?? r.ElecMeter ?? 0),
+        'Số Điện Mới (kWh)': '',
+        'Số Nước Cũ (m³)': Number(r.waterMeter ?? r.WaterMeter ?? 0),
+        'Số Nước Mới (m³)': '',
+        'Ghi Chú': '',
+        '_Mã_Phòng_Ẩn': r.id || r.Id
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    // Căn chỉnh độ rộng cột
+    worksheet['!cols'] = [
+      { wch: 6 },  // STT
+      { wch: 20 }, // Khu Trọ
+      { wch: 14 }, // Số Phòng
+      { wch: 22 }, // Khách Đại Diện
+      { wch: 14 }, // Tháng Chốt
+      { wch: 18 }, // Số Điện Cũ
+      { wch: 20 }, // Số Điện Mới
+      { wch: 18 }, // Số Nước Cũ
+      { wch: 20 }, // Số Nước Mới
+      { wch: 25 }, // Ghi Chú
+      { hidden: true, wch: 0 } // _Mã_Phòng_Ẩn
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Chốt Điện Nước');
+
+    const fileName = `Mau_Nhap_Dien_Nuoc_Thang_${month}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    return true;
+  } catch (err) {
+    console.error('Lỗi khi xuất file Excel mẫu điện nước:', err);
+    return false;
+  }
+};
+
+// Đọc và phân tích file Excel chỉ số điện nước do chủ trọ tải lên
+export const parseUtilityExcel = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        if (!rawJson || rawJson.length === 0) {
+          reject(new Error('File Excel rỗng hoặc không có dữ liệu hợp lệ.'));
+          return;
+        }
+
+        const items = rawJson.map((row, idx) => {
+          // Lấy linh hoạt các tên cột (hỗ trợ cả có dấu và không dấu)
+          const roomNumber = String(row['Số Phòng'] || row['So Phong'] || row['Phòng'] || row['Phong'] || row['RoomNumber'] || '').trim();
+          const zoneName = String(row['Khu Trọ'] || row['Khu Tro'] || row['ZoneName'] || '').trim();
+          const roomId = row['_Mã_Phòng_Ẩn'] || row['Mã Phòng'] || row['RoomId'] || null;
+          
+          const oldElec = Number(row['Số Điện Cũ (kWh)'] || row['So Dien Cu'] || row['OldElec'] || 0);
+          const newElecRaw = row['Số Điện Mới (kWh)'] !== undefined && row['Số Điện Mới (kWh)'] !== '' ? row['Số Điện Mới (kWh)'] : row['So Dien Moi'] || row['NewElec'];
+          const newElec = newElecRaw !== '' && newElecRaw !== undefined ? Number(newElecRaw) : null;
+
+          const oldWater = Number(row['Số Nước Cũ (m³)'] || row['So Nuoc Cu'] || row['OldWater'] || 0);
+          const newWaterRaw = row['Số Nước Mới (m³)'] !== undefined && row['Số Nước Mới (m³)'] !== '' ? row['Số Nước Mới (m³)'] : row['So Nuoc Moi'] || row['NewWater'];
+          const newWater = newWaterRaw !== '' && newWaterRaw !== undefined ? Number(newWaterRaw) : null;
+
+          const note = String(row['Ghi Chú'] || row['Ghi Chu'] || row['Note'] || '').trim();
+          const month = String(row['Tháng Chốt'] || row['Thang Chot'] || row['Month'] || '').trim();
+          const tenantName = String(row['Khách Đại Diện'] || row['Khach Dai Dien'] || row['TenantName'] || '').trim();
+
+          return {
+            rowIdx: idx + 2, // Excel row number (1-based + 1 header)
+            roomId,
+            roomNumber,
+            zoneName,
+            tenantName,
+            month,
+            oldElec,
+            newElec,
+            oldWater,
+            newWater,
+            note
+          };
+        });
+
+        resolve(items);
+      } catch (error) {
+        console.error('Lỗi khi đọc file Excel:', error);
+        reject(new Error('Không thể đọc định dạng file Excel. Vui lòng sử dụng file .xlsx chuẩn.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Lỗi khi đọc file từ thiết bị.'));
+    reader.readAsArrayBuffer(file);
+  });
+};
+

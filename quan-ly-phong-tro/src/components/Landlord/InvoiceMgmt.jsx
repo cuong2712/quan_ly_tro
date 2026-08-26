@@ -8,6 +8,7 @@ import {
 import { formatVND, formatDate, exportToPDF, exportToExcel, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { invoiceService } from '../../services';
 import { Pagination } from '../Common/Pagination';
+import { BulkUtilityModal } from './BulkUtilityModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5000';
 
@@ -25,6 +26,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   const [monthFilter, setMonthFilter] = useState(''); // '' or 'YYYY-MM'
   const [zoneFilter, setZoneFilter] = useState('all'); // 'all' or zoneId
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [viewingInvoice, setViewingInvoice] = useState(null);
   const [resolvingInvoice, setResolvingInvoice] = useState(null);
@@ -322,6 +324,14 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button 
+            className="btn btn-primary" 
+            onClick={() => setIsBulkModalOpen(true)} 
+            style={{ fontSize: '13.5px', height: '36px', padding: '6px 14px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }} 
+            title="Nhập chỉ số điện nước từ file Excel để lập hàng loạt hóa đơn"
+          >
+            <FileSpreadsheet size={16} /> Lập Hóa Đơn Hàng Loạt (Excel)
+          </button>
           <button className="btn btn-secondary" onClick={handleExportExcel} style={{ fontSize: '13.5px', height: '36px', padding: '6px 14px', fontWeight: 600 }} title="Xuất dữ liệu hóa đơn ra file Excel">
             <FileSpreadsheet size={16} color="#10b981" /> Xuất Excel
           </button>
@@ -1169,6 +1179,18 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
           </div>
         </div>
       )}
+
+      {/* 📊 MODAL NHẬP EXCEL & TẠO HÀNG LOẠT HÓA ĐƠN */}
+      <BulkUtilityModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        rooms={rooms}
+        zones={zones}
+        currentRate={{ elecPrice: 3500, waterPrice: 18000 }}
+        onSuccess={() => {
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 };

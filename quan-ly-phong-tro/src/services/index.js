@@ -94,6 +94,7 @@ export const contractService = {
 export const utilityService = {
   getLogs: (roomId) => apiClient.get('/utilities', { params: roomId ? { roomId } : {} }).then(r => r.data),
   record: (data) => apiClient.post('/utilities', data).then(r => r.data),
+  bulkRecord: (data) => apiClient.post('/utilities/bulk-record', data).then(r => r.data),
   getRate: () => apiClient.get('/utilities/rate').then(r => r.data),
   updateRate: (data) => apiClient.put('/utilities/rate', data).then(r => r.data),
   deleteLog: (id) => apiClient.delete(`/utilities/${id}`).then(r => r.data),

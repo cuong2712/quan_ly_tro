@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Zap, Droplet, Plus, Edit, Settings, History, Calculator, AlertTriangle, CheckCircle, FileText, Filter, Trash2 } from 'lucide-react';
+import { Zap, Droplet, Plus, Edit, Settings, History, Calculator, AlertTriangle, CheckCircle, FileText, Filter, Trash2, FileSpreadsheet } from 'lucide-react';
 import { formatVND, formatDate, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { utilityService } from '../../services';
 import { Pagination } from '../Common/Pagination';
+import { BulkUtilityModal } from './BulkUtilityModal';
 
 export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], utilityLogs = [], setUtilityLogs, utilityRates = [], onRefresh }) => {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState('');
   const [roomFilterStatus, setRoomFilterStatus] = useState('all'); // 'all' | 'unbilled' | 'billed'
@@ -146,12 +148,19 @@ export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], u
           <h2 className="page-title"><Zap size={24} color="#f59e0b" /> Quản Lý Điện Nước</h2>
           <p className="page-subtitle">Nhập chỉ số điện nước hàng tháng, thay đổi đơn giá và tự động tính tiền</p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button 
+            className="btn btn-secondary" 
+            style={{ background: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.35)', color: '#10b981' }}
+            onClick={() => setIsBulkModalOpen(true)}
+          >
+            <FileSpreadsheet size={18} /> Nhập Excel & Lập Hàng Loạt Hóa Đơn
+          </button>
           <button className="btn btn-secondary" onClick={() => { setTempRates({ elecPrice: currentRate.elecPrice, waterPrice: currentRate.waterPrice }); setIsRateModalOpen(true); }}>
             <Settings size={18} /> Đơn Giá: {formatVND(currentRate.elecPrice)}/kWh | {formatVND(currentRate.waterPrice)}/m³
           </button>
           <button className="btn btn-primary" onClick={handleOpenRecord}>
-            <Plus size={18} /> Nhập Chỉ Số Mới
+            <Plus size={18} /> Nhập Lẻ Từng Phòng
           </button>
         </div>
       </div>
@@ -499,6 +508,18 @@ export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], u
           </div>
         </div>
       )}
+
+      {/* 📊 MODAL NHẬP EXCEL & TẠO HÀNG LOẠT HÓA ĐƠN */}
+      <BulkUtilityModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        rooms={rooms}
+        zones={zones}
+        currentRate={currentRate}
+        onSuccess={() => {
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 };

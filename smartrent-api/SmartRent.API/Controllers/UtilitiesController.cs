@@ -27,6 +27,25 @@ public class UtilitiesController(UtilityService utilityService) : ControllerBase
         catch (KeyNotFoundException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    // Ghi nhận hàng loạt chỉ số điện nước từ file Excel và tự động tính toán, tạo hóa đơn hàng loạt
+    [HttpPost("bulk-record")]
+    public async Task<IActionResult> BulkRecord([FromBody] BulkRecordUtilityRequest request)
+    {
+        try
+        {
+            var result = await utilityService.BulkRecordAsync(LandlordId, request);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = "Lỗi khi xử lý chốt điện nước hàng loạt: " + ex.Message });
+        }
+    }
+
     // Lấy bảng giá điện nước hiện tại của Chủ trọ.
     [HttpGet("rate")]
     public async Task<IActionResult> GetRate() => Ok(await utilityService.GetRateAsync(LandlordId));

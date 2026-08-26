@@ -14,3 +14,27 @@ public record RecordUtilityRequest(
 
 public record UtilityRateDto(Guid Id, decimal ElecPrice, decimal WaterPrice, DateTime UpdatedAt);
 public record UpdateUtilityRateRequest(decimal ElecPrice, decimal WaterPrice);
+
+public record BulkRecordUtilityItem(
+    Guid? RoomId,
+    string? RoomNumber,
+    string? ZoneName,
+    decimal NewElec,
+    decimal NewWater,
+    string? Note = null
+);
+
+public record BulkRecordUtilityRequest(
+    string Month,
+    DateTime? DueDate,
+    List<BulkRecordUtilityItem> Items
+);
+
+public record BulkRecordResultDto(
+    int TotalProcessed,
+    int SuccessCount,
+    int ErrorCount,
+    decimal TotalRevenue,
+    List<string> ErrorMessages,
+    List<InvoiceDto> CreatedInvoices
+);
