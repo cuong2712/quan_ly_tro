@@ -1375,7 +1375,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
             <div className="stat-meta">
               <span className="stat-label">Thời hạn hợp đồng</span>
               <span className="stat-value">{activeContract ? `Còn ${daysLeft} ngày` : 'Chưa có'}</span>
-              <span className="stat-subtext">Hết hạn: {contractEndDate ? contractEndDate.toLocaleDateString('vi-VN') : '-'}</span>
+              <span className="stat-subtext">Hết hạn: {contractEndDate ? formatDate(contractEndDate) : '-'}</span>
             </div>
           </div>
 
@@ -1689,7 +1689,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
                           <Calendar size={12} color="#3b82f6" /> Ngày Chuyển Vào
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 700, marginTop: 3 }}>
-                          {primaryTenant.moveInDate ? new Date(primaryTenant.moveInDate).toLocaleDateString('vi-VN') : '-'}
+                          {formatDate(primaryTenant.moveInDate) || '-'}
                         </div>
                       </div>
                     </div>
@@ -1755,7 +1755,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
                             <div style={{ fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', gap: 12, marginTop: 3, flexWrap: 'wrap' }}>
                               <span><Phone size={11} style={{ display: 'inline', marginRight: 4 }} />{t.phone || 'Chưa có SĐT'}</span>
                               {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 4 }} />{t.cccd}</span>}
-                              <span><Calendar size={11} style={{ display: 'inline', marginRight: 4 }} />Vào: {t.moveInDate ? new Date(t.moveInDate).toLocaleDateString('vi-VN') : '-'}</span>
+                              <span><Calendar size={11} style={{ display: 'inline', marginRight: 4 }} />Vào: {formatDate(t.moveInDate) || '-'}</span>
                             </div>
                           </div>
 
@@ -1817,7 +1817,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
                   <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Thời Hạn Hợp Đồng</div>
                     <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>
-                      {new Date(activeContract.startDate).toLocaleDateString('vi-VN')} → {new Date(activeContract.endDate).toLocaleDateString('vi-VN')}
+                      {formatDate(activeContract.startDate)} → {formatDate(activeContract.endDate)}
                     </div>
                   </div>
                   <div style={{ padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8 }}>
@@ -2549,7 +2549,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
                     <div>
                       <strong style={{ fontSize: 14 }}>Kỳ tháng {log.month}</strong>
                       <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>
-                        ({log.recordedAt ? new Date(log.recordedAt).toLocaleDateString('vi-VN') : ''})
+                        ({formatDate(log.recordedAt)})
                       </span>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 700 }}>
@@ -2580,7 +2580,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
                     <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'rgba(15,23,42,0.8)', borderRadius: 12, border: '1px solid var(--border-color)' }}>
                       <div>
                         <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>Mã: {inv.invoiceCode}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Kỳ tháng {inv.month} • Hạn: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : ''}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Kỳ tháng {inv.month} • Hạn: {formatDate(inv.dueDate)}</div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{ textAlign: 'right' }}>

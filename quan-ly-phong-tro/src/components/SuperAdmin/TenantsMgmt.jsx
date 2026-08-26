@@ -720,6 +720,12 @@ export const TenantsMgmt = ({ landlords = [], onRefresh }) => {
                       <div className="text-muted" style={{ fontSize: 12 }}>Phương tiện gửi</div>
                       <div style={{ fontWeight: 600 }}><Bike size={14} style={{ verticalAlign: -2 }} /> {viewingDetail.vehicleCount} xe ({viewingDetail.vehicleInfo || 'Không có biển số'})</div>
                     </div>
+                    {viewingDetail.moveInDate && (
+                      <div>
+                        <div className="text-muted" style={{ fontSize: 12 }}>Ngày dọn vào ở</div>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatDate(viewingDetail.moveInDate)}</div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ padding: 16, background: 'var(--surface-color)', borderRadius: 8, border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: 13 }}>

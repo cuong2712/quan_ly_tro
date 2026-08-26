@@ -231,11 +231,21 @@ app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 
 // ===== Seed Data & Schema Sync =====
+using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
         await db.Database.ExecuteSqlRawAsync(@"
+            ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""BankName"" text NULL;
+            ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""BankAccountNumber"" text NULL;
+            ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""BankAccountName"" text NULL;
+            ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""CccdFrontUrl"" text NULL;
+            ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""CccdBackUrl"" text NULL;
+            ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""VehicleCount"" integer NOT NULL DEFAULT 0;
+            ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""VehicleInfo"" text NULL;
+        ");
+        await DataSeeder.SeedAsync(db);
     }
     catch (Exception ex)
     {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MessageSquare, CheckCircle, Clock, Send, Filter } from 'lucide-react';
 import { adminService } from '../../services';
+import { formatDate } from '../../utils/formatters';
 
 export const SystemComplaints = ({ complaints, setComplaints, onRefresh }) => {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
@@ -100,6 +101,7 @@ export const SystemComplaints = ({ complaints, setComplaints, onRefresh }) => {
                     </div>
                   </td>
                   <td>{new Date(c.createdAt).toLocaleDateString('vi-VN')}</td>
+                  <td>{formatDate(c.createdAt)}</td>
                   <td>
                     <span className={`status-pill ${c.status === 'Resolved' ? 'occupied' : 'vacant'}`}>
                       {c.status === 'Resolved' ? '✅ Đã xử lý' : '⏳ Chờ xử lý'}
@@ -131,6 +133,7 @@ export const SystemComplaints = ({ complaints, setComplaints, onRefresh }) => {
                 <div style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '20px', borderLeft: '4px solid #6366f1' }}>
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 6 }}>
                     Từ: <strong>{selectedComplaint.senderName}</strong> ({selectedComplaint.role === 'Landlord' ? 'Chủ trọ' : 'Người thuê'}) — {new Date(selectedComplaint.createdAt).toLocaleDateString('vi-VN')}
+                    Từ: <strong>{selectedComplaint.senderName}</strong> ({selectedComplaint.role === 'Landlord' ? 'Chủ trọ' : 'Người thuê'}) — {formatDate(selectedComplaint.createdAt)}
                   </div>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '15px', color: 'var(--text-primary)' }}>{selectedComplaint.title}</h4>
                   <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>{selectedComplaint.content}</p>
