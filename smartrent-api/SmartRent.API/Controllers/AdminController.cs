@@ -10,7 +10,6 @@ namespace SmartRent.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "SuperAdmin")]
-[Authorize(Roles = "SuperAdmin,Admin")]
 public class AdminController(AdminService adminService) : ControllerBase
 {
     // Lấy tổng quan các chỉ số thống kê của hệ thống.
@@ -120,34 +119,6 @@ public class AdminController(AdminService adminService) : ControllerBase
             return Ok(new { message = $"Đặt lại mật khẩu thành công: {newPass}" });
         }
         catch (KeyNotFoundException) { return NotFound(new { message = "Không tìm thấy hồ sơ khách thuê" }); }
-    }
-
-    // ==========================================
-    // QUẢN TRỊ TÀI KHOẢN NGƯỜI DÙNG DÙNG CHUNG (USERS)
-    // ==========================================
-
-    // Cập nhật trạng thái kích hoạt / khóa tài khoản người dùng theo ID
-    [HttpPatch("users/{id:guid}/status")]
-    public async Task<IActionResult> UpdateUserStatus(Guid id, [FromBody] UpdateUserStatusRequest request)
-    {
-        try
-        {
-            var isActive = await adminService.UpdateUserStatusAsync(id, request.IsActive);
-            return Ok(new { success = true, isActive, message = "Cập nhật trạng thái thành công" });
-        }
-        catch (KeyNotFoundException) { return NotFound(new { message = "Người dùng không tồn tại" }); }
-    }
-
-    // Toggle khóa / mở khóa tài khoản người dùng theo ID
-    [HttpPatch("users/{id:guid}/toggle-lock")]
-    public async Task<IActionResult> ToggleUserLock(Guid id)
-    {
-        try
-        {
-            var isActive = await adminService.ToggleUserLockAsync(id);
-            return Ok(new { success = true, isActive, message = "Cập nhật trạng thái thành công" });
-        }
-        catch (KeyNotFoundException) { return NotFound(new { message = "Người dùng không tồn tại" }); }
     }
 }
 

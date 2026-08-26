@@ -40,9 +40,6 @@ export const adminService = {
   getTenantDetail: (id) => apiClient.get(`/admin/tenants/${id}`).then(r => r.data),
   toggleLockTenant: (id) => apiClient.patch(`/admin/tenants/${id}/toggle-lock`).then(r => r.data),
   resetTenantPassword: (id, newPassword) => apiClient.patch(`/admin/tenants/${id}/reset-password`, { newPassword }).then(r => r.data),
-  // Quản lý trạng thái User dùng chung
-  updateUserStatus: (id, isActive) => apiClient.patch(`/admin/users/${id}/status`, { isActive }).then(r => r.data),
-  toggleLockUser: (id) => apiClient.patch(`/admin/users/${id}/toggle-lock`).then(r => r.data),
 };
 
 export const zoneService = {

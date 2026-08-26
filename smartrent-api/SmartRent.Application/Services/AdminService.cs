@@ -435,47 +435,5 @@ public class AdminService(AppDbContext db)
         tenant.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         await db.SaveChangesAsync();
     }
-
-    // Cập nhật trạng thái hoạt động của bất kỳ người dùng nào (Chủ trọ, Khách thuê, Admin)
-    public async Task<bool> UpdateUserStatusAsync(Guid userIdOrProfileId, bool isActive)
-    {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userIdOrProfileId);
-        if (user == null)
-        {
-            var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.Id == userIdOrProfileId);
-            if (tenant?.User != null)
-            {
-                user = tenant.User;
-            }
-        }
-
-        if (user == null)
-            throw new KeyNotFoundException("Không tìm thấy tài khoản người dùng");
-
-        user.IsActive = isActive;
-        await db.SaveChangesAsync();
-        return user.IsActive;
-    }
-
-    // Toggle khóa/mở khóa cho bất kỳ người dùng nào (Chủ trọ, Khách thuê, Admin)
-    public async Task<bool> ToggleUserLockAsync(Guid userIdOrProfileId)
-    {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userIdOrProfileId);
-        if (user == null)
-        {
-            var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.Id == userIdOrProfileId);
-            if (tenant?.User != null)
-            {
-                user = tenant.User;
-            }
-        }
-
-        if (user == null)
-            throw new KeyNotFoundException("Không tìm thấy tài khoản người dùng");
-
-        user.IsActive = !user.IsActive;
-        await db.SaveChangesAsync();
-        return user.IsActive;
-    }
 }
 

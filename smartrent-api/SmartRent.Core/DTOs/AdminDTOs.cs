@@ -125,5 +125,3 @@ public record AdminTenantDetailDto(
     DateTime CreatedAt
 );
 
-public record UpdateUserStatusRequest(bool IsActive);
-

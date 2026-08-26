@@ -765,7 +765,6 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                     </td>
                     <td style={{ padding: '9px 16px', fontSize: '14px', color: 'var(--text-primary)' }}>
                       {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : ''}
-                      {formatDate(inv.dueDate)}
                     </td>
                     <td style={{ padding: '9px 16px' }}>
                       <span className={`status-pill ${(inv.status || '').toLowerCase() === 'paid' ? 'occupied' : 'vacant'}`} style={{ fontSize: '13px', padding: '4px 10px', fontWeight: 600 }}>

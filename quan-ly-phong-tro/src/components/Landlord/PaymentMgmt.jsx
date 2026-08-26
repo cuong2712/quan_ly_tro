@@ -267,7 +267,6 @@ export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvo
                     </td>
 
                     <td style={{ padding: '8px 16px', fontSize: '14.5px' }}>{p.createdAt ? new Date(p.createdAt).toLocaleDateString('vi-VN') : ''}</td>
-                    <td style={{ padding: '8px 16px', fontSize: '14.5px' }}>{formatDate(p.createdAt)}</td>
                     <td style={{ padding: '8px 16px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>{p.note || 'Không có ghi chú'}</td>
                     <td style={{ padding: '8px 16px' }}>
                       <span className={`status-pill ${isCompleted ? 'occupied' : isPending ? 'pending' : 'vacant'}`} style={{ padding: '4px 10px', fontSize: '13px', borderRadius: '20px' }}>

@@ -72,9 +72,6 @@ public class InvoiceQueryService(AppDbContext db)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
             .Where(i => i.TenantProfileId == profile.Id || (i.TenantProfile != null && i.TenantProfile.UserId == tenantUserId))
-            .Where(i => i.TenantProfileId == profile.Id 
-                     || (i.TenantProfile != null && i.TenantProfile.UserId == tenantUserId)
-                     || (profile.RoomId != null && i.RoomId == profile.RoomId))
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync();
 
@@ -98,10 +95,6 @@ public class InvoiceQueryService(AppDbContext db)
         else if (role == "Tenant")
         {
             query = query.Where(i => (i.TenantProfile != null && i.TenantProfile.UserId == currentUserId) || i.TenantProfileId == currentUserId);
-            var myProfile = await db.TenantProfiles.AsNoTracking().FirstOrDefaultAsync(t => t.UserId == currentUserId || t.Id == currentUserId);
-            query = query.Where(i => (i.TenantProfile != null && i.TenantProfile.UserId == currentUserId) 
-                                  || i.TenantProfileId == currentUserId
-                                  || (myProfile != null && myProfile.RoomId != null && i.RoomId == myProfile.RoomId));
         }
 
         var invoice = await query.FirstOrDefaultAsync(i => i.Id == id);
