@@ -7,8 +7,9 @@ import {
 const NAV_ITEMS = {
   superadmin: [
     { id: 'sa_analytics', label: 'Tổng quan hệ thống', icon: BarChart3 },
-    { id: 'sa_landlords', label: 'Quản lý chủ trọ', icon: Users },
-    { id: 'sa_complaints', label: 'Phản hồi', icon: MessageSquare },
+    { id: 'sa_landlords', label: 'Quản lý chủ trọ', icon: Building2 },
+    { id: 'sa_tenants', label: 'Quản lý khách thuê', icon: Users },
+    { id: 'sa_complaints', label: 'Phản hồi & Khiếu nại', icon: MessageSquare },
     { id: 'sa_notifications', label: 'Thông báo', icon: BellRing },
   ],
   landlord: [

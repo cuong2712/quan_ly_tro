@@ -12,12 +12,14 @@ import { adminService, notificationService } from '../services';
 // Lazy load components
 const SuperAdminAnalytics = lazy(() => import('../components/SuperAdmin/SuperAdminAnalytics').then(m => ({ default: m.SuperAdminAnalytics })));
 const LandlordsMgmt       = lazy(() => import('../components/SuperAdmin/LandlordsMgmt').then(m => ({ default: m.LandlordsMgmt })));
+const TenantsMgmt         = lazy(() => import('../components/SuperAdmin/TenantsMgmt').then(m => ({ default: m.TenantsMgmt })));
 const SystemComplaints    = lazy(() => import('../components/SuperAdmin/SystemComplaints').then(m => ({ default: m.SystemComplaints })));
 const SystemNotify        = lazy(() => import('../components/SuperAdmin/SystemNotify').then(m => ({ default: m.SystemNotify })));
 
 const TAB_FETCHERS = {
   sa_analytics:    { stats: adminService.getStats, landlords: adminService.getLandlords },
   sa_landlords:    { landlords: adminService.getLandlords },
+  sa_tenants:      { landlords: adminService.getLandlords },
   sa_complaints:   { complaints: adminService.getComplaints },
   sa_notifications:{ notifications: notificationService.getNotifications },
 };
@@ -89,6 +91,15 @@ export default function AdminPage() {
             <LandlordsMgmt
               landlords={d.landlords || []}
               setLandlords={v => setCurrentData('landlords', v)}
+              onRefresh={handleRefresh}
+            />
+          </Suspense>
+        );
+      case 'sa_tenants':
+        return (
+          <Suspense fallback={<TabLoader />}>
+            <TenantsMgmt
+              landlords={d.landlords || []}
               onRefresh={handleRefresh}
             />
           </Suspense>

@@ -75,6 +75,7 @@ public class AppDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasOne(x => x.User).WithOne(u => u.TenantProfile).HasForeignKey<TenantProfile>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Landlord).WithMany().HasForeignKey(x => x.LandlordId).OnDelete(DeleteBehavior.SetNull).IsRequired(false);
             e.HasOne(x => x.Room).WithMany(r => r.Tenants).HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.SetNull).IsRequired(false);
             e.Property(x => x.Deposit).HasColumnType("decimal(18,2)");
         });

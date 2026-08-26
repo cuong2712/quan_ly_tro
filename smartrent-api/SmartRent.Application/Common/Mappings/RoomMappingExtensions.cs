@@ -1,5 +1,6 @@
 using SmartRent.Core.DTOs;
 using SmartRent.Core.Entities;
+using SmartRent.Core.Enums;
 
 namespace SmartRent.Application.Common.Mappings;
 
@@ -7,7 +8,13 @@ public static class RoomMappingExtensions
 {
     public static RoomDto ToRoomDto(this Room r)
     {
-        var repTenant = r.Tenants?.OrderBy(t => t.MoveInDate ?? t.CreatedAt).FirstOrDefault();
+        // 1. Ưu tiên hàng đầu: Người đứng tên Hợp đồng đang có hiệu lực (Active hoặc RenewRequested)
+        var activeContract = r.Contracts?.FirstOrDefault(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested);
+        var repTenant = (activeContract != null
+            ? r.Tenants?.FirstOrDefault(t => t.Id == activeContract.TenantProfileId)
+            : null)
+            ?? r.Tenants?.OrderBy(t => t.MoveInDate ?? t.CreatedAt).FirstOrDefault();
+
         return new(
             r.Id,
             r.ZoneId,

@@ -72,4 +72,53 @@ public class AdminController(AdminService adminService) : ControllerBase
         await adminService.UpdateComplaintStatusAsync(id, status);
         return Ok();
     }
+
+    // ==========================================
+    // QUẢN TRỊ KHÁCH THUÊ (TENANT MANAGEMENT)
+    // ==========================================
+
+    // Lấy danh sách toàn bộ khách thuê trong hệ thống
+    [HttpGet("tenants")]
+    public async Task<IActionResult> GetTenants(
+        [FromQuery] string? search,
+        [FromQuery] bool? isActive,
+        [FromQuery] Guid? landlordId,
+        [FromQuery] string? rentStatus,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize)
+        => Ok(await adminService.GetTenantsAsync(search, isActive, landlordId, rentStatus, page, pageSize));
+
+    // Lấy chi tiết hồ sơ khách thuê kèm toàn bộ lịch sử
+    [HttpGet("tenants/{id:guid}")]
+    public async Task<IActionResult> GetTenantDetail(Guid id)
+    {
+        try { return Ok(await adminService.GetTenantDetailAsync(id)); }
+        catch (KeyNotFoundException) { return NotFound(new { message = "Không tìm thấy hồ sơ khách thuê" }); }
+    }
+
+    // Khóa hoặc mở khóa tài khoản Khách thuê
+    [HttpPatch("tenants/{id:guid}/toggle-lock")]
+    public async Task<IActionResult> ToggleLockTenant(Guid id)
+    {
+        try
+        {
+            await adminService.ToggleLockTenantAsync(id);
+            return Ok(new { message = "Cập nhật trạng thái tài khoản khách thuê thành công" });
+        }
+        catch (KeyNotFoundException) { return NotFound(new { message = "Không tìm thấy hồ sơ khách thuê" }); }
+    }
+
+    // Đặt lại mật khẩu tài khoản Khách thuê
+    [HttpPatch("tenants/{id:guid}/reset-password")]
+    public async Task<IActionResult> ResetTenantPassword(Guid id, [FromBody] ResetPasswordRequest? request = null)
+    {
+        try
+        {
+            var newPass = !string.IsNullOrWhiteSpace(request?.NewPassword) ? request.NewPassword : "Tenant@2026";
+            await adminService.ResetTenantPasswordAsync(id, newPass);
+            return Ok(new { message = $"Đặt lại mật khẩu thành công: {newPass}" });
+        }
+        catch (KeyNotFoundException) { return NotFound(new { message = "Không tìm thấy hồ sơ khách thuê" }); }
+    }
 }
+

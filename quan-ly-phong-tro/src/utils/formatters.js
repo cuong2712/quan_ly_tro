@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import html2pdf from 'html2pdf.js';
 
 // Định dạng tiền tệ VND
 export const formatVND = (amount) => {
@@ -95,7 +96,7 @@ export const exportToExcel = (data, fileName = 'Bao_Cao_SmartRent.xlsx', sheetNa
   }
 };
 
-// Xuất file PDF bằng html2pdf.js hoặc window.print
+// Xuất file PDF bằng html2pdf.js
 export const exportToPDF = async (elementId, fileName = 'Document.pdf') => {
   const element = document.getElementById(elementId);
   if (!element) {
@@ -103,50 +104,26 @@ export const exportToPDF = async (elementId, fileName = 'Document.pdf') => {
     return;
   }
 
-  // Tạm thời áp dụng class xuất PDF để đảm bảo tất cả chữ có màu đen/đậm trên nền trắng (kể cả khi ở giao diện tối Dark Mode)
+  // Tạm thời áp dụng class xuất PDF để đảm bảo tất cả chữ có màu đen/đậm trên nền trắng
   element.classList.add('pdf-export-active');
 
   try {
-    if (window.html2pdf) {
+    const pdfLib = typeof html2pdf === 'function' ? html2pdf : (window.html2pdf || null);
+    if (pdfLib) {
       const opt = {
-        margin:       0.4,
+        margin:       [0.4, 0.4, 0.4, 0.4],
         filename:     fileName,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
         jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
       };
-      await window.html2pdf().set(opt).from(element).save();
+      await pdfLib().set(opt).from(element).save();
     } else {
-      // Fallback sang in ấn trực tiếp từ trình duyệt
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${fileName}</title>
-            <style>
-              body { font-family: 'Inter', sans-serif; padding: 24px; color: #0f172a; background-color: #ffffff; }
-              table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-              th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; color: #0f172a; }
-              th { background-color: #f1f5f9; color: #0f172a; }
-              .header { text-align: center; margin-bottom: 20px; }
-              .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-              div, p, span, h1, h2, h3, h4, h5, h6, strong { color: #0f172a !important; }
-            </style>
-          </head>
-          <body class="pdf-export-active">
-            ${element.innerHTML}
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 500);
+      alert('Đang chuẩn bị thư viện xuất PDF, vui lòng thử lại sau giây lát.');
     }
   } catch (err) {
     console.error('Lỗi khi xuất file PDF:', err);
+    alert('Có lỗi xảy ra trong quá trình xuất PDF: ' + (err.message || 'Vui lòng thử lại'));
   } finally {
     // Loại bỏ class ép nền trắng sau khi xuất PDF xong
     element.classList.remove('pdf-export-active');

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Search, Edit, Trash2, Printer, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft, RefreshCw, ChevronRight, UserCheck, ShieldCheck, Info } from 'lucide-react';
+import { FileText, Plus, Search, Edit, Trash2, Download, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft, RefreshCw, ChevronRight, UserCheck, ShieldCheck, Info } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { contractService, roomService } from '../../services';
 import { Pagination } from '../Common/Pagination';
@@ -612,7 +612,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
             <FileText size={22} color="#6366f1" /> Quản Lý Hợp Đồng Thuê Nhà
           </h2>
           <p className="page-subtitle" style={{ fontSize: '12px', margin: '2px 0 0 0' }}>
-            Tạo mới, gia hạn, thanh lý và in/xuất file PDF hợp đồng pháp lý
+            Tạo mới, gia hạn, thanh lý và xuất file PDF hợp đồng pháp lý
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1030,7 +1030,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                     onClick={() => exportToPDF('contract-pdf-content', `${viewingContract.contractCode}.pdf`)}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   >
-                    <Printer size={15} /> In / Xuất PDF
+                    <Download size={15} /> Xuất PDF
                   </button>
 
                   <button

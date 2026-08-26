@@ -41,6 +41,7 @@ public class RoomOccupantService(AppDbContext db)
 
         // Không kiểm tra hợp đồng - chỉ cập nhật liên kết phòng
         tenant.RoomId = roomId;
+        tenant.LandlordId = landlordId;
         if (tenant.MoveInDate == null) tenant.MoveInDate = DateTime.UtcNow;
 
         // Đổi trạng thái phòng thành Occupied nếu đang Vacant
@@ -79,8 +80,9 @@ public class RoomOccupantService(AppDbContext db)
                 "Vui lòng sử dụng chức năng \"Chuyển quyền đại diện\" hoặc thanh lý hợp đồng trước khi gỡ người này khỏi phòng.");
         }
 
-        // Gỡ liên kết phòng (Occupant rời đi)
+        // Gỡ liên kết phòng (Occupant rời đi), nhưng giữ lại LandlordId để chủ trọ có thể xếp lại phòng sau này
         tenant.RoomId = null;
+        tenant.LandlordId = landlordId;
 
         // Kiểm tra nếu phòng không còn ai ở và không có hợp đồng active -> chuyển trạng thái phòng về Vacant
         var remainingCount = await db.TenantProfiles.CountAsync(t => t.RoomId == roomId && t.Id != tenantProfileId);

@@ -109,6 +109,44 @@ public static class DataSeeder
         try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""VehicleInfo"" text;"); }
         catch (Exception ex) { Console.WriteLine("Add VehicleInfo col error: " + ex.Message); }
 
+        // Thêm cột LandlordId vào TenantProfiles và tự động liên kết với Chủ trọ tương ứng
+        try 
+        { 
+            await context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""TenantProfiles"" ADD COLUMN IF NOT EXISTS ""LandlordId"" uuid NULL;
+                
+                -- Đồng bộ LandlordId từ phòng hiện tại
+                UPDATE ""TenantProfiles"" tp 
+                SET ""LandlordId"" = z.""LandlordId"" 
+                FROM ""Rooms"" r 
+                JOIN ""Zones"" z ON r.""ZoneId"" = z.""Id"" 
+                WHERE tp.""RoomId"" = r.""Id"" AND tp.""LandlordId"" IS NULL;
+
+                -- Đồng bộ LandlordId từ hợp đồng
+                UPDATE ""TenantProfiles"" tp 
+                SET ""LandlordId"" = z.""LandlordId"" 
+                FROM ""Contracts"" c 
+                JOIN ""Rooms"" r ON c.""RoomId"" = r.""Id""
+                JOIN ""Zones"" z ON r.""ZoneId"" = z.""Id"" 
+                WHERE tp.""Id"" = c.""TenantProfileId"" AND tp.""LandlordId"" IS NULL;
+
+                -- Đồng bộ LandlordId từ hóa đơn
+                UPDATE ""TenantProfiles"" tp 
+                SET ""LandlordId"" = z.""LandlordId"" 
+                FROM ""Invoices"" i 
+                JOIN ""Rooms"" r ON i.""RoomId"" = r.""Id""
+                JOIN ""Zones"" z ON r.""ZoneId"" = z.""Id"" 
+                WHERE tp.""Id"" = i.""TenantProfileId"" AND tp.""LandlordId"" IS NULL;
+
+                -- Đồng bộ LandlordId từ phiếu thanh lý
+                UPDATE ""TenantProfiles"" tp 
+                SET ""LandlordId"" = cs.""LandlordId"" 
+                FROM ""ContractSettlements"" cs 
+                WHERE tp.""Id"" = cs.""TenantProfileId"" AND tp.""LandlordId"" IS NULL;
+            "); 
+        }
+        catch (Exception ex) { Console.WriteLine("Add LandlordId to TenantProfiles error: " + ex.Message); }
+
         if (await context.Users.AnyAsync())
         {
             await EnsureRoomEquipmentsSeededAsync(context);

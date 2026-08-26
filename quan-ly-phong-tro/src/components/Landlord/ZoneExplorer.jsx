@@ -11,7 +11,7 @@ import {
   zoneService, roomService, tenantService,
   invoiceService, utilityService, contractService, serviceMgmtService
 } from '../../services';
-import { formatVND } from '../../utils/formatters';
+import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { ServiceMgmt } from './ServiceMgmt';
 import { ErrorBoundary } from '../Common/ErrorBoundary';
 import { Pagination } from '../Common/Pagination';
@@ -350,7 +350,15 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     try { await roomService.deleteRoom(r.id); await load(); } catch (err) { alert(err.response?.data?.message || err.message); }
   };
   const handleSave = async (e) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault();
+    const hasOccupant = !!(editingRoom && (editingRoom.currentTenantName || editingRoom.tenantName));
+    if (editingRoom && (form.status === 'Vacant' || form.status === 'Maintenance') && hasOccupant) {
+      const statusName = form.status === 'Vacant' ? 'Còn trống' : 'Bảo trì';
+      const tenantName = editingRoom.currentTenantName || editingRoom.tenantName;
+      alert(`⚠️ Phòng ${editingRoom.roomNumber} đang có người ở (${tenantName}). Không thể chuyển sang trạng thái "${statusName}". Vui lòng thanh lý hợp đồng và gỡ khách khỏi phòng trước khi đổi trạng thái phòng.`);
+      return;
+    }
+    setSaving(true);
     try {
       const payload = {
         zoneId: zone.id, roomNumber: form.roomNumber, floor: Number(form.floor),
@@ -745,10 +753,19 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                       <div className="form-group">
                         <label className="form-label">Trạng thái</label>
                         <select className="form-control" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                          <option value="Vacant">Còn trống</option>
+                          <option value="Vacant" disabled={!!(editingRoom?.currentTenantName || editingRoom?.tenantName)}>
+                            Còn trống {!!(editingRoom?.currentTenantName || editingRoom?.tenantName) ? '(Đang có người ở)' : ''}
+                          </option>
                           <option value="Occupied">Đang thuê</option>
-                          <option value="Maintenance">Bảo trì</option>
+                          <option value="Maintenance" disabled={!!(editingRoom?.currentTenantName || editingRoom?.tenantName)}>
+                            Bảo trì {!!(editingRoom?.currentTenantName || editingRoom?.tenantName) ? '(Đang có người ở)' : ''}
+                          </option>
                         </select>
+                        {!!(editingRoom?.currentTenantName || editingRoom?.tenantName) && (
+                          <small style={{ color: '#f59e0b', fontSize: '11px', marginTop: 3, display: 'block' }}>
+                            ⚠️ Đang có người ở ({editingRoom.currentTenantName || editingRoom.tenantName})
+                          </small>
+                        )}
                       </div>
                       <div className="form-group">
                         <label className="form-label">Chỉ số điện (kWh)</label>
@@ -836,6 +853,9 @@ const RoomDetail = ({ room, zone, onBack }) => {
   const [allTenants, setAllTenants] = useState([]);
   const [occupantSearchText, setOccupantSearchText] = useState('');
   const [addingOccupant, setAddingOccupant] = useState(false);
+
+  // Modal Xem & Xuất Hợp Đồng PDF trực tiếp
+  const [showViewContractModal, setShowViewContractModal] = useState(false);
 
   // Modal Chuyển quyền đại diện hợp đồng
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -1052,6 +1072,12 @@ const RoomDetail = ({ room, zone, onBack }) => {
   // Submit API update room
   const handleUpdateRoom = async (e) => {
     e.preventDefault();
+    const hasOccupants = tenants.length > 0;
+    if ((editForm.status === 'Vacant' || editForm.status === 'Maintenance') && (hasOccupants || !!activeContract)) {
+      const statusName = editForm.status === 'Vacant' ? 'Còn trống' : 'Bảo trì';
+      alert(`⚠️ Phòng đang có ${tenants.length} người ở hoặc hợp đồng đang có hiệu lực. Không thể chuyển sang trạng thái "${statusName}". Vui lòng thanh lý hợp đồng và gỡ khách khỏi phòng trước khi đổi trạng thái phòng.`);
+      return;
+    }
     setSubmitting(true);
     try {
       await roomService.updateRoom(room.id, {
@@ -1070,7 +1096,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
       await loadDetail();
     } catch (err) {
       console.error('Lỗi cập nhật phòng:', err);
-      showToast('⚠️ Không thể cập nhật thông tin phòng!');
+      const errMsg = err.response?.data?.message || err.message || 'Không thể cập nhật thông tin phòng!';
+      alert('⚠️ ' + errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -1655,15 +1682,25 @@ const RoomDetail = ({ room, zone, onBack }) => {
                   </div>
                 </div>
 
-                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => {
-                  if (activeContract.fileUrl) {
-                    window.open(activeContract.fileUrl, '_blank');
-                  } else {
-                    window.print();
-                  }
-                }}>
-                  <Download size={16} /> {activeContract.fileUrl ? 'Tải Hợp Đồng PDF (Bản Gốc)' : 'In / Xuất Hợp Đồng (PDF)'}
-                </button>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 700 }}
+                    onClick={() => setShowViewContractModal(true)}
+                  >
+                    <FileText size={16} /> Xem & Xuất Hợp Đồng (PDF)
+                  </button>
+                  {activeContract.fileUrl && (
+                    <button
+                      className="btn btn-secondary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      onClick={() => window.open(activeContract.fileUrl, '_blank')}
+                      title="Tải file đính kèm gốc"
+                    >
+                      <Download size={16} /> File Gốc
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1757,89 +1794,106 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 </div>
               </div>
 
-              {/* Danh Sách Khách Thuê Khả Dụng */}
+              {/* Danh Sách Khách Thuê Khả Dụng — bao gồm khách đang ở phòng khác (có thể chuyển phòng) */}
               <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 2 }}>
-                {allTenants
-                  .filter(t => {
-                    const q = occupantSearchText.toLowerCase();
+                {(() => {
+                  const q = occupantSearchText.toLowerCase();
+                  const available = allTenants.filter(t => {
                     const alreadyInThisRoom = tenants.some(rt => rt.id === t.id);
-                    return !alreadyInThisRoom && (
+                    if (alreadyInThisRoom) return false; // đã ở phòng này rồi
+                    return (
                       !q ||
                       t.fullName?.toLowerCase().includes(q) ||
                       t.phone?.includes(q) ||
                       t.email?.toLowerCase().includes(q) ||
                       (t.cccd && t.cccd.includes(q))
                     );
-                  })
-                  .map(t => (
-                    <div
-                      key={t.id}
-                      style={{
-                        padding: '12px 16px', background: 'var(--bg-dark)',
-                        borderRadius: '12px', border: '1px solid var(--border-color)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                        <div style={{
-                          width: 40, height: 40, borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0
-                        }}>
-                          {t.fullName?.charAt(0) || 'T'}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            {t.fullName}
-                            {t.roomId ? (
-                              <span style={{ fontSize: '10.5px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-                                Đang ở P.{t.roomNumber || 'khác'}
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: '10.5px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-                                Chưa có phòng
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
-                            <span><Phone size={11} style={{ display: 'inline', marginRight: 3 }} />{t.phone}</span>
-                            {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 3 }} />{t.cccd}</span>}
-                            {t.hometown && <span><MapPin size={11} style={{ display: 'inline', marginRight: 3 }} />{t.hometown}</span>}
-                          </div>
-                        </div>
-                      </div>
+                  });
 
-                      <button
-                        className="btn btn-sm btn-primary"
-                        disabled={addingOccupant || (tenants.length >= (roomDetail?.maxTenants || room.maxTenants))}
-                        style={{ flexShrink: 0, padding: '6px 14px', fontSize: '12.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        onClick={async () => {
-                          if (!confirm(`Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`)) return;
-                          setAddingOccupant(true);
-                          try {
-                            await roomService.addOccupant(room.id, t.id);
-                            showToast(`✅ Đã thêm ${t.fullName} vào phòng thành công.`);
-                            setShowAddOccupantModal(false);
-                            await loadDetail();
-                          } catch (err) {
-                            alert(err.response?.data?.message || err.message);
-                          } finally { setAddingOccupant(false); }
+                  if (available.length === 0) {
+                    return (
+                      <div style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)', fontSize: 13 }}>
+                        <Users size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                        <p style={{ margin: 0 }}>{q ? 'Không tìm thấy khách thuê phù hợp.' : 'Không có hồ sơ khách thuê nào khả dụng.'}</p>
+                      </div>
+                    );
+                  }
+
+                  return available.map(t => {
+                    const isMoving = !!(t.roomId); // đang ở phòng khác
+                    const isFull = tenants.length >= (roomDetail?.maxTenants || room.maxTenants);
+                    return (
+                      <div
+                        key={t.id}
+                        style={{
+                          padding: '12px 16px', background: 'var(--bg-dark)',
+                          borderRadius: '12px',
+                          border: `1px solid ${isMoving ? 'rgba(245,158,11,0.3)' : 'var(--border-color)'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                          transition: 'all 0.2s'
                         }}
                       >
-                        <Plus size={14} /> Thêm
-                      </button>
-                    </div>
-                  ))
-                }
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                          <div style={{
+                            width: 40, height: 40, borderRadius: '50%',
+                            background: isMoving
+                              ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                              : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0
+                          }}>
+                            {t.fullName?.charAt(0) || 'T'}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              {t.fullName}
+                              {isMoving ? (
+                                <span style={{ fontSize: '10.5px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 7px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                  📦 Đang ở P.{t.roomNumber || 'khác'} → chuyển
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '10.5px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 7px', borderRadius: 4, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                  ✅ Chưa có phòng
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
+                              <span><Phone size={11} style={{ display: 'inline', marginRight: 3 }} />{t.phone}</span>
+                              {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 3 }} />{t.cccd}</span>}
+                              {t.hometown && <span><MapPin size={11} style={{ display: 'inline', marginRight: 3 }} />{t.hometown}</span>}
+                            </div>
+                          </div>
+                        </div>
 
-                {allTenants.filter(t => !tenants.some(rt => rt.id === t.id)).length === 0 && (
-                  <div style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)', fontSize: 13 }}>
-                    <Users size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
-                    <p style={{ margin: 0 }}>Không có hồ sơ khách thuê nào khả dụng.</p>
-                  </div>
-                )}
+                        <button
+                          className={`btn btn-sm ${isMoving ? 'btn-secondary' : 'btn-primary'}`}
+                          disabled={addingOccupant || isFull}
+                          title={isFull ? 'Phòng đã đầy sức chứa tối đa' : (isMoving ? `Chuyển từ P.${t.roomNumber || '?'} sang phòng này` : 'Thêm vào phòng')}
+                          style={{ flexShrink: 0, padding: '6px 14px', fontSize: '12.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          onClick={async () => {
+                            const msg = isMoving
+                              ? `⚠️ "${t.fullName}" đang ở phòng P.${t.roomNumber || 'khác'}.\nChuyển sang phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`
+                              : `Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`;
+                            if (!confirm(msg)) return;
+                            setAddingOccupant(true);
+                            try {
+                              await roomService.addOccupant(room.id, t.id);
+                              showToast(isMoving
+                                ? `✅ Đã chuyển ${t.fullName} sang phòng ${roomDetail?.roomNumber || room.roomNumber} thành công.`
+                                : `✅ Đã thêm ${t.fullName} vào phòng thành công.`);
+                              setShowAddOccupantModal(false);
+                              await loadDetail();
+                            } catch (err) {
+                              alert(err.response?.data?.message || err.message);
+                            } finally { setAddingOccupant(false); }
+                          }}
+                        >
+                          {isMoving ? <><RefreshCw size={13} /> Chuyển</> : <><Plus size={14} /> Thêm</>}
+                        </button>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
@@ -1943,90 +1997,108 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 </div>
               </div>
 
-              {/* Danh Sách Khách Thuê Khả Dụng */}
+              {/* Danh Sách Khách Thuê — bao gồm cả khách đang ở phòng khác (chuyển phòng) */}
               <div style={{ flex: 1, minHeight: 160, maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
-                {allTenants
-                  .filter(t => {
-                    const q = occupantSearchText.toLowerCase();
+                {(() => {
+                  const q = occupantSearchText.toLowerCase();
+                  const available = allTenants.filter(t => {
                     const alreadyInThisRoom = tenants.some(rt => rt.id === t.id);
-                    return !alreadyInThisRoom && (
+                    if (alreadyInThisRoom) return false;
+                    return (
                       !q ||
                       t.fullName?.toLowerCase().includes(q) ||
                       t.phone?.includes(q) ||
                       t.email?.toLowerCase().includes(q) ||
                       (t.cccd && t.cccd.includes(q))
                     );
-                  })
-                  .map(t => (
-                    <div
-                      key={t.id}
-                      style={{
-                        padding: '12px 16px', background: 'var(--bg-dark)',
-                        borderRadius: '12px', border: '1px solid var(--border-color)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                        transition: 'all 0.2s', flexShrink: 0
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                        <div style={{
-                          width: 40, height: 40, borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0
-                        }}>
-                          {t.fullName?.charAt(0) || 'T'}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            {t.fullName}
-                            {t.roomId ? (
-                              <span style={{ fontSize: '10.5px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-                                Đang ở P.{t.roomNumber || 'khác'}
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: '10.5px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 6px', borderRadius: 4, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-                                Chưa có phòng
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
-                            <span><Phone size={11} style={{ display: 'inline', marginRight: 3 }} />{t.phone}</span>
-                            {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 3 }} />{t.cccd}</span>}
-                            {t.hometown && <span><MapPin size={11} style={{ display: 'inline', marginRight: 3 }} />{t.hometown}</span>}
-                          </div>
-                        </div>
-                      </div>
+                  });
 
-                      <button
-                        className="btn btn-sm btn-primary"
-                        disabled={addingOccupant || (tenants.length >= (roomDetail?.maxTenants || room.maxTenants))}
-                        style={{ flexShrink: 0, padding: '6px 14px', fontSize: '12.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        onClick={async () => {
-                          if (!confirm(`Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`)) return;
-                          setAddingOccupant(true);
-                          try {
-                            await roomService.addOccupant(room.id, t.id);
-                            showToast(`✅ Đã thêm ${t.fullName} vào phòng thành công.`);
-                            setShowAddOccupantModal(false);
-                            await loadDetail();
-                          } catch (err) {
-                            alert(err.response?.data?.message || err.message);
-                          } finally { setAddingOccupant(false); }
+                  if (available.length === 0) {
+                    return (
+                      <div style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)', fontSize: 13 }}>
+                        <Users size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                        <p style={{ margin: 0 }}>{q ? 'Không tìm thấy khách thuê phù hợp.' : 'Không có hồ sơ khách thuê nào khả dụng.'}</p>
+                      </div>
+                    );
+                  }
+
+                  return available.map(t => {
+                    const isMoving = !!(t.roomId);
+                    const isFull = tenants.length >= (roomDetail?.maxTenants || room.maxTenants);
+                    return (
+                      <div
+                        key={t.id}
+                        style={{
+                          padding: '12px 16px', background: 'var(--bg-dark)',
+                          borderRadius: '12px',
+                          border: `1px solid ${isMoving ? 'rgba(245,158,11,0.3)' : 'var(--border-color)'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                          transition: 'all 0.2s', flexShrink: 0
                         }}
                       >
-                        <Plus size={14} /> Thêm
-                      </button>
-                    </div>
-                  ))
-                }
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                          <div style={{
+                            width: 40, height: 40, borderRadius: '50%',
+                            background: isMoving
+                              ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                              : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0
+                          }}>
+                            {t.fullName?.charAt(0) || 'T'}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              {t.fullName}
+                              {isMoving ? (
+                                <span style={{ fontSize: '10.5px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 7px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                  📦 Đang ở P.{t.roomNumber || 'khác'} → chuyển
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '10.5px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 7px', borderRadius: 4, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                  ✅ Chưa có phòng
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
+                              <span><Phone size={11} style={{ display: 'inline', marginRight: 3 }} />{t.phone}</span>
+                              {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 3 }} />{t.cccd}</span>}
+                              {t.hometown && <span><MapPin size={11} style={{ display: 'inline', marginRight: 3 }} />{t.hometown}</span>}
+                            </div>
+                          </div>
+                        </div>
 
-                {allTenants.filter(t => !tenants.some(rt => rt.id === t.id)).length === 0 && (
-                  <div style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)', fontSize: 13 }}>
-                    <Users size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
-                    <p style={{ margin: 0 }}>Không có hồ sơ khách thuê nào khả dụng.</p>
-                  </div>
-                )}
+                        <button
+                          className={`btn btn-sm ${isMoving ? 'btn-secondary' : 'btn-primary'}`}
+                          disabled={addingOccupant || isFull}
+                          title={isFull ? 'Phòng đã đầy sức chứa tối đa' : (isMoving ? `Chuyển từ P.${t.roomNumber || '?'} sang phòng này` : 'Thêm vào phòng')}
+                          style={{ flexShrink: 0, padding: '6px 14px', fontSize: '12.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          onClick={async () => {
+                            const msg = isMoving
+                              ? `⚠️ "${t.fullName}" đang ở phòng P.${t.roomNumber || 'khác'}.\nChuyển sang phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`
+                              : `Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`;
+                            if (!confirm(msg)) return;
+                            setAddingOccupant(true);
+                            try {
+                              await roomService.addOccupant(room.id, t.id);
+                              showToast(isMoving
+                                ? `✅ Đã chuyển ${t.fullName} sang phòng ${roomDetail?.roomNumber || room.roomNumber} thành công.`
+                                : `✅ Đã thêm ${t.fullName} vào phòng thành công.`);
+                              setShowAddOccupantModal(false);
+                              await loadDetail();
+                            } catch (err) {
+                              alert(err.response?.data?.message || err.message);
+                            } finally { setAddingOccupant(false); }
+                          }}
+                        >
+                          {isMoving ? <><RefreshCw size={13} /> Chuyển</> : <><Plus size={14} /> Thêm</>}
+                        </button>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
+
             </div>
 
             {/* Footer Cố Định */}
@@ -2611,9 +2683,18 @@ const RoomDetail = ({ room, zone, onBack }) => {
                   <label className="form-label">Trạng Thái</label>
                   <select className="form-control" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
                     <option value="Occupied">Đang thuê</option>
-                    <option value="Vacant">Còn trống</option>
-                    <option value="Maintenance">Bảo trì</option>
+                    <option value="Vacant" disabled={tenants.length > 0 || !!activeContract}>
+                      Còn trống {(tenants.length > 0 || !!activeContract) ? `(Không khả dụng - đang có ${tenants.length} người ở)` : ''}
+                    </option>
+                    <option value="Maintenance" disabled={tenants.length > 0 || !!activeContract}>
+                      Bảo trì {(tenants.length > 0 || !!activeContract) ? `(Không khả dụng - đang có ${tenants.length} người ở)` : ''}
+                    </option>
                   </select>
+                  {(tenants.length > 0 || !!activeContract) && (
+                    <small style={{ color: '#f59e0b', fontSize: '11.5px', marginTop: 4, display: 'block', lineHeight: 1.4 }}>
+                      ⚠️ Phòng đang có {tenants.length} người ở / hợp đồng hiệu lực. Chỉ có thể ở trạng thái "Đang thuê".
+                    </small>
+                  )}
                 </div>
               </div>
               <div className="modal-footer" style={{ marginTop: 20 }}>
@@ -2709,6 +2790,97 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 📄 MODAL XEM CHI TIẾT & XUẤT HỢP ĐỒNG PDF TRỰC TIẾP */}
+      {showViewContractModal && activeContract && (
+        <div className="modal-backdrop" onClick={() => setShowViewContractModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '850px', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
+            
+            {/* Header */}
+            <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h3 className="modal-title" style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FileText size={20} color="#10b981" /> Hợp Đồng: <span style={{ color: '#10b981' }}>{activeContract.contractCode}</span>
+                </h3>
+                <span className="status-pill active" style={{ fontSize: 12 }}>✅ Đang hiệu lực</span>
+              </div>
+              <button className="btn-close" onClick={() => setShowViewContractModal(false)}>✕</button>
+            </div>
+
+            {/* Quick Action Toolbar */}
+            <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '12px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => exportToPDF('zone-contract-pdf-content', `${activeContract.contractCode}.pdf`)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '7px 16px' }}
+              >
+                <Download size={16} /> Xuất PDF
+              </button>
+              {activeContract.fileUrl && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => window.open(activeContract.fileUrl, '_blank')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Download size={14} /> Tải File Gốc
+                </button>
+              )}
+            </div>
+
+            {/* Document Paper Body */}
+            <div className="modal-body contract-paper" id="zone-contract-pdf-content" style={{ background: '#ffffff', color: '#0f172a', padding: '28px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <h2 style={{ fontSize: '19px', textTransform: 'uppercase', color: '#1e3a8a', fontWeight: '800', margin: 0 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
+                <p style={{ fontWeight: 'bold', color: '#0f172a', marginTop: '4px', marginBottom: 0 }}>Độc lập - Tự do - Hạnh phúc</p>
+                <h3 style={{ marginTop: '16px', marginBottom: '4px', fontSize: '18px', color: '#1e3a8a', fontWeight: '700' }}>HỢP ĐỒNG THUÊ PHÒNG TRỌ</h3>
+                <p style={{ fontSize: '12px', color: '#475569', margin: 0 }}>Mã số: {activeContract.contractCode}</p>
+              </div>
+
+              <div style={{ lineHeight: '1.8', fontSize: '14px', color: '#0f172a' }}>
+                <p style={{ color: '#0f172a', margin: '6px 0' }}><strong style={{ color: '#0f172a' }}>BÊN CHO THUÊ (BÊN A):</strong> {activeContract.landlordName || 'Chủ trọ'} {activeContract.landlordPhone ? `- SĐT: ${activeContract.landlordPhone}` : ''}</p>
+                <p style={{ color: '#0f172a', margin: '6px 0' }}><strong style={{ color: '#0f172a' }}>BÊN THUÊ PHÒNG (BÊN B):</strong> {primaryTenant?.fullName || activeContract.tenantName || 'Khách thuê'} {primaryTenant?.phone ? `- SĐT: ${primaryTenant.phone}` : ''} {primaryTenant?.cccd ? `- CCCD: ${primaryTenant.cccd}` : ''}</p>
+
+                <h4 style={{ marginTop: '16px', marginBottom: '6px', color: '#1e3a8a', fontSize: '15px' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
+                <p style={{ color: '#0f172a', margin: '4px 0' }}>Bên A đồng ý cho Bên B thuê phòng số: <strong style={{ color: '#0f172a' }}>P.{roomDetail?.roomNumber || room.roomNumber}</strong> thuộc khu trọ <strong style={{ color: '#0f172a' }}>{zone.name}</strong> ({zone.address}).</p>
+                <p style={{ color: '#0f172a', margin: '4px 0' }}>Diện tích: {roomDetail?.area || room.area} m² | Sức chứa: {roomDetail?.maxTenants || room.maxTenants} người.</p>
+
+                <h4 style={{ marginTop: '16px', marginBottom: '6px', color: '#1e3a8a', fontSize: '15px' }}>ĐIỀU 2: THỜI HẠN & GIÁ THUÊ</h4>
+                <p style={{ color: '#0f172a', margin: '4px 0' }}>- Thời hạn hợp đồng: từ ngày <strong style={{ color: '#0f172a' }}>{formatDate(activeContract.startDate)}</strong> đến ngày <strong style={{ color: '#0f172a' }}>{formatDate(activeContract.endDate)}</strong>.</p>
+                <p style={{ color: '#0f172a', margin: '4px 0' }}>- Giá thuê phòng: <strong style={{ color: '#10b981' }}>{formatVND(activeContract.rentAmount || roomDetail?.price || room.price)} / tháng</strong>.</p>
+                <p style={{ color: '#0f172a', margin: '4px 0' }}>- Tiền đặt cọc: <strong style={{ color: '#f59e0b' }}>{formatVND(activeContract.deposit)}</strong>.</p>
+
+                <h4 style={{ marginTop: '16px', marginBottom: '6px', color: '#1e3a8a', fontSize: '15px' }}>ĐIỀU 3: NGHĨA VỤ CÁC BÊN</h4>
+                <p style={{ color: '#0f172a', margin: '4px 0' }}>1. Bên B có trách nhiệm thanh toán tiền phòng, điện nước và dịch vụ đầy đủ đúng thời hạn ghi trên hóa đơn hàng tháng.</p>
+                <p style={{ color: '#0f172a', margin: '4px 0' }}>2. Bên B giữ gìn an ninh trật tự, vệ sinh chung và bảo quản trang thiết bị, tài sản bàn giao trong phòng.</p>
+                <p style={{ color: '#0f172a', margin: '4px 0' }}>3. Hợp đồng được lập thành 02 bản có giá trị pháp lý như nhau, mỗi bên giữ 01 bản.</p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '36px', textAlign: 'center' }}>
+                  <div>
+                    <strong style={{ color: '#0f172a' }}>ĐẠI DIỆN BÊN A (CHỦ TRỌ)</strong>
+                    <div style={{ height: '70px' }}></div>
+                    <p style={{ color: '#0f172a', fontWeight: '600' }}>{activeContract.landlordName || 'Chủ trọ'}</p>
+                  </div>
+                  <div>
+                    <strong style={{ color: '#0f172a' }}>ĐẠI DIỆN BÊN B (KHÁCH THUÊ)</strong>
+                    <div style={{ height: '70px' }}></div>
+                    <p style={{ color: '#0f172a', fontWeight: '600' }}>{primaryTenant?.fullName || activeContract.tenantName || 'Khách thuê'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="modal-footer" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowViewContractModal(false)}>
+                Đóng
+              </button>
+            </div>
+
           </div>
         </div>
       )}

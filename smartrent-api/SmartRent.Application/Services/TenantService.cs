@@ -10,28 +10,34 @@ namespace SmartRent.Application.Services;
 // Dịch vụ quản lý Hồ sơ Khách thuê (Tạo tài khoản khách thuê, chuyển phòng, cập nhật giấy tờ CCCD, xóa dữ liệu).
 public class TenantService(AppDbContext db)
 {
-    // Lấy danh sách tất cả người thuê thuộc quyền quản lý của Chủ trọ (hỗ trợ phân trang).
+    // Lấy danh sách tất cả người thuê thuộc quyền quản lý của Chủ trọ (đang ở hoặc từng ở trọ của chủ trọ này).
     public async Task<object> GetByLandlordAsync(Guid landlordId, int? page = null, int? pageSize = null)
     {
         var query = db.TenantProfiles
             .AsNoTracking()
             .Include(t => t.User)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
-            .Include(t => t.Contracts)
-            .Where(t => (t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId));
+            .Include(t => t.Contracts).ThenInclude(c => c.Room).ThenInclude(r => r.Zone)
+            .Where(t => 
+                t.LandlordId == landlordId ||
+                (t.Room != null && t.Room.Zone.LandlordId == landlordId) || 
+                t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId) ||
+                t.Invoices.Any(i => i.Room.Zone.LandlordId == landlordId) ||
+                t.MaintenanceRequests.Any(m => m.Room.Zone.LandlordId == landlordId)
+            );
         var totalItems = await query.CountAsync();
         if (page.HasValue && pageSize.HasValue && pageSize.Value > 0)
         {
             var p = page.Value > 0 ? page.Value : 1;
             var ps = pageSize.Value;
-            var items = await query.OrderByDescending(t => t.MoveInDate)
+            var items = await query.OrderByDescending(t => t.MoveInDate ?? t.CreatedAt)
                 .Skip((p - 1) * ps)
                 .Take(ps)
                 .ToListAsync();
             var dtos = items.Select(t => t.ToTenantDto());
             return PagedResult<TenantDto>.Create(dtos, totalItems, p, ps);
         }
-        var tenants = await query.OrderByDescending(t => t.MoveInDate).ToListAsync();
+        var tenants = await query.OrderByDescending(t => t.MoveInDate ?? t.CreatedAt).ToListAsync();
         return tenants.Select(t => t.ToTenantDto());
     }
 
@@ -43,7 +49,13 @@ public class TenantService(AppDbContext db)
             .Include(t => t.User)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .Include(t => t.Contracts)
-            .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)));
+            .FirstOrDefaultAsync(t => t.Id == id && (
+                t.LandlordId == landlordId ||
+                (t.Room != null && t.Room.Zone.LandlordId == landlordId) || 
+                t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId) ||
+                t.Invoices.Any(i => i.Room.Zone.LandlordId == landlordId) ||
+                t.MaintenanceRequests.Any(m => m.Room.Zone.LandlordId == landlordId)
+            ));
         return t is null ? null : t.ToTenantDto();
     }
 
@@ -83,6 +95,7 @@ public class TenantService(AppDbContext db)
         {
             UserId = user.Id,
             RoomId = req.RoomId,
+            LandlordId = landlordId,
             CCCD = req.CCCD,
             Hometown = req.Hometown,
             MoveInDate = req.MoveInDate,
@@ -104,9 +117,16 @@ public class TenantService(AppDbContext db)
     public async Task<TenantDto> UpdateAsync(Guid id, Guid landlordId, UpdateTenantRequest req)
     {
         var t = await db.TenantProfiles.Include(t => t.User).Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts)
-            .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)))
+            .FirstOrDefaultAsync(t => t.Id == id && (
+                t.LandlordId == landlordId ||
+                (t.Room != null && t.Room.Zone.LandlordId == landlordId) || 
+                t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId) ||
+                t.Invoices.Any(i => i.Room.Zone.LandlordId == landlordId) ||
+                t.MaintenanceRequests.Any(m => m.Room.Zone.LandlordId == landlordId)
+            ))
             ?? throw new KeyNotFoundException("Không tìm thấy khách thuê hoặc bạn không có quyền thao tác.");
 
+        if (t.LandlordId == null) t.LandlordId = landlordId;
         t.User.FullName = req.FullName; t.User.Phone = req.Phone; t.Hometown = req.Hometown;
         t.VehicleCount = req.VehicleCount;
         if (!string.IsNullOrEmpty(req.VehicleInfo)) t.VehicleInfo = req.VehicleInfo;
@@ -148,7 +168,13 @@ public class TenantService(AppDbContext db)
     public async Task<bool> DeleteAsync(Guid id, Guid landlordId)
     {
         var t = await db.TenantProfiles.Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts).ThenInclude(c => c.Room).ThenInclude(r => r.Zone)
-            .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)));
+            .FirstOrDefaultAsync(t => t.Id == id && (
+                t.LandlordId == landlordId ||
+                (t.Room != null && t.Room.Zone.LandlordId == landlordId) || 
+                t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId) ||
+                t.Invoices.Any(i => i.Room.Zone.LandlordId == landlordId) ||
+                t.MaintenanceRequests.Any(m => m.Room.Zone.LandlordId == landlordId)
+            ));
         if (t is null) return false;
 
         if (t.RoomId.HasValue)
@@ -196,7 +222,13 @@ public class TenantService(AppDbContext db)
             .Include(t => t.User)
             .Include(t => t.Room).ThenInclude(r => r!.Zone)
             .Include(t => t.Contracts).ThenInclude(c => c.Room).ThenInclude(r => r.Zone)
-            .FirstOrDefaultAsync(t => t.Id == id && ((t.Room != null && t.Room.Zone.LandlordId == landlordId) || t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId)));
+            .FirstOrDefaultAsync(t => t.Id == id && (
+                t.LandlordId == landlordId ||
+                (t.Room != null && t.Room.Zone.LandlordId == landlordId) || 
+                t.Contracts.Any(c => c.Room.Zone.LandlordId == landlordId) ||
+                t.Invoices.Any(i => i.Room.Zone.LandlordId == landlordId) ||
+                t.MaintenanceRequests.Any(m => m.Room.Zone.LandlordId == landlordId)
+            ));
         
         if (t?.User == null) return false;
 

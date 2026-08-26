@@ -86,6 +86,7 @@ public class TenantProfile
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
     public Guid? RoomId { get; set; }
+    public Guid? LandlordId { get; set; }
     public string CCCD { get; set; } = string.Empty;
     public string? Hometown { get; set; }
     public DateTime? MoveInDate { get; set; }
@@ -99,6 +100,7 @@ public class TenantProfile
 
     // Navigation
     public User User { get; set; } = null!;
+    public User? Landlord { get; set; }
     public Room? Room { get; set; }
     public ICollection<Contract> Contracts { get; set; } = [];
     public ICollection<Invoice> Invoices { get; set; } = [];

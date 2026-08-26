@@ -35,6 +35,11 @@ export const adminService = {
   resetPassword: (id) => apiClient.patch(`/admin/landlords/${id}/reset-password`).then(r => r.data),
   getComplaints: () => apiClient.get('/admin/complaints').then(r => r.data),
   replyComplaint: (id, reply) => apiClient.post(`/admin/complaints/${id}/reply`, { reply }).then(r => r.data),
+  // Quản lý Khách thuê dành cho SuperAdmin
+  getTenants: (params) => apiClient.get('/admin/tenants', { params }).then(r => r.data),
+  getTenantDetail: (id) => apiClient.get(`/admin/tenants/${id}`).then(r => r.data),
+  toggleLockTenant: (id) => apiClient.patch(`/admin/tenants/${id}/toggle-lock`).then(r => r.data),
+  resetTenantPassword: (id, newPassword) => apiClient.patch(`/admin/tenants/${id}/reset-password`, { newPassword }).then(r => r.data),
 };
 
 export const zoneService = {

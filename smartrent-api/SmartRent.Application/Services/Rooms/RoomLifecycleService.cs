@@ -55,16 +55,31 @@ public class RoomLifecycleService(AppDbContext db)
     // Cập nhật thông tin phòng trọ
     public async Task<RoomDto> UpdateAsync(Guid id, Guid landlordId, UpdateRoomRequest req)
     {
-        var room = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Equipments)
+        var room = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Contracts).Include(r => r.Equipments)
             .FirstOrDefaultAsync(r => r.Id == id && r.Zone.LandlordId == landlordId) 
             ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
+
+        var newStatus = Enum.Parse<RoomStatus>(req.Status, ignoreCase: true);
+
+        // Kiểm tra điều kiện: Không cho phép chuyển phòng sang 'Còn trống' hoặc 'Bảo trì' nếu vẫn còn khách thuê hoặc hợp đồng đang có hiệu lực
+        if (newStatus == RoomStatus.Vacant || newStatus == RoomStatus.Maintenance)
+        {
+            var hasActiveContract = await db.Contracts.AnyAsync(c => c.RoomId == id && (c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested));
+            var hasTenants = room.Tenants.Any();
+            if (hasActiveContract || hasTenants)
+            {
+                var tenantCount = room.Tenants.Count;
+                var statusText = newStatus == RoomStatus.Vacant ? "Còn trống" : "Bảo trì";
+                throw new InvalidOperationException($"Không thể chuyển phòng {room.RoomNumber} sang trạng thái '{statusText}' khi vẫn còn {tenantCount} người đang ở hoặc hợp đồng còn hiệu lực. Vui lòng thanh lý hợp đồng và gỡ khách khỏi phòng trước khi đổi trạng thái phòng.");
+            }
+        }
 
         room.RoomNumber = req.RoomNumber; 
         room.Floor = req.Floor; 
         room.Price = req.Price; 
         room.Area = req.Area;
         room.MaxTenants = req.MaxTenants; 
-        room.Status = Enum.Parse<RoomStatus>(req.Status, ignoreCase: true);
+        room.Status = newStatus;
         room.ElecMeter = req.ElecMeter; 
         room.WaterMeter = req.WaterMeter; 
         room.ServiceFee = req.ServiceFee;
