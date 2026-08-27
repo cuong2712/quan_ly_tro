@@ -232,10 +232,11 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 
 // ===== Seed Data & Schema Sync =====
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    using var scope = app.Services.CreateScope();  
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();  
     try
     {
-        await db.Database.ExecuteSqlRawAsync(@"
+        await db.Database.ExecuteSqlRawAsync(@"");
     }
     catch (Exception ex)
     {
