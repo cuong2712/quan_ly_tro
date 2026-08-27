@@ -31,6 +31,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   const [resolvingInvoice, setResolvingInvoice] = useState(null);
   const [saving, setSaving] = useState(false);
   const [singleSaving, setSingleSaving] = useState(false);
+  const [resolving, setResolving] = useState(false);
 
   // Form lập hóa đơn lẻ từng phòng
   const [formData, setFormData] = useState({
@@ -56,30 +57,38 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 7;
 
-  const pendingDisputesCount = invoices.filter(i => i.isReported && i.disputeStatus === 'Pending').length;
+  // Chuẩn hóa props thành mảng an toàn
+  const invoicesList = Array.isArray(invoices) ? invoices : (invoices?.items || []);
+  const roomsList = Array.isArray(rooms) ? rooms : (rooms?.items || []);
+  const zonesList = Array.isArray(zones) ? zones : (zones?.items || []);
+  const tenantsList = Array.isArray(tenants) ? tenants : (tenants?.items || []);
+  const utilityLogsList = Array.isArray(utilityLogs) ? utilityLogs : (utilityLogs?.items || []);
+  const servicesList = Array.isArray(services) ? services : (services?.items || []);
+
+  const pendingDisputesCount = invoicesList.filter(i => i.isReported && i.disputeStatus === 'Pending').length;
 
   const currentMonthKey = monthFilter || new Date().toISOString().slice(0, 7);
 
   // Lọc theo Khu trọ
   const roomMatchesZone = (roomId, zId) => {
     if (zId === 'all') return true;
-    const r = rooms.find(room => room.id === roomId);
+    const r = roomsList.find(room => room.id === roomId);
     return r && (r.zoneId === zId || r.ZoneId === zId);
   };
 
-  const relevantRooms = zoneFilter === 'all' ? rooms : rooms.filter(r => r.zoneId === zoneFilter || r.ZoneId === zoneFilter);
+  const relevantRooms = zoneFilter === 'all' ? roomsList : roomsList.filter(r => r.zoneId === zoneFilter || r.ZoneId === zoneFilter);
   const occupiedRooms = relevantRooms.filter(r => (r.status || '').toLowerCase() === 'occupied');
   const targetRooms = occupiedRooms.length > 0 ? occupiedRooms : relevantRooms;
 
   const billedRoomsThisMonth = targetRooms.filter(r => 
-    invoices.some(i => (i.roomId === r.id || (r.roomNumber && i.roomNumber === r.roomNumber)) && i.month === currentMonthKey)
+    invoicesList.some(i => (i.roomId === r.id || (r.roomNumber && i.roomNumber === r.roomNumber)) && i.month === currentMonthKey)
   );
   const unbilledRoomsThisMonth = targetRooms.filter(r => 
-    !invoices.some(i => (i.roomId === r.id || (r.roomNumber && i.roomNumber === r.roomNumber)) && i.month === currentMonthKey)
+    !invoicesList.some(i => (i.roomId === r.id || (r.roomNumber && i.roomNumber === r.roomNumber)) && i.month === currentMonthKey)
   );
 
   // Bộ lọc hóa đơn tổng hợp
-  const filteredInvoices = invoices.filter(inv => {
+  const filteredInvoices = invoicesList.filter(inv => {
     const code = (inv.invoiceCode || '').toLowerCase();
     const roomNum = (inv.roomNumber || inv.roomId || '').toLowerCase();
     const tenantName = (inv.tenantName || '').toLowerCase();
@@ -95,7 +104,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   });
 
   // KPI Calculations dựa trên khu trọ và tháng đã chọn
-  const relevantInvoices = invoices.filter(inv => {
+  const relevantInvoices = invoicesList.filter(inv => {
     const matchesMonth = !monthFilter || inv.month === monthFilter;
     const matchesZone = zoneFilter === 'all' || roomMatchesZone(inv.roomId, zoneFilter);
     return matchesMonth && matchesZone;
@@ -137,7 +146,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
   const getRoomServiceFee = (roomId, zoneId) => {
     let totalService = 0;
-    const currentZone = zones.find(z => (z.id || z.Id) === zoneId);
+    const currentZone = zonesList.find(z => (z.id || z.Id) === zoneId);
     if (currentZone && currentZone.services) {
       currentZone.services.forEach(s => {
         totalService += Number(s.price || s.Price || 0);
@@ -147,7 +156,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   };
 
   const handleOpenCreateSingle = () => {
-    const firstRoom = rooms[0];
+    const firstRoom = roomsList[0];
     const initialZoneId = firstRoom ? (firstRoom.zoneId || firstRoom.ZoneId || '') : '';
     const initialRent = firstRoom ? (firstRoom.price || firstRoom.Price || 0) : 0;
     const initialOldElec = firstRoom ? (firstRoom.elecMeter || firstRoom.ElecMeter || 0) : 0;
@@ -172,7 +181,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   };
 
   const handleSingleRoomChange = (roomId) => {
-    const room = rooms.find(r => (r.id || r.Id) === roomId);
+    const room = roomsList.find(r => (r.id || r.Id) === roomId);
     if (!room) return;
     const zId = room.zoneId || room.ZoneId || singleInvoiceForm.zoneId;
     const oldE = room.elecMeter || room.ElecMeter || 0;
@@ -193,7 +202,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   };
 
   const handleSingleZoneChange = (zoneId) => {
-    const zoneRooms = rooms.filter(r => !zoneId || (r.zoneId || r.ZoneId) === zoneId);
+    const zoneRooms = roomsList.filter(r => !zoneId || (r.zoneId || r.ZoneId) === zoneId);
     const firstRoom = zoneRooms[0];
     if (firstRoom) {
       handleSingleRoomChange(firstRoom.id || firstRoom.Id);
@@ -242,8 +251,8 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
         }
       }
 
-      const selectedRoom = rooms.find(r => (r.id || r.Id) === singleInvoiceForm.roomId);
-      const existing = invoices.find(i => 
+      const selectedRoom = roomsList.find(r => (r.id || r.Id) === singleInvoiceForm.roomId);
+      const existing = invoicesList.find(i => 
         (i.roomId === singleInvoiceForm.roomId || (selectedRoom && i.roomNumber === selectedRoom.roomNumber)) && 
         i.month === singleInvoiceForm.month
       );
@@ -314,7 +323,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
     try {
       await invoiceService.deleteInvoice(inv.id);
-      setInvoices(invoices.filter(i => i.id !== inv.id));
+      setInvoices(invoicesList.filter(i => i.id !== inv.id));
       if (viewingInvoice?.id === inv.id) {
         setViewingInvoice(null);
       }
@@ -333,7 +342,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
     }
 
     const reportData = filteredInvoices.map(inv => {
-      const room = rooms.find(r => r.id === inv.roomId);
+      const room = roomsList.find(r => r.id === inv.roomId);
       const isPaid = (inv.status || '').toLowerCase() === 'paid';
       return {
         'Mã Hóa Đơn': inv.invoiceCode || '',
@@ -362,7 +371,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
     const headers = ['Mã Hóa Đơn', 'Kỳ Tháng', 'Phòng', 'Khách Thuê', 'Tiền Phòng', 'Tiền Điện', 'Tiền Nước', 'Phí Dịch Vụ', 'Tổng Tiền', 'Trạng Thái', 'Hạn Thanh Toán'];
     const rows = filteredInvoices.map(inv => {
-      const room = rooms.find(r => r.id === inv.roomId);
+      const room = roomsList.find(r => r.id === inv.roomId);
       const isPaid = (inv.status || '').toLowerCase() === 'paid';
       return [
         `"${inv.invoiceCode || ''}"`,
@@ -413,7 +422,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
         await invoiceService.updateStatus(editingInvoice.id, formData.status);
       }
 
-      setInvoices(invoices.map(inv => inv.id === editingInvoice.id ? {
+      setInvoices(invoicesList.map(inv => inv.id === editingInvoice.id ? {
         ...inv,
         rentFee: Number(formData.rentFee || 0),
         elecFee: Number(formData.elecFee || 0),
@@ -457,7 +466,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
       const updated = await invoiceService.resolveDispute(resolvingInvoice.id, payload);
 
-      setInvoices(invoices.map(inv => inv.id === resolvingInvoice.id ? { ...inv, ...updated } : inv));
+      setInvoices(invoicesList.map(inv => inv.id === resolvingInvoice.id ? { ...inv, ...updated } : inv));
       setResolvingInvoice(null);
       alert(`✅ Đã ${disputeResolveData.action === 'Accept' ? 'điều chỉnh lại' : 'phản hồi'} hóa đơn ${resolvingInvoice.invoiceCode} thành công! Hệ thống đã gửi thông báo đến khách thuê.`);
       onRefresh?.();
@@ -1349,8 +1358,8 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
       <BulkUtilityModal
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
-        rooms={rooms}
-        zones={zones}
+        rooms={roomsList}
+        zones={zonesList}
         currentRate={{ elecPrice: 3500, waterPrice: 18000 }}
         onSuccess={() => {
           onRefresh?.();
@@ -1359,8 +1368,8 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
       {/* 📝 MODAL LẬP HÓA ĐƠN LẺ TỪNG PHÒNG */}
       {isCreateModalOpen && (() => {
-        const zoneRooms = rooms.filter(r => !singleInvoiceForm.zoneId || (r.zoneId || r.ZoneId) === singleInvoiceForm.zoneId);
-        const selectedRoom = rooms.find(r => (r.id || r.Id) === singleInvoiceForm.roomId);
+        const zoneRooms = roomsList.filter(r => !singleInvoiceForm.zoneId || (r.zoneId || r.ZoneId) === singleInvoiceForm.zoneId);
+        const selectedRoom = roomsList.find(r => (r.id || r.Id) === singleInvoiceForm.roomId);
         
         const elecPrice = 3500;
         const waterPrice = 18000;
@@ -1373,7 +1382,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
         
         const totalEstAmount = Number(singleInvoiceForm.rentFee || 0) + calculatedElecCost + calculatedWaterCost + Number(singleInvoiceForm.serviceFee || 0);
 
-        const existingInvoice = invoices.find(i => 
+        const existingInvoice = invoicesList.find(i => 
           (i.roomId === singleInvoiceForm.roomId || (selectedRoom && i.roomNumber === selectedRoom.roomNumber)) && 
           i.month === singleInvoiceForm.month
         );
@@ -1423,7 +1432,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                         style={{ height: 40, padding: '8px 12px', fontSize: 13.5, boxSizing: 'border-box' }}
                       >
                         <option value="">-- Tất cả khu trọ --</option>
-                        {zones.map(z => (
+                        {zonesList.map(z => (
                           <option key={z.id || z.Id} value={z.id || z.Id}>{z.name || z.Name}</option>
                         ))}
                       </select>
