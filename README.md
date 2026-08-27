@@ -1,142 +1,125 @@
-# SmartRent - Hướng Dẫn Cài Đặt & Chạy
+# 🏠 SmartRent - Hệ Thống Quản Lý Phòng Trọ & Thu Chi Tự Động Toàn Diện
 
-## 📦 Yêu Cầu Hệ Thống
-
-- **.NET SDK 9+** (hoặc .NET 10)
-- **Node.js 18+** và npm
-- **PostgreSQL 15+** đang chạy
+> **Dự án Quản Lý Phòng Trọ Cao Cấp (SmartRent)** tích hợp Kiến trúc Clean Architecture (.NET 9) và Giao diện hiện đại (React 18 + Vite), hỗ trợ **Thanh toán VietQR chuẩn ngân hàng**, **Thông báo & Đồng bộ dữ liệu Realtime (SignalR WebSocket)** không cần tải lại trang.
 
 ---
 
-## 🗄️ Bước 1: Chuẩn Bị Database PostgreSQL
+## 📦 Yêu Cầu Môi Trường
 
+- **.NET SDK 9.0+**
+- **Node.js 18+** & **npm**
+- **PostgreSQL 15+** (hoặc pgAdmin 4)
+
+---
+
+## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
+
+### 1. Chuẩn bị Cơ Sở Dữ Liệu PostgreSQL
+
+Tạo database trong PostgreSQL (pgAdmin hoặc terminal psql):
 ```sql
--- Chạy trong psql hoặc pgAdmin:
-CREATE DATABASE smartrent_db;
+CREATE DATABASE "Quan_ly_phongtro";
 ```
 
-Hoặc để EF Core tự tạo khi seed (nếu PostgreSQL dùng user `postgres`).
+Kiểm tra chuỗi kết nối trong `smartrent-api/SmartRent.API/appsettings.json`:
+```json
+"ConnectionStrings": {
+  "DefaultConnection": "Host=localhost;Port=5432;Database=Quan_ly_phongtro;Username=postgres;Password=isiadmin"
+}
+```
+*(Thay đổi `Username` và `Password` theo tài khoản PostgreSQL trên máy của bạn nếu cần).*
 
 ---
 
-## 🚀 Bước 2: Chạy Backend API
+### 2. Khởi chạy Backend (.NET 9 Web API)
 
+Mở terminal tại thư mục gốc dự án:
 ```powershell
-# Mở terminal trong thư mục dự án
-cd C:\Users\nmcuong\.gemini\antigravity\scratch\smartrent-api
+cd smartrent-api
 
-# Cài công cụ EF Core (nếu chưa có)
-dotnet tool install --global dotnet-ef
-
-# Tạo Migration
-dotnet ef migrations add InitialCreate --project SmartRent.Infrastructure --startup-project SmartRent.API
-
-# Áp dụng Migration lên database
+# Áp dụng Migration & Seed dữ liệu mẫu tự động
 dotnet ef database update --project SmartRent.Infrastructure --startup-project SmartRent.API
 
-# Chạy API (sẽ tự seed dữ liệu mẫu lần đầu)
+# Khởi chạy máy chủ API
 dotnet run --project SmartRent.API
 ```
 
-Backend sẽ chạy tại: **http://localhost:5000**
-Swagger UI: **http://localhost:5000/swagger**
+- **Backend API**: `http://localhost:5000`
+- **Swagger UI**: `http://localhost:5000/swagger`
+- **SignalR Realtime Hub**: `http://localhost:5000/hubs/notifications`
 
 ---
 
-## 🌐 Bước 3: Chạy Frontend
+### 3. Khởi chạy Frontend (React 18 + Vite)
 
+Mở một cửa sổ terminal mới tại thư mục gốc dự án:
 ```powershell
-cd C:\Users\nmcuong\.gemini\antigravity\scratch\quan-ly-phong-tro
+cd quan-ly-phong-tro
+
+# Cài đặt dependencies (nếu chạy lần đầu)
+npm install
+
+# Khởi chạy ứng dụng Web
 npm run dev
 ```
 
-Frontend sẽ chạy tại: **http://localhost:5173**
+- **Frontend Web App**: `http://localhost:5173`
 
 ---
 
-## 🔑 Tài Khoản Demo
+## 🔑 Tài Khoản Demo Sẵn Có (Đã Seed Dữ Liệu Mẫu)
 
-| Role | Email | Mật khẩu |
-|------|-------|-----------|
-| **Super Admin** | admin@smartrent.vn | Admin@123456 |
-| **Chủ Trọ** | landlord@smartrent.vn | Landlord@123456 |
-| **Người Thuê** | tenant1@smartrent.vn | Tenant@123456 |
+Hệ thống đã tự động tạo sẵn dữ liệu mẫu đầy đủ về khu trọ, phòng, khách thuê, hợp đồng, hóa đơn và lịch sử giao dịch:
 
----
-
-## 🗺️ URL Routing
-
-| URL | Dashboard |
-|-----|-----------|
-| `/login` | Trang đăng nhập |
-| `/admin` | Super Admin Dashboard |
-| `/landlord` | Chủ Trọ Dashboard |
-| `/tenant` | Người Thuê Dashboard |
+| Vai trò (Role) | Email đăng nhập | Mật khẩu | Chức năng chính |
+| :--- | :--- | :--- | :--- |
+| **👑 Super Admin** | `admin@smartrent.vn` | `Admin@123456` | Quản trị toàn sàn, duyệt/khóa chủ trọ & khách thuê, thống kê doanh thu toàn hệ thống, xử lý khiếu nại sàn |
+| **🏢 Chủ Trọ (Landlord)** | `landlord@smartrent.vn` | `Landlord@123456` | Quản lý khu trọ, phòng, nội thất, hợp đồng, chốt điện nước, lập hóa đơn, duyệt chuyển khoản VietQR, quản lý sự cố |
+| **👤 Khách Thuê (Tenant)** | `tenant1@smartrent.vn` | `Tenant@123456` | Xem phòng & hợp đồng, quét mã VietQR nộp tiền, gửi minh chứng thanh toán, khiếu nại hóa đơn, báo hỏng thiết bị |
 
 ---
 
-## 📡 API Endpoints Chính
+## ️ URL Phân Tuyến (Routing)
 
-### Authentication
-- `POST /api/auth/login` - Đăng nhập → JWT token
-- `POST /api/auth/refresh` - Refresh token
-- `POST /api/auth/logout` - Đăng xuất
-
-### Super Admin (yêu cầu role: SuperAdmin)
-- `GET /api/admin/stats` - Thống kê hệ thống
-- `GET /api/admin/landlords` - Danh sách chủ trọ
-- `POST /api/admin/landlords` - Tạo chủ trọ
-- `PATCH /api/admin/landlords/{id}/toggle-lock` - Khóa/Mở tài khoản
-- `PATCH /api/admin/landlords/{id}/reset-password` - Đặt lại mật khẩu
-- `GET /api/admin/complaints` - Xem phản hồi
-- `POST /api/admin/complaints/{id}/reply` - Trả lời phản hồi
-
-### Chủ Trọ (yêu cầu role: Landlord)
-- `GET /api/zones` - Danh sách khu trọ
-- `GET /api/rooms` - Danh sách phòng
-- `GET /api/tenants` - Danh sách khách thuê
-- `GET /api/contracts` - Hợp đồng
-- `GET /api/utilities` - Lịch sử điện nước
-- `GET /api/invoices` - Hóa đơn
-- `GET /api/payments` - Thanh toán
-- `GET /api/maintenance` - Yêu cầu bảo trì
-- `GET /api/dashboard/landlord` - Dashboard KPI
-
-### Người Thuê (yêu cầu role: Tenant)
-- `GET /api/invoices` - Hóa đơn của mình
-- `POST /api/payments` - Gửi thanh toán
-- `GET /api/maintenance` - Yêu cầu bảo trì của mình
-- `POST /api/maintenance` - Tạo yêu cầu bảo trì
-- `GET /api/notifications` - Thông báo
-- `GET /api/dashboard/tenant` - Dashboard cá nhân
+| Đường dẫn | Giao diện tương ứng |
+| :--- | :--- |
+| `/login` | Trang Đăng nhập hệ thống (tự động phân quyền và điều hướng) |
+| `/admin` | Bảng điều khiển Quản trị viên Toàn Sàn (SuperAdmin Portal) |
+| `/landlord` | Bảng điều khiển Chủ Trọ (Landlord Management Portal) |
+| `/tenant` | Cổng thông tin Khách Thuê (Tenant Portal) |
 
 ---
 
-## 🏗️ Kiến Trúc Dự Án
+## 🏗️ Kiến Trúc Dự Án (Clean Architecture)
 
 ```
-SmartRent Solution
-├── SmartRent.API          # Presentation Layer (Controllers, Program.cs)
-├── SmartRent.Application  # Application Layer (Services, Business Logic)
-├── SmartRent.Infrastructure # Infrastructure Layer (EF Core, Repositories)
-└── SmartRent.Core         # Domain Layer (Entities, DTOs, Interfaces, Enums)
+SmartRent/
+├── smartrent-api/                     # BACKEND SOLUTION (.NET 9)
+│   ├── SmartRent.API/                 # Presentation Layer (Controllers, Hubs, Middlewares, Filters)
+│   ├── SmartRent.Application/         # Application Layer (Business Services, DTOs, BillingEngine)
+│   ├── SmartRent.Infrastructure/      # Infrastructure Layer (AppDbContext, Migrations, DataSeeder)
+│   └── SmartRent.Core/                # Domain Core Layer (Entities, Enums, Interfaces)
+│
+├── quan-ly-phong-tro/                 # FRONTEND APPLICATION (React 18 + Vite)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── SuperAdmin/            # Quản trị hệ thống, duyệt tài khoản, thống kê sàn
+│   │   │   ├── Landlord/              # Quản lý khu, phòng, hợp đồng, hóa đơn, điện nước, duyệt tiền
+│   │   │   ├── Tenant/                # Cổng khách thuê: VietQR, gửi biên lai, báo hỏng, khiếu nại
+│   │   │   └── Common/                # Navbar, Sidebar, Pagination, Lightbox, Toast
+│   │   ├── contexts/                  # AuthContext, NotificationContext (SignalR Hub)
+│   │   ├── hooks/                     # useApi, useTabData
+│   │   ├── services/                  # Axios apiClient & API Service Modules
+│   │   └── utils/                     # Format tiền tệ VND, ngày tháng, VietQR Generator
 ```
 
 ---
 
-## ⚙️ Cấu Hình
+## 🌟 Các Tính Năng Nổi Bật
 
-Chỉnh sửa `SmartRent.API/appsettings.json`:
+1. **Đồng bộ Realtime Live-Sync (SignalR WebSocket)**: Mọi thao tác phát hành hóa đơn, gửi biên lai, duyệt tiền, báo sự cố đều cập nhật tức thì trên màn hình 2 bên mà **không cần bấm F5**.
+2. **Thanh toán VietQR động chuẩn NAPAS247**: Tự động sinh mã QR ngân hàng có sẵn số tiền và mã hóa đơn chính xác.
+3. **Quy trình Hợp đồng chặt chẽ**: Hỗ trợ thành viên ở ghép (Occupants), chuyển quyền đại diện hợp đồng, gia hạn và thanh lý quyết toán cọc tự động khấu trừ nợ.
+4. **Xử lý Khiếu nại Hóa đơn**: Khách thuê gửi đề xuất số điện nước sai lệch ➔ Chủ trọ xem xét và điều chỉnh trực tiếp.
+5. **Xuất báo cáo PDF & Excel**: Hỗ trợ in phiếu thu, hóa đơn PDF và xuất file Excel/CSV báo cáo tài chính.
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=Quan_ly_phongtro;Username=postgres;Password=isiadmin"
-  },
-  "Jwt": {
-    "Key": "YOUR_SUPER_SECRET_KEY_AT_LEAST_32_CHARS",
-    "Issuer": "SmartRent",
-    "ExpireMinutes": "1440"
-  }
-}
-```
