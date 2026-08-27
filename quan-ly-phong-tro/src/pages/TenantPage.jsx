@@ -48,6 +48,37 @@ export default function TenantPage() {
   const { data: payments, setData: setPayments, refetch: refetchPayments } = useApi(() => paymentService.getPayments?.() || Promise.resolve([]), []);
   const { data: maintenanceRequests, setData: setMaintenanceRequests, refetch: refetchMaintenance } = useApi(() => maintenanceService.getRequests(), []);
 
+  // Lắng nghe sự kiện Realtime SignalR để cập nhật dữ liệu tức thì không cần F5
+  useEffect(() => {
+    const handleRealtimeUpdate = (e) => {
+      const notif = e.detail?.notification;
+      const title = (notif?.title || '').toLowerCase();
+      const content = (notif?.content || '').toLowerCase();
+      const fullText = `${title} ${content}`;
+
+      // Luôn cập nhật dashboard tổng quan
+      refetchDashboard();
+
+      if (fullText.includes('hóa đơn') || fullText.includes('tiền nhà') || fullText.includes('điện') || fullText.includes('nước') || fullText.includes('khiếu nại') || fullText.includes('invoice')) {
+        refetchInvoices();
+        refetchPayments();
+      }
+      if (fullText.includes('thanh toán') || fullText.includes('chuyển khoản') || fullText.includes('minh chứng') || fullText.includes('duyệt') || fullText.includes('từ chối') || fullText.includes('payment')) {
+        refetchPayments();
+        refetchInvoices();
+      }
+      if (fullText.includes('bảo trì') || fullText.includes('sự cố') || fullText.includes('sửa chữa') || fullText.includes('tiến độ')) {
+        refetchMaintenance();
+      }
+      if (fullText.includes('hợp đồng') || fullText.includes('gia hạn') || fullText.includes('đại diện')) {
+        refetchContracts();
+      }
+    };
+
+    window.addEventListener('smartrent:realtime-update', handleRealtimeUpdate);
+    return () => window.removeEventListener('smartrent:realtime-update', handleRealtimeUpdate);
+  }, [refetchDashboard, refetchInvoices, refetchPayments, refetchMaintenance, refetchContracts]);
+
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
@@ -111,7 +142,7 @@ export default function TenantPage() {
       case 'tn_invoices':
         return <TenantInvoice activeTenant={activeTenant} invoices={invoices || []} setInvoices={setInvoices} onRefresh={refetchInvoices} />;
       case 'tn_payment':
-        return <TenantPayment activeTenant={activeTenant} invoices={invoices || []} payments={payments || []} setPayments={setPayments} onRefresh={refetchPayments} />;
+        return <TenantPayment activeTenant={activeTenant} invoices={invoices || []} payments={payments || []} setPayments={setPayments} onRefresh={() => { refetchPayments(); refetchInvoices(); refetchDashboard(); }} />;
       case 'tn_repairs':
         return (
           <TenantRepair 

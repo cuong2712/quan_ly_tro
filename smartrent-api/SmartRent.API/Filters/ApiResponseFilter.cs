@@ -54,13 +54,23 @@ public class ApiResponseFilter : IAsyncResultFilter
         else if (context.Result is StatusCodeResult statusCodeResult)
         {
             var statusCode = statusCodeResult.StatusCode;
-            bool isSuccess = statusCode < 400;
-            string message = isSuccess ? "Thao tác thành công" : (statusCode == 404 ? "Không tìm thấy dữ liệu" : "Thao tác thất bại");
-            
-            context.Result = new ObjectResult(new ApiResponse<object?>(statusCode, isSuccess, message, null))
+            if (statusCode == StatusCodes.Status204NoContent)
             {
-                StatusCode = statusCode
-            };
+                context.Result = new ObjectResult(ApiResponse.Ok("Thao tác thành công", StatusCodes.Status200OK))
+                {
+                    StatusCode = StatusCodes.Status200OK
+                };
+            }
+            else
+            {
+                bool isSuccess = statusCode < 400;
+                string message = isSuccess ? "Thao tác thành công" : (statusCode == 404 ? "Không tìm thấy dữ liệu" : "Thao tác thất bại");
+                
+                context.Result = new ObjectResult(new ApiResponse<object?>(statusCode, isSuccess, message, null))
+                {
+                    StatusCode = statusCode
+                };
+            }
         }
         else if (context.Result is EmptyResult)
         {

@@ -126,6 +126,48 @@ export default function LandlordPage() {
     return () => window.removeEventListener('smartrent:switch-tab', handleSwitchTab);
   }, []);
 
+  // Lắng nghe sự kiện Realtime SignalR để cập nhật dữ liệu tức thì không cần F5
+  useEffect(() => {
+    const handleRealtimeUpdate = (e) => {
+      const notif = e.detail?.notification;
+      const title = (notif?.title || '').toLowerCase();
+      const content = (notif?.content || '').toLowerCase();
+      const fullText = `${title} ${content}`;
+
+      const tabsToInvalidate = new Set(['ll_dashboard']);
+
+      if (fullText.includes('hóa đơn') || fullText.includes('tiền nhà') || fullText.includes('điện') || fullText.includes('nước') || fullText.includes('khiếu nại') || fullText.includes('invoice')) {
+        tabsToInvalidate.add('ll_invoices');
+        tabsToInvalidate.add('ll_utilities');
+      }
+      if (fullText.includes('thanh toán') || fullText.includes('chuyển khoản') || fullText.includes('minh chứng') || fullText.includes('payment') || fullText.includes('duyệt')) {
+        tabsToInvalidate.add('ll_payments');
+        tabsToInvalidate.add('ll_invoices');
+      }
+      if (fullText.includes('bảo trì') || fullText.includes('sự cố') || fullText.includes('sửa chữa') || fullText.includes('hỏng') || fullText.includes('thiết bị')) {
+        tabsToInvalidate.add('ll_maintenance');
+      }
+      if (fullText.includes('hợp đồng') || fullText.includes('gia hạn') || fullText.includes('cọc') || fullText.includes('quyết toán')) {
+        tabsToInvalidate.add('ll_contracts');
+        tabsToInvalidate.add('ll_tenants');
+      }
+
+      // Xóa cache các tab liên quan
+      tabsToInvalidate.forEach(t => invalidate(t));
+
+      // Tải lại dữ liệu của tab hiện tại ngay lập tức
+      const fetchers = TAB_FETCHERS[activeTab];
+      if (fetchers && Object.keys(fetchers).length > 0) {
+        getTabData(activeTab, fetchers).then(data => {
+          if (data) setTabData(prev => ({ ...prev, [activeTab]: data }));
+        });
+      }
+    };
+
+    window.addEventListener('smartrent:realtime-update', handleRealtimeUpdate);
+    return () => window.removeEventListener('smartrent:realtime-update', handleRealtimeUpdate);
+  }, [activeTab, getTabData, invalidate]);
+
   useEffect(() => {
     const fetchers = TAB_FETCHERS[activeTab];
     if (!fetchers || Object.keys(fetchers).length === 0) return;

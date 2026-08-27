@@ -82,30 +82,37 @@ export function NotificationProvider({ children }) {
     }, 6000);
   }, [dismissToast, triggerRecentAlert]);
 
+  // Ref để lưu addToast mới nhất tránh re-run useEffect khi addToast thay đổi reference
+  const addToastRef = useRef(addToast);
+  useEffect(() => {
+    addToastRef.current = addToast;
+  }, [addToast]);
+
   // Khởi tạo kết nối SignalR Realtime Hub
   useEffect(() => {
     if (!isAuthenticated || !user) {
       if (connectionRef.current) {
-        connectionRef.current.stop();
+        connectionRef.current.stop().catch(() => {});
         connectionRef.current = null;
         setIsConnected(false);
       }
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
     if (!token) return;
 
+    let isCancelled = false;
     const baseApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
     const hubUrl = `${baseApiUrl}/hubs/notifications`;
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
-        accessTokenFactory: () => localStorage.getItem('token') || '',
+        accessTokenFactory: () => localStorage.getItem('accessToken') || localStorage.getItem('token') || '',
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
       })
       .withAutomaticReconnect([0, 1000, 3000, 5000, 10000, 30000])
-      .configureLogging(signalR.LogLevel.Warning)
+      .configureLogging(signalR.LogLevel.None)
       .build();
 
     // Lắng nghe sự kiện ReceiveNotification từ server
@@ -118,17 +125,28 @@ export function NotificationProvider({ children }) {
       });
 
       // 2. Hiển thị Toast nổi & phát âm thanh
-      addToast(newNotif);
+      addToastRef.current?.(newNotif);
+
+      // 3. Phát CustomEvent toàn cục để các trang tự động reload dữ liệu realtime không cần F5
+      window.dispatchEvent(new CustomEvent('smartrent:realtime-update', {
+        detail: { notification: newNotif, timestamp: Date.now() }
+      }));
     });
 
     // Kết nối SignalR
     connection.start()
       .then(() => {
-        setIsConnected(true);
-        connectionRef.current = connection;
+        if (!isCancelled) {
+          setIsConnected(true);
+          connectionRef.current = connection;
+        } else {
+          connection.stop().catch(() => {});
+        }
       })
       .catch((err) => {
-        console.warn('Không thể kết nối SignalR Hub:', err.message);
+        if (!isCancelled && !err.message?.includes('stopped during negotiation')) {
+          console.warn('Không thể kết nối SignalR Hub:', err.message);
+        }
         setIsConnected(false);
       });
 
@@ -137,10 +155,11 @@ export function NotificationProvider({ children }) {
     connection.onclose(() => setIsConnected(false));
 
     return () => {
-      connection.stop();
+      isCancelled = true;
+      connection.stop().catch(() => {});
       connectionRef.current = null;
     };
-  }, [isAuthenticated, user, addToast]);
+  }, [isAuthenticated, user?.id]);
 
   // Đánh dấu đã đọc một thông báo
   const markAsRead = async (id) => {

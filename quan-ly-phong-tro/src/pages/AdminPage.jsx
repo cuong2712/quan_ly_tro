@@ -34,6 +34,22 @@ export default function AdminPage() {
 
   const { getTabData, loadingTabs, errorTabs, invalidate } = useTabData();
 
+  // Lắng nghe sự kiện Realtime SignalR để cập nhật dữ liệu tức thì không cần F5
+  useEffect(() => {
+    const handleRealtimeUpdate = () => {
+      invalidate(); // Xóa cache admin
+      const fetchers = TAB_FETCHERS[activeTab];
+      if (fetchers) {
+        getTabData(activeTab, fetchers).then(data => {
+          if (data) setTabData(prev => ({ ...prev, [activeTab]: data }));
+        });
+      }
+    };
+
+    window.addEventListener('smartrent:realtime-update', handleRealtimeUpdate);
+    return () => window.removeEventListener('smartrent:realtime-update', handleRealtimeUpdate);
+  }, [activeTab, getTabData, invalidate]);
+
   useEffect(() => {
     const fetchers = TAB_FETCHERS[activeTab];
     if (!fetchers) return;

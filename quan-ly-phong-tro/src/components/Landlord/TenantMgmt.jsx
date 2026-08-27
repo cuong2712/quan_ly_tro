@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { UserCheck, Plus, Search, Edit, Trash2, Eye, Bike, Image as ImageIcon, KeyRound } from 'lucide-react';
 import { formatVND, formatDate, getImageUrl, sanitizeCccd, isValidCccd, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
-import { validateFullName, validatePhone, validateCCCD, validateEmail, validatePositiveNumber, validateVehicles } from '../../utils/validators';
 import { tenantService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 import { AvatarUploader, CccdCardUploader, ImageLightboxModal } from '../Common/ImageUploader';
@@ -94,12 +93,14 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
       avatarUrl: t.avatarUrl || '',
       cccd: t.cccd || t.CCCD || '',
       roomId: t.roomId || t.RoomId || '',
-      vehicleCount: count,
-      vehicleInfo: infoStr,
+      vehicleCount: t.vehicleCount || 0,
+      vehicleInfo: t.vehicleInfo || '',
+      cccdFrontUrl: t.cccdFrontUrl || '',
+      cccdBackUrl: t.cccdBackUrl || '',
       password: ''
     });
-    setVehicleList(Array.from({ length: count }, (_, i) => parsed[i] || ''));
     setIsModalOpen(true);
+  };
 
   const handleDelete = async (id) => {
     if (confirm('Bạn có chắc chắn muốn xóa người thuê này?')) {
@@ -134,27 +135,26 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const nameErr = validateFullName(formData.name || formData.fullName, 'Họ và tên khách thuê');
-    if (nameErr) { alert(nameErr); return; }
-
-    const phoneErr = validatePhone(formData.phone, 'Số điện thoại');
-    if (phoneErr) { alert(phoneErr); return; }
-
-    const emailErr = validateEmail(formData.email, !editingTenant, 'Email');
-    if (emailErr) { alert(emailErr); return; }
-
-    const cccdErr = validateCCCD(formData.cccd, false, 'Số CCCD/CMND');
-    if (cccdErr) { alert(cccdErr); return; }
-
-    const count = Number(formData.vehicleCount || 0);
-    if (count > 0) {
-      for (let i = 0; i < count; i++) {
-        const plate = (vehicleList[i] || '').trim();
+    if (!formData.name && !formData.fullName) {
+      alert('Vui lòng nhập họ và tên khách thuê');
+      return;
+    }
+    if (!formData.phone) {
+      alert('Vui lòng nhập số điện thoại');
+      return;
+    }
+    if (!formData.roomId) {
+      alert('Vui lòng chọn phòng để xếp khách thuê vào');
+      return;
+    }
+    if (formData.cccd && !isValidCccd(formData.cccd)) {
+      alert('Số CCCD không hợp lệ! Vui lòng nhập đúng 12 chữ số và bắt đầu bằng số 0 (VD: 001201012345).');
+      return;
     }
 
     if (formData.email) {
       const duplicateEmail = tenants.find(t => 
-        t.email?.toLowerCase() === formData.email.trim().toLowerCase() && 
+        t.email?.toLowerCase() === formData.email.toLowerCase() && 
         (!editingTenant || t.id !== editingTenant.id)
       );
       if (duplicateEmail) {
@@ -165,7 +165,7 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
     if (formData.phone) {
       const duplicatePhone = tenants.find(t => 
-        t.phone === formData.phone.trim() && 
+        t.phone === formData.phone && 
         (!editingTenant || t.id !== editingTenant.id)
       );
       if (duplicatePhone) {
@@ -199,12 +199,14 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             phone: formData.phone,
             hometown: formData.hometown,
             roomId: formData.roomId,
-            vehicleCount: count,
-            vehicleInfo: combinedVehicles,
+            vehicleCount: Number(formData.vehicleCount || 0),
+            vehicleInfo: formData.vehicleInfo || '',
             cccdFrontUrl: formData.cccdFrontUrl,
             cccdBackUrl: formData.cccdBackUrl,
             avatarUrl: formData.avatarUrl,
             cccd: formData.cccd || formData.CCCD,
+          });
+        }
       } else {
         if (tenantService && tenantService.createTenant) {
           createdOrUpdated = await tenantService.createTenant({
@@ -217,14 +219,16 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             roomId: formData.roomId,
             moveInDate: formData.moveInDate || new Date().toISOString(),
             deposit: Number(formData.deposit || 0),
-            vehicleCount: count,
-            vehicleInfo: combinedVehicles,
+            vehicleCount: Number(formData.vehicleCount || 0),
+            vehicleInfo: formData.vehicleInfo || '',
             cccdFrontUrl: formData.cccdFrontUrl,
             cccdBackUrl: formData.cccdBackUrl,
             avatarUrl: formData.avatarUrl,
           });
         }
       }
+    } catch (apiErr) {
+      const errMsg = apiErr.response?.data?.message || apiErr.message;
       alert(`Lỗi tạo/cập nhật người thuê: ${errMsg}. Vui lòng kiểm tra và nhập lại thông tin!`);
       setSaving(false);
       return;
@@ -534,16 +538,14 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Số Điện Thoại (10 số) *</label>
+                    <label className="form-label">Số Điện Thoại *</label>
                     <input
                       type="tel"
                       className="form-control"
                       required
-                      maxLength={10}
-                      inputMode="numeric"
                       placeholder="VD: 0912345678"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                   </div>
                   <div className="form-group">
@@ -673,35 +675,52 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
                   </div>
                 </div>
 
-                <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)', marginBottom: '14px' }}>
-                  <div className="form-group" style={{ marginBottom: Number(formData.vehicleCount) > 0 ? '12px' : 0 }}>
+                <div className="form-row">
+                  <div className="form-group">
                     <label className="form-label">Số Lượng Xe Gửi</label>
-                    <select
+                    <input
+                      type="number"
+                      min="0"
                       className="form-control"
-                      style={{ maxWidth: '240px' }}
                       value={formData.vehicleCount}
-                      onChange={(e) => handleVehicleCountChange(e.target.value)}
-                    >
-                      <option value={0}>0 xe (Không gửi xe)</option>
-                      <option value={3}>3 xe máy / xe điện</option>
-                      <option value={4}>4 xe máy / xe điện</option>
-                      <option value={5}>5 xe máy / xe điện</option>
-                    </select>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: Number(formData.vehicleCount) > 1 ? 'repeat(auto-fit, minmax(240px, 1fr))' : '1fr', gap: '10px' }}>
-                      {Array.from({ length: Number(formData.vehicleCount) }).map((_, index) => (
-                        <div key={index} className="form-group" style={{ margin: 0 }}>
-                            onChange={(e) => handlePlateChange(index, e.target.value)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                      onChange={(e) => setFormData({ ...formData, vehicleCount: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Biển Số / Loại Xe</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="VD: 59-P1 123.45 (Vision)"
+                      value={formData.vehicleInfo || ''}
+                      onChange={(e) => setFormData({ ...formData, vehicleInfo: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Ngày Nhận Phòng</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={formData.moveInDate ? formData.moveInDate.split('T')[0] : ''}
+                      onChange={(e) => setFormData({ ...formData, moveInDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Tiền Cọc (VNĐ)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="form-control"
+                      placeholder="0"
+                      value={formatNumberWithDots(formData.deposit)}
+                      onChange={(e) => setFormData({ ...formData, deposit: parseNumberFromDots(e.target.value) })}
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
