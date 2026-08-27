@@ -133,7 +133,12 @@ public class RoomQueryService(AppDbContext db)
             equipmentDtos,
             r.ServiceFee,
             primaryTenantDto,
-            occupantDtos
+            occupantDtos,
+            r.DepositAmount,
+            r.DepositTenantName,
+            r.DepositTenantPhone,
+            r.ExpectedMoveInDate,
+            r.DepositNote
         );
     }
 }

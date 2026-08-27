@@ -141,4 +141,49 @@ public class RoomLifecycleService(AppDbContext db)
         await db.SaveChangesAsync();
         return true;
     }
+
+    // Đặt cọc giữ phòng (Booking / Holding Deposit)
+    public async Task<RoomDto> BookDepositAsync(Guid id, Guid landlordId, BookRoomDepositRequest req)
+    {
+        SmartRent.Application.Common.Validators.DataValidator.ValidateFullName(req.TenantName, "Họ và tên khách đặt cọc");
+        SmartRent.Application.Common.Validators.DataValidator.ValidatePhone(req.TenantPhone, "Số điện thoại khách đặt cọc");
+        SmartRent.Application.Common.Validators.DataValidator.ValidatePositiveNumber(req.DepositAmount, "Số tiền cọc giữ chỗ", 1000);
+
+        var room = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Contracts).Include(r => r.Equipments)
+            .FirstOrDefaultAsync(r => r.Id == id && r.Zone.LandlordId == landlordId)
+            ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
+
+        if (room.Status == RoomStatus.Occupied)
+        {
+            throw new InvalidOperationException($"Phòng {room.RoomNumber} hiện đang có người ở, không thể nhận cọc giữ chỗ.");
+        }
+
+        room.Status = RoomStatus.Deposit;
+        room.DepositAmount = req.DepositAmount;
+        room.DepositTenantName = req.TenantName?.Trim();
+        room.DepositTenantPhone = req.TenantPhone?.Trim();
+        room.ExpectedMoveInDate = req.ExpectedMoveInDate.HasValue ? DateTime.SpecifyKind(req.ExpectedMoveInDate.Value, DateTimeKind.Utc) : null;
+        room.DepositNote = req.Note?.Trim();
+
+        await db.SaveChangesAsync();
+        return room.ToRoomDto();
+    }
+
+    // Hủy cọc giữ chỗ phòng (Trả về trạng thái Còn trống)
+    public async Task<RoomDto> CancelDepositAsync(Guid id, Guid landlordId, CancelRoomDepositRequest req)
+    {
+        var room = await db.Rooms.Include(r => r.Zone).Include(r => r.Tenants).ThenInclude(t => t.User).Include(r => r.Contracts).Include(r => r.Equipments)
+            .FirstOrDefaultAsync(r => r.Id == id && r.Zone.LandlordId == landlordId)
+            ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
+
+        room.Status = RoomStatus.Vacant;
+        room.DepositAmount = null;
+        room.DepositTenantName = null;
+        room.DepositTenantPhone = null;
+        room.ExpectedMoveInDate = null;
+        room.DepositNote = null;
+
+        await db.SaveChangesAsync();
+        return room.ToRoomDto();
+    }
 }

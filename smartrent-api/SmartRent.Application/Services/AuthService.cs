@@ -23,7 +23,8 @@ public class AuthService(AppDbContext db, IConfiguration config) : IAuthService
     // Xử lý đăng nhập tài khoản bằng Email và Mật khẩu (trả về AccessToken, RefreshToken và thông tin User).
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == request.Email)
+        var email = (request.Email ?? "").Trim();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email)
             ?? throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng");
 
         if (!user.IsActive)

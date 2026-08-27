@@ -28,7 +28,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     try {
-      const data = await login(email, password);
+      const data = await login((email || '').trim(), password);
       const path = from || ROLE_PATHS[data.role] || '/';
       navigate(path, { replace: true });
     } catch (err) {

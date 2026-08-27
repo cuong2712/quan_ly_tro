@@ -58,6 +58,23 @@ public class ContractLifecycleService(AppDbContext db, NotificationService notif
         tenant.RoomId = req.RoomId;
         if (tenant.MoveInDate == null) tenant.MoveInDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc);
         if (tenant.Deposit == 0 && req.Deposit > 0) tenant.Deposit = req.Deposit;
+
+        // Cập nhật chỉ số điện nước ban đầu nếu có cung cấp
+        if (req.InitialElecMeter.HasValue && req.InitialElecMeter.Value >= 0)
+        {
+            room.ElecMeter = req.InitialElecMeter.Value;
+        }
+        if (req.InitialWaterMeter.HasValue && req.InitialWaterMeter.Value >= 0)
+        {
+            room.WaterMeter = req.InitialWaterMeter.Value;
+        }
+
+        // Chuyển cọc giữ chỗ thành hợp đồng chính thức & dọn dẹp thông tin cọc giữ chỗ
+        room.DepositAmount = null;
+        room.DepositTenantName = null;
+        room.DepositTenantPhone = null;
+        room.ExpectedMoveInDate = null;
+        room.DepositNote = null;
         room.Status = RoomStatus.Occupied;
 
         await db.SaveChangesAsync();

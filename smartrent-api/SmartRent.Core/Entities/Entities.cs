@@ -58,6 +58,11 @@ public class Room
     public decimal ServiceFee { get; set; } = 0;
     public string? Description { get; set; }
     public string? Amenities { get; set; }
+    public decimal? DepositAmount { get; set; }
+    public string? DepositTenantName { get; set; }
+    public string? DepositTenantPhone { get; set; }
+    public DateTime? ExpectedMoveInDate { get; set; }
+    public string? DepositNote { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

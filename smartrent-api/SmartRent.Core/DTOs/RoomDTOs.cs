@@ -17,7 +17,12 @@ public record RoomDto(
     string? CurrentTenantName,
     List<RoomEquipmentDto>? Equipments = null,
     decimal ServiceFee = 0,
-    string? CurrentTenantPhone = null
+    string? CurrentTenantPhone = null,
+    decimal? DepositAmount = null,
+    string? DepositTenantName = null,
+    string? DepositTenantPhone = null,
+    DateTime? ExpectedMoveInDate = null,
+    string? DepositNote = null
 );
 
 public record CreateRoomRequest(
@@ -48,8 +53,29 @@ public record RoomDetailDto(
     List<RoomEquipmentDto> Equipments,
     decimal ServiceFee = 0,
     TenantDto? PrimaryTenant = null,   // Người đứng tên hợp đồng chính
-    List<TenantDto>? Occupants = null  // Danh sách thành viên ở ghép (không đứng tên HĐ)
+    List<TenantDto>? Occupants = null,  // Danh sách thành viên ở ghép (không đứng tên HĐ)
+    decimal? DepositAmount = null,
+    string? DepositTenantName = null,
+    string? DepositTenantPhone = null,
+    DateTime? ExpectedMoveInDate = null,
+    string? DepositNote = null
 );
+
+// Yêu cầu đặt cọc giữ phòng
+public class BookRoomDepositRequest
+{
+    public string TenantName { get; set; } = string.Empty;
+    public string TenantPhone { get; set; } = string.Empty;
+    public decimal DepositAmount { get; set; }
+    public DateTime? ExpectedMoveInDate { get; set; }
+    public string? Note { get; set; }
+}
+
+// Yêu cầu hủy cọc giữ chỗ
+public class CancelRoomDepositRequest
+{
+    public string? Reason { get; set; }
+}
 
 // Yêu cầu thêm thành viên ở ghép vào phòng (không tạo hợp đồng mới)
 public record AddOccupantRequest(Guid TenantProfileId);

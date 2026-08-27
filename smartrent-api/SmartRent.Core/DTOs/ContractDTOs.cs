@@ -15,12 +15,20 @@ public record ContractDto(
     DateTime? RenewRequestedAt = null
 );
 
-public record CreateContractRequest(
-    string ContractCode, Guid RoomId, Guid TenantProfileId,
-    DateTime StartDate, DateTime EndDate,
-    decimal RentAmount, decimal Deposit,
-    int PaymentTermDay, string? Terms
-);
+public class CreateContractRequest
+{
+    public string ContractCode { get; set; } = string.Empty;
+    public Guid RoomId { get; set; }
+    public Guid TenantProfileId { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public decimal RentAmount { get; set; }
+    public decimal Deposit { get; set; }
+    public int PaymentTermDay { get; set; } = 5;
+    public string? Terms { get; set; }
+    public decimal? InitialElecMeter { get; set; }
+    public decimal? InitialWaterMeter { get; set; }
+}
 
 public record UpdateContractRequest(
     DateTime StartDate, DateTime EndDate,

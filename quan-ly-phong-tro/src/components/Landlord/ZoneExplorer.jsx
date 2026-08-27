@@ -12,6 +12,7 @@ import {
   invoiceService, utilityService, contractService, serviceMgmtService, maintenanceService
 } from '../../services';
 import { formatVND, formatDate, exportToPDF, formatNumberWithDots, parseNumberFromDots, getImageUrl } from '../../utils/formatters';
+import { validateFullName, validatePhone, validateCCCD, validateEmail, validatePositiveNumber, validateVehicles } from '../../utils/validators';
 import { ServiceMgmt } from './ServiceMgmt';
 import { ErrorBoundary } from '../Common/ErrorBoundary';
 import { Pagination } from '../Common/Pagination';
@@ -20,7 +21,8 @@ import { Pagination } from '../Common/Pagination';
 const STATUS_CONFIG = {
   Vacant: { label: 'Còn trống', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
   Occupied: { label: 'Đang thuê', color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
-  Maintenance: { label: 'Bảo trì', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  Maintenance: { label: 'Bảo trì', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  Deposit: { label: 'Đã cọc giữ chỗ', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
 
 // ─── LEVEL 1: Danh sách khu trọ (Giao diện sạch đẹp, tối giản) ────
@@ -70,9 +72,12 @@ const ZoneList = ({ onSelectZone, onRefresh }) => {
     try { await zoneService.deleteZone(z.id); await load(); } catch (err) { alert(err.response?.data?.message || err.message); }
   };
   const handleSave = async (e) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault();
+    if (!form.name?.trim()) { alert('Tên khu trọ không được để trống.'); return; }
+    if (!form.address?.trim()) { alert('Địa chỉ khu trọ không được để trống.'); return; }
+    setSaving(true);
     try {
-      const payload = { name: form.name, address: form.address, description: form.description, totalRooms: Number(form.totalRooms) };
+      const payload = { name: form.name.trim(), address: form.address.trim(), description: form.description?.trim(), totalRooms: Number(form.totalRooms) };
       if (editingZone) await zoneService.updateZone(editingZone.id, payload);
       else await zoneService.createZone(payload);
       setIsModalOpen(false); await load();
@@ -432,6 +437,20 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
   };
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!form.roomNumber?.trim()) { alert('Số phòng không được để trống.'); return; }
+    const floorNum = Number(form.floor);
+    if (isNaN(floorNum) || floorNum < 0) { alert('Số tầng phải là số không âm.'); return; }
+    const priceErr = validatePositiveNumber(form.price, 'Giá thuê phòng', 100000);
+    if (priceErr) { alert(priceErr); return; }
+    const areaErr = validatePositiveNumber(form.area, 'Diện tích phòng', 1);
+    if (areaErr) { alert(areaErr); return; }
+    const maxTenantsNum = Number(form.maxTenants);
+    if (isNaN(maxTenantsNum) || maxTenantsNum < 1 || maxTenantsNum > 20) { alert('Số người tối đa phải từ 1 đến 20 người.'); return; }
+    const elecErr = validatePositiveNumber(form.elecMeter, 'Chỉ số điện', 0);
+    if (elecErr) { alert(elecErr); return; }
+    const waterErr = validatePositiveNumber(form.waterMeter, 'Chỉ số nước', 0);
+    if (waterErr) { alert(waterErr); return; }
+
     const hasOccupant = !!(editingRoom && (editingRoom.currentTenantName || editingRoom.tenantName));
     if (editingRoom && (form.status === 'Vacant' || form.status === 'Maintenance') && hasOccupant) {
       const statusName = form.status === 'Vacant' ? 'Còn trống' : 'Bảo trì';
@@ -442,10 +461,10 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     setSaving(true);
     try {
       const payload = {
-        zoneId: zone.id, roomNumber: form.roomNumber, floor: Number(form.floor),
+        zoneId: zone.id, roomNumber: form.roomNumber.trim(), floor: Number(form.floor),
         price: Number(form.price), area: Number(form.area), maxTenants: Number(form.maxTenants),
         status: form.status, elecMeter: Number(form.elecMeter), waterMeter: Number(form.waterMeter),
-        description: form.description
+        description: form.description?.trim()
       };
       if (editingRoom) await roomService.updateRoom(editingRoom.id, payload);
       else await roomService.createRoom(payload);
@@ -454,8 +473,215 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     finally { setSaving(false); }
   };
 
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingRoom, setBookingRoom] = useState(null);
+  const [savingBooking, setSavingBooking] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    tenantName: '',
+    tenantPhone: '',
+    depositAmount: 1000000,
+    expectedMoveInDate: '',
+    note: ''
+  });
+
+  const openBookDeposit = (r, e) => {
+    e.stopPropagation();
+    setBookingRoom(r);
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    setBookingForm({
+      tenantName: '',
+      tenantPhone: '',
+      depositAmount: r.price ? Math.min(r.price, 1000000) : 1000000,
+      expectedMoveInDate: d.toISOString().split('T')[0],
+      note: 'Đặt cọc giữ chỗ phòng ' + r.roomNumber
+    });
+    setBookingModalOpen(true);
+  };
+
+  const handleSaveBooking = async (e) => {
+    e.preventDefault();
+    if (!bookingRoom) return;
+    const nameErr = validateFullName(bookingForm.tenantName, 'Họ và tên khách đặt cọc');
+    if (nameErr) { alert(nameErr); return; }
+    const phoneErr = validatePhone(bookingForm.tenantPhone, 'Số điện thoại khách');
+    if (phoneErr) { alert(phoneErr); return; }
+    const depErr = validatePositiveNumber(bookingForm.depositAmount, 'Số tiền cọc giữ chỗ', 10000);
+    if (depErr) { alert(depErr); return; }
+
+    setSavingBooking(true);
+    try {
+      await roomService.bookDeposit(bookingRoom.id, {
+        tenantName: bookingForm.tenantName.trim(),
+        tenantPhone: bookingForm.tenantPhone.trim(),
+        depositAmount: Number(bookingForm.depositAmount),
+        expectedMoveInDate: bookingForm.expectedMoveInDate || new Date().toISOString(),
+        note: bookingForm.note?.trim()
+      });
+      setBookingModalOpen(false);
+      await load();
+      alert(`✅ Đã ghi nhận đặt cọc giữ chỗ phòng ${bookingRoom.roomNumber} thành công!`);
+    } catch (err) {
+      alert('❌ Lỗi nhận cọc: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSavingBooking(false);
+    }
+  };
+
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractRoom, setContractRoom] = useState(null);
+  const [availableTenants, setAvailableTenants] = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const [savingContract, setSavingContract] = useState(false);
+  const [isQuickCreateTenant, setIsQuickCreateTenant] = useState(false);
+  const [quickTenantForm, setQuickTenantForm] = useState({ fullName: '', phone: '', email: '', password: 'Tenant@123456', cccd: '', hometown: '' });
+  const [contractForm, setContractForm] = useState({
+    contractCode: '',
+    tenantProfileId: '',
+    startDate: '',
+    endDate: '',
+    rentAmount: 0,
+    deposit: 0,
+    paymentTermDay: 5,
+    terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
+    initialElecMeter: 0,
+    initialWaterMeter: 0
+  });
+
+  const openConvertToContract = async (r, e) => {
+    if (e) e.stopPropagation();
+    setContractRoom(r);
+    setLoadingTenants(true);
+    setIsQuickCreateTenant(false);
+
+    const now = new Date();
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+
+    const defaultStartDate = r.expectedMoveInDate ? new Date(r.expectedMoveInDate).toISOString().split('T')[0] : now.toISOString().split('T')[0];
+    const defaultEndDate = nextYear.toISOString().split('T')[0];
+
+    try {
+      const tenantsRes = await tenantService.getTenants();
+      const tList = Array.isArray(tenantsRes) ? tenantsRes : (tenantsRes?.data || []);
+      setAvailableTenants(tList);
+
+      let matchedTenant = null;
+      if (r.depositTenantPhone) {
+        matchedTenant = tList.find(t => t.phone && t.phone.replace(/\s+/g, '') === r.depositTenantPhone.replace(/\s+/g, ''));
+      }
+      if (!matchedTenant && r.depositTenantName) {
+        matchedTenant = tList.find(t => t.fullName && t.fullName.toLowerCase() === r.depositTenantName.toLowerCase());
+      }
+
+      setQuickTenantForm({
+        fullName: r.depositTenantName || '',
+        phone: (r.depositTenantPhone || '').replace(/\D/g, '').slice(0, 10),
+        email: '',
+        password: 'Tenant@123456',
+        cccd: '',
+        hometown: ''
+      });
+
+      setContractForm({
+        contractCode: `HD-2026-${r.roomNumber}`,
+        tenantProfileId: matchedTenant ? matchedTenant.id : (tList[0]?.id || ''),
+        startDate: defaultStartDate,
+        endDate: defaultEndDate,
+        rentAmount: r.price || 3000000,
+        deposit: r.price || 3000000,
+        paymentTermDay: 5,
+        terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
+        initialElecMeter: r.elecMeter || 0,
+        initialWaterMeter: r.waterMeter || 0
+      });
+      setContractModalOpen(true);
+    } catch (err) {
+      console.error('Lỗi tải khách thuê:', err);
+      alert('Lỗi tải danh sách khách thuê: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
+
+  const handleSaveContract = async (e) => {
+    e.preventDefault();
+    if (!contractRoom) return;
+
+    if (!contractForm.contractCode?.trim()) { alert('Mã hợp đồng không được để trống.'); return; }
+    const rentErr = validatePositiveNumber(contractForm.rentAmount, 'Giá thuê phòng', 100000);
+    if (rentErr) { alert(rentErr); return; }
+    const depErr = validatePositiveNumber(contractForm.deposit, 'Tiền đặt cọc hợp đồng', 0);
+    if (depErr) { alert(depErr); return; }
+    const elecErr = validatePositiveNumber(contractForm.initialElecMeter, 'Chỉ số điện ban đầu', 0);
+    if (elecErr) { alert(elecErr); return; }
+    const waterErr = validatePositiveNumber(contractForm.initialWaterMeter, 'Chỉ số nước ban đầu', 0);
+    if (waterErr) { alert(waterErr); return; }
+
+    setSavingContract(true);
+    try {
+      let targetTenantId = contractForm.tenantProfileId;
+
+      if (isQuickCreateTenant) {
+        const nameErr = validateFullName(quickTenantForm.fullName, 'Họ và tên khách thuê');
+        if (nameErr) { alert(nameErr); setSavingContract(false); return; }
+        const phoneErr = validatePhone(quickTenantForm.phone, 'Số điện thoại khách thuê');
+        if (phoneErr) { alert(phoneErr); setSavingContract(false); return; }
+        const emailErr = validateEmail(quickTenantForm.email, true, 'Email đăng nhập (@gmail.com)');
+        if (emailErr) { alert(emailErr); setSavingContract(false); return; }
+        if (!quickTenantForm.password || quickTenantForm.password.trim().length < 6) {
+          alert('Mật khẩu đăng nhập phải có ít nhất 6 ký tự!');
+          setSavingContract(false);
+          return;
+        }
+        const cccdErr = validateCCCD(quickTenantForm.cccd, false, 'Số CCCD/CMND');
+        if (cccdErr) { alert(cccdErr); setSavingContract(false); return; }
+
+        const createdTenant = await tenantService.createTenant({
+          fullName: quickTenantForm.fullName.trim(),
+          phone: quickTenantForm.phone.trim(),
+          email: quickTenantForm.email.trim(),
+          password: quickTenantForm.password.trim(),
+          cccd: quickTenantForm.cccd.trim() || '000000000000',
+          hometown: quickTenantForm.hometown.trim() || 'TP. Hồ Chí Minh',
+          roomId: contractRoom.id
+        });
+        targetTenantId = createdTenant?.id || createdTenant?.data?.id;
+      }
+
+      if (!targetTenantId) {
+        alert('Vui lòng chọn hoặc tạo hồ sơ khách thuê đứng tên hợp đồng');
+        setSavingContract(false);
+        return;
+      }
+
+      const payload = {
+        contractCode: contractForm.contractCode.trim(),
+        roomId: contractRoom.id,
+        tenantProfileId: targetTenantId,
+        startDate: contractForm.startDate || new Date().toISOString(),
+        endDate: contractForm.endDate || new Date(Date.now() + 365 * 86400000).toISOString(),
+        rentAmount: Number(contractForm.rentAmount || 0),
+        deposit: Number(contractForm.deposit || 0),
+        paymentTermDay: Number(contractForm.paymentTermDay || 5),
+        terms: contractForm.terms || '',
+        initialElecMeter: Number(contractForm.initialElecMeter || 0),
+        initialWaterMeter: Number(contractForm.initialWaterMeter || 0)
+      };
+
+      await contractService.createContract(payload);
+      setContractModalOpen(false);
+      await load();
+      alert(`🎉 Đã tạo Hợp Đồng cho phòng ${contractRoom.roomNumber} thành công! Phòng đã chuyển sang trạng thái "Đang thuê" (Occupied).`);
+    } catch (err) {
+      alert('❌ Lỗi tạo hợp đồng: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSavingContract(false);
+    }
+  };
+
   // Thống kê tổng số phòng trong khu này
-  const statusCounts = { all: roomList.length, Vacant: 0, Occupied: 0, Maintenance: 0 };
+  const statusCounts = { all: roomList.length, Vacant: 0, Occupied: 0, Maintenance: 0, Deposit: 0 };
   roomList.forEach(r => {
     if (r && r.status) {
       statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
@@ -632,7 +858,7 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
               />
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              {['all', 'Occupied', 'Vacant', 'Maintenance'].map(s => (
+              {['all', 'Occupied', 'Vacant', 'Deposit', 'Maintenance'].map(s => (
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
@@ -653,7 +879,7 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                     boxShadow: statusFilter === s ? '0 4px 14px rgba(99,102,241,0.3)' : '0 2px 4px rgba(0,0,0,0.02)'
                   }}
                 >
-                  {s === 'all' ? `Tất cả (${statusCounts.all})` : `${STATUS_CONFIG[s]?.label} (${statusCounts[s] || 0})`}
+                  {s === 'all' ? `Tất cả (${statusCounts.all})` : `${STATUS_CONFIG[s]?.label || s} (${statusCounts[s] || 0})`}
                 </button>
               ))}
             </div>
@@ -763,17 +989,100 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                                 <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>Đại diện</span>
                               )}
                             </div>
+                          ) : r.status === 'Deposit' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#f59e0b', fontSize: 13, fontWeight: 600 }}>
+                              <Sparkles size={15} /> Khách cọc: {r.depositTenantName || 'Chưa cập nhật'}
+                            </div>
                           ) : (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic' }}>
                               <User size={15} style={{ opacity: 0.5 }} /> Chưa có người ở
                             </div>
                           )}
                         </div>
+
+                        {/* Banner Cọc Giữ Chỗ nếu có */}
+                        {(r.status === 'Deposit' || r.depositAmount) && (
+                          <div style={{
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            background: 'rgba(245, 158, 11, 0.10)',
+                            border: '1px solid rgba(245, 158, 11, 0.25)',
+                            fontSize: 12.5,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4,
+                            marginTop: 10
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 700, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Sparkles size={14} /> Tiền cọc giữ chỗ:
+                              </span>
+                              <strong style={{ color: '#f59e0b' }}>{formatVND(r.depositAmount || 0)}</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                              <span>{r.depositTenantPhone ? `SĐT: ${r.depositTenantPhone}` : ''}</span>
+                              {r.expectedMoveInDate && <span>Hạn vào: {formatDate(r.expectedMoveInDate)}</span>}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Footer: Thao tác & Xem chi tiết */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTop: '1px solid var(--border-color)', marginTop: 'auto' }}>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTop: '1px solid var(--border-color)', marginTop: 'auto', flexWrap: 'wrap', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                          {r.status === 'Vacant' && (
+                            <>
+                              <button
+                                className="btn btn-sm btn-secondary"
+                                onClick={e => openBookDeposit(r, e)}
+                                title="Nhận cọc giữ chỗ"
+                                style={{ height: 34, padding: '0 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 8, color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+                              >
+                                <Sparkles size={13} /> Cọc giữ chỗ
+                              </button>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={e => openConvertToContract(r, e)}
+                                title="Lập hợp đồng thuê phòng"
+                                style={{ height: 34, padding: '0 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 8 }}
+                              >
+                                <FilePlus size={13} /> Lập HĐ
+                              </button>
+                            </>
+                          )}
+                          {r.status === 'Deposit' && (
+                            <>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={e => openConvertToContract(r, e)}
+                                title="Chuyển cọc thành Hợp Đồng chính thức"
+                                style={{
+                                  height: 34,
+                                  padding: '0 12px',
+                                  fontSize: 12.5,
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  borderRadius: 8,
+                                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                  borderColor: '#6366f1',
+                                  color: '#ffffff',
+                                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
+                                }}
+                              >
+                                <FilePlus size={15} /> Chuyển thành Hợp đồng
+                              </button>
+                              <button
+                                className="btn btn-sm btn-danger"
+                                onClick={e => handleCancelDeposit(r, e)}
+                                title="Hủy cọc giữ chỗ"
+                                style={{ height: 34, padding: '0 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 8 }}
+                              >
+                                <Trash2 size={13} /> Hủy cọc
+                              </button>
+                            </>
+                          )}
                           <button className="btn btn-sm btn-secondary" onClick={e => openEdit(r, e)} title="Sửa thông tin phòng" style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}>
                             <Edit size={15} />
                           </button>
@@ -782,7 +1091,7 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                           </button>
                         </div>
                         <span style={{ color: '#6366f1', fontSize: 13.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          Chi tiết phòng <ChevronRight size={16} />
+                          Chi tiết <ChevronRight size={16} />
                         </span>
                       </div>
                     </div>
@@ -837,11 +1146,15 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                       </div>
                       <div className="form-group">
                         <label className="form-label">Số người tối đa</label>
-                        <input type="number" className="form-control" min="1" value={form.maxTenants} onChange={e => setForm({ ...form, maxTenants: e.target.value })} />
+                        <input type="number" className="form-control" min="1" max="10" value={form.maxTenants} onChange={e => setForm({ ...form, maxTenants: e.target.value })} />
                       </div>
                       <div className="form-group">
                         <label className="form-label">Trạng thái</label>
-                        <select className="form-control" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                        <select
+                          className="form-control"
+                          value={form.status}
+                          onChange={e => setForm({ ...form, status: e.target.value })}
+                        >
                           <option value="Vacant" disabled={!!(editingRoom?.currentTenantName || editingRoom?.tenantName)}>
                             Còn trống {!!(editingRoom?.currentTenantName || editingRoom?.tenantName) ? '(Đang có người ở)' : ''}
                           </option>
@@ -873,6 +1186,361 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                   <div className="modal-footer">
                     <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Hủy</button>
                     <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Booking Deposit Modal (Nhận cọc giữ chỗ) */}
+          {bookingModalOpen && bookingRoom && (
+            <div className="modal-overlay" onClick={() => !savingBooking && setBookingModalOpen(false)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                <div className="modal-header">
+                  <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#f59e0b' }}>
+                    <Sparkles size={20} color="#f59e0b" /> Nhận Cọc Giữ Chỗ: Phòng {bookingRoom.roomNumber}
+                  </h3>
+                  <button className="btn btn-sm btn-secondary" disabled={savingBooking} onClick={() => setBookingModalOpen(false)}>✕</button>
+                </div>
+                <form onSubmit={handleSaveBooking}>
+                  <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#f59e0b' }}>
+                      💡 Khi nhận cọc, phòng sẽ chuyển sang trạng thái <strong>"Đã cọc giữ chỗ"</strong> để tạm giữ phòng cho khách trước khi làm hợp đồng chính thức.
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Họ và Tên Khách Đặt Cọc *</label>
+                      <input
+                        className="form-control"
+                        required
+                        placeholder="VD: Nguyễn Văn A"
+                        value={bookingForm.tenantName}
+                        onChange={e => setBookingForm({ ...bookingForm, tenantName: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Số Điện Thoại Khách (10 số) *</label>
+                      <input
+                        className="form-control"
+                        required
+                        maxLength={10}
+                        inputMode="numeric"
+                        placeholder="VD: 0987654321"
+                        value={bookingForm.tenantPhone}
+                        onChange={e => setBookingForm({ ...bookingForm, tenantPhone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Số Tiền Đặt Cọc Giữ Chỗ (VNĐ) *</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="form-control"
+                        required
+                        placeholder="0"
+                        value={formatNumberWithDots(bookingForm.depositAmount)}
+                        onChange={e => setBookingForm({ ...bookingForm, depositAmount: parseNumberFromDots(e.target.value) })}
+                      />
+                      <small style={{ color: 'var(--text-muted)', marginTop: 3, display: 'block' }}>
+                        Giá thuê phòng: {formatVND(bookingRoom.price || 0)}/tháng
+                      </small>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 700 }}>Ngày Dự Kiến Ký HĐ & Dọn Vào</label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        required
+                        value={bookingForm.expectedMoveInDate}
+                        onChange={e => setBookingForm({ ...bookingForm, expectedMoveInDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Ghi Chú Đặt Cọc</label>
+                      <textarea
+                        className="form-control"
+                        rows="2"
+                        placeholder="Ghi chú điều kiện giữ phòng..."
+                        value={bookingForm.note}
+                        onChange={e => setBookingForm({ ...bookingForm, note: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" disabled={savingBooking} onClick={() => setBookingModalOpen(false)}>Hủy</button>
+                    <button type="submit" className="btn btn-primary" disabled={savingBooking} style={{ background: '#f59e0b', borderColor: '#f59e0b' }}>
+                      {savingBooking ? 'Đang lưu...' : 'Xác Nhận Nhận Cọc'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 📝 Convert To Contract Modal (Chuyển Cọc Giữ Chỗ Thành Hợp Đồng Hoặc Tạo HĐ Mới) */}
+          {contractModalOpen && contractRoom && (
+            <div className="modal-overlay" onClick={() => !savingContract && setContractModalOpen(false)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }}>
+                <div className="modal-header">
+                  <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6366f1' }}>
+                    <FilePlus size={20} color="#6366f1" />
+                    {contractRoom.status === 'Deposit' ? `Chuyển Cọc Thành Hợp Đồng: Phòng ${contractRoom.roomNumber}` : `Lập Hợp Đồng Thuê: Phòng ${contractRoom.roomNumber}`}
+                  </h3>
+                  <button className="btn btn-sm btn-secondary" disabled={savingContract} onClick={() => setContractModalOpen(false)}>✕</button>
+                </div>
+                <form onSubmit={handleSaveContract}>
+                  <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    
+                    {/* Banner Thông Báo Cọc Giữ Chỗ */}
+                    {(contractRoom.status === 'Deposit' || contractRoom.depositAmount) && (
+                      <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid #f59e0b', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#f59e0b', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                        <Sparkles size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+                        <div>
+                          <strong>Phòng đang có cọc giữ chỗ: {formatVND(contractRoom.depositAmount || 0)}</strong>
+                          <div style={{ marginTop: 2 }}>
+                            Khách cọc: <strong>{contractRoom.depositTenantName || 'Khách cọc'}</strong> {contractRoom.depositTenantPhone ? `(${contractRoom.depositTenantPhone})` : ''}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>
+                            Khi lưu hợp đồng, số tiền cọc giữ chỗ sẽ tự động chuyển thành hợp đồng chính thức và phòng chuyển sang trạng thái <strong>"Đang thuê" (Occupied)</strong>.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lựa Chọn Khách Thuê */}
+                    <div style={{ background: 'var(--bg-dark)', padding: '14px', borderRadius: 10, border: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <label className="form-label" style={{ fontWeight: 700, margin: 0 }}>
+                          Khách Thuê Đứng Tên Hợp Đồng <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => setIsQuickCreateTenant(!isQuickCreateTenant)}
+                          style={{ fontSize: 12, padding: '4px 10px' }}
+                        >
+                          {isQuickCreateTenant ? '← Chọn hồ sơ có sẵn' : '+ Tạo nhanh hồ sơ mới'}
+                        </button>
+                      </div>
+
+                      {isQuickCreateTenant ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Họ và tên *</label>
+                            <input
+                              className="form-control"
+                              required
+                              placeholder="VD: Nguyễn Văn A"
+                              value={quickTenantForm.fullName}
+                              onChange={e => setQuickTenantForm({ ...quickTenantForm, fullName: e.target.value })}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Số điện thoại (10 số) *</label>
+                            <input
+                              className="form-control"
+                              required
+                              maxLength={10}
+                              inputMode="numeric"
+                              placeholder="0987654321"
+                              value={quickTenantForm.phone}
+                              onChange={e => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                setQuickTenantForm({ ...quickTenantForm, phone: val });
+                              }}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Email đăng nhập (Gmail) *</label>
+                            <input
+                              type="email"
+                              className="form-control"
+                              required
+                              placeholder="khachthue@gmail.com"
+                              value={quickTenantForm.email}
+                              onChange={e => setQuickTenantForm({ ...quickTenantForm, email: e.target.value })}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Mật khẩu đăng nhập *</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              required
+                              placeholder="Tenant@123456"
+                              value={quickTenantForm.password}
+                              onChange={e => setQuickTenantForm({ ...quickTenantForm, password: e.target.value })}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Số CCCD / CMND (12 số)</label>
+                            <input
+                              className="form-control"
+                              maxLength={12}
+                              inputMode="numeric"
+                              placeholder="12 chữ số"
+                              value={quickTenantForm.cccd}
+                              onChange={e => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                                setQuickTenantForm({ ...quickTenantForm, cccd: val });
+                              }}
+                            />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Quê quán</label>
+                            <input
+                              className="form-control"
+                              placeholder="VD: TP. Hồ Chí Minh"
+                              value={quickTenantForm.hometown}
+                              onChange={e => setQuickTenantForm({ ...quickTenantForm, hometown: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          {loadingTenants ? (
+                            <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: 8 }}>Đang tải danh sách khách thuê...</div>
+                          ) : (
+                            <select
+                              className="form-control"
+                              required
+                              value={contractForm.tenantProfileId}
+                              onChange={e => setContractForm({ ...contractForm, tenantProfileId: e.target.value })}
+                            >
+                              <option value="">-- Chọn khách thuê đứng tên HĐ --</option>
+                              {availableTenants.map(t => (
+                                <option key={t.id} value={t.id}>
+                                  {t.fullName || t.name} ({t.phone}) {t.email ? `- ${t.email}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>Mã Hợp Đồng *</label>
+                        <input
+                          className="form-control"
+                          required
+                          value={contractForm.contractCode}
+                          onChange={e => setContractForm({ ...contractForm, contractCode: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>Ngày Đóng Tiền Hàng Tháng</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          className="form-control"
+                          required
+                          value={contractForm.paymentTermDay}
+                          onChange={e => setContractForm({ ...contractForm, paymentTermDay: parseInt(e.target.value) || 5 })}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>Ngày Bắt Đầu Thuê *</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          required
+                          value={contractForm.startDate}
+                          onChange={e => setContractForm({ ...contractForm, startDate: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>Ngày Kết Thúc Hợp Đồng *</label>
+                        <input
+                          type="date"
+                          className="form-control"
+                          required
+                          value={contractForm.endDate}
+                          onChange={e => setContractForm({ ...contractForm, endDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>Giá Thuê Hàng Tháng (VNĐ) *</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="form-control"
+                          required
+                          placeholder="0"
+                          value={formatNumberWithDots(contractForm.rentAmount)}
+                          onChange={e => setContractForm({ ...contractForm, rentAmount: parseNumberFromDots(e.target.value) })}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>Tiền Đặt Cọc Hợp Đồng (VNĐ) *</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="form-control"
+                          required
+                          placeholder="0"
+                          value={formatNumberWithDots(contractForm.deposit)}
+                          onChange={e => setContractForm({ ...contractForm, deposit: parseNumberFromDots(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Chỉ Số Điện Nước Ban Đầu */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>⚡ Số Điện Ban Đầu (kWh)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="form-control"
+                          value={contractForm.initialElecMeter}
+                          onChange={e => setContractForm({ ...contractForm, initialElecMeter: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: 700 }}>💧 Số Nước Ban Đầu (m³)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="form-control"
+                          value={contractForm.initialWaterMeter}
+                          onChange={e => setContractForm({ ...contractForm, initialWaterMeter: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Điều Khoản & Quy Định</label>
+                      <textarea
+                        className="form-control"
+                        rows="2"
+                        value={contractForm.terms}
+                        onChange={e => setContractForm({ ...contractForm, terms: e.target.value })}
+                      />
+                    </div>
+
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" disabled={savingContract} onClick={() => setContractModalOpen(false)}>Hủy</button>
+                    <button type="submit" className="btn btn-primary" disabled={savingContract} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderColor: '#6366f1', fontWeight: 700 }}>
+                      {savingContract ? 'Đang kích hoạt...' : 'Xác Nhận Tạo HĐ & Nhận Phòng'}
+                    </button>
                   </div>
                 </form>
               </div>
@@ -1216,6 +1884,20 @@ const RoomDetail = ({ room, zone, onBack }) => {
   // Submit API update room
   const handleUpdateRoom = async (e) => {
     e.preventDefault();
+    if (!editForm.roomNumber?.trim()) { alert('Số phòng không được để trống.'); return; }
+    const floorNum = Number(editForm.floor);
+    if (isNaN(floorNum) || floorNum < 0) { alert('Số tầng phải là số không âm.'); return; }
+    const priceErr = validatePositiveNumber(editForm.price, 'Giá thuê phòng', 100000);
+    if (priceErr) { alert(priceErr); return; }
+    const areaErr = validatePositiveNumber(editForm.area, 'Diện tích phòng', 1);
+    if (areaErr) { alert(areaErr); return; }
+    const maxTenantsNum = Number(editForm.maxTenants);
+    if (isNaN(maxTenantsNum) || maxTenantsNum < 1 || maxTenantsNum > 20) { alert('Số người tối đa phải từ 1 đến 20 người.'); return; }
+    const elecErr = validatePositiveNumber(editForm.elecMeter, 'Chỉ số điện', 0);
+    if (elecErr) { alert(elecErr); return; }
+    const waterErr = validatePositiveNumber(editForm.waterMeter, 'Chỉ số nước', 0);
+    if (waterErr) { alert(waterErr); return; }
+
     const hasOccupants = tenants.length > 0;
     if ((editForm.status === 'Vacant' || editForm.status === 'Maintenance') && (hasOccupants || !!activeContract)) {
       const statusName = editForm.status === 'Vacant' ? 'Còn trống' : 'Bảo trì';
@@ -1225,7 +1907,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
     setSubmitting(true);
     try {
       await roomService.updateRoom(room.id, {
-        roomNumber: editForm.roomNumber,
+        roomNumber: editForm.roomNumber.trim(),
         floor: Number(editForm.floor),
         price: Number(editForm.price),
         area: Number(editForm.area),
@@ -1233,7 +1915,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
         status: editForm.status,
         elecMeter: Number(editForm.elecMeter),
         waterMeter: Number(editForm.waterMeter),
-        description: editForm.description
+        description: editForm.description?.trim()
       });
       showToast('Cập nhật thông tin phòng thành công!');
       setShowEditModal(false);
@@ -1244,6 +1926,157 @@ const RoomDetail = ({ room, zone, onBack }) => {
       alert('⚠️ ' + errMsg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Convert to Contract state in RoomDetail
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [availableTenants, setAvailableTenants] = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const [savingContract, setSavingContract] = useState(false);
+  const [isQuickCreateTenant, setIsQuickCreateTenant] = useState(false);
+  const [quickTenantForm, setQuickTenantForm] = useState({ fullName: '', phone: '', email: '', password: 'Tenant@123456', cccd: '', hometown: '' });
+  const [contractForm, setContractForm] = useState({
+    contractCode: '',
+    tenantProfileId: '',
+    startDate: '',
+    endDate: '',
+    rentAmount: 0,
+    deposit: 0,
+    paymentTermDay: 5,
+    terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
+    initialElecMeter: 0,
+    initialWaterMeter: 0
+  });
+
+  const openConvertToContractFromDetail = async () => {
+    setLoadingTenants(true);
+    setIsQuickCreateTenant(false);
+
+    const now = new Date();
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+
+    const currentRoomData = roomDetail || room;
+    const defaultStartDate = currentRoomData.expectedMoveInDate ? new Date(currentRoomData.expectedMoveInDate).toISOString().split('T')[0] : now.toISOString().split('T')[0];
+    const defaultEndDate = nextYear.toISOString().split('T')[0];
+
+    try {
+      const tenantsRes = await tenantService.getTenants();
+      const tList = Array.isArray(tenantsRes) ? tenantsRes : (tenantsRes?.data || []);
+      setAvailableTenants(tList);
+
+      let matchedTenant = null;
+      if (currentRoomData.depositTenantPhone) {
+        matchedTenant = tList.find(t => t.phone && t.phone.replace(/\s+/g, '') === currentRoomData.depositTenantPhone.replace(/\s+/g, ''));
+      }
+      if (!matchedTenant && currentRoomData.depositTenantName) {
+        matchedTenant = tList.find(t => t.fullName && t.fullName.toLowerCase() === currentRoomData.depositTenantName.toLowerCase());
+      }
+
+      setQuickTenantForm({
+        fullName: currentRoomData.depositTenantName || '',
+        phone: (currentRoomData.depositTenantPhone || '').replace(/\D/g, '').slice(0, 10),
+        email: '',
+        password: 'Tenant@123456',
+        cccd: '',
+        hometown: ''
+      });
+
+      setContractForm({
+        contractCode: `HD-2026-${currentRoomData.roomNumber}`,
+        tenantProfileId: matchedTenant ? matchedTenant.id : (tList[0]?.id || ''),
+        startDate: defaultStartDate,
+        endDate: defaultEndDate,
+        rentAmount: currentRoomData.price || 3000000,
+        deposit: currentRoomData.price || 3000000,
+        paymentTermDay: 5,
+        terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
+        initialElecMeter: currentRoomData.elecMeter || 0,
+        initialWaterMeter: currentRoomData.waterMeter || 0
+      });
+      setShowContractModal(true);
+    } catch (err) {
+      console.error('Lỗi tải khách thuê:', err);
+      alert('Lỗi tải danh sách khách thuê: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
+
+  const handleSaveContractFromDetail = async (e) => {
+    e.preventDefault();
+    const currentRoomData = roomDetail || room;
+
+    if (!contractForm.contractCode?.trim()) { alert('Mã hợp đồng không được để trống.'); return; }
+    const rentErr = validatePositiveNumber(contractForm.rentAmount, 'Giá thuê phòng', 100000);
+    if (rentErr) { alert(rentErr); return; }
+    const depErr = validatePositiveNumber(contractForm.deposit, 'Tiền đặt cọc hợp đồng', 0);
+    if (depErr) { alert(depErr); return; }
+    const elecErr = validatePositiveNumber(contractForm.initialElecMeter, 'Chỉ số điện ban đầu', 0);
+    if (elecErr) { alert(elecErr); return; }
+    const waterErr = validatePositiveNumber(contractForm.initialWaterMeter, 'Chỉ số nước ban đầu', 0);
+    if (waterErr) { alert(waterErr); return; }
+
+    setSavingContract(true);
+    try {
+      let targetTenantId = contractForm.tenantProfileId;
+
+      if (isQuickCreateTenant) {
+        const nameErr = validateFullName(quickTenantForm.fullName, 'Họ và tên khách thuê');
+        if (nameErr) { alert(nameErr); setSavingContract(false); return; }
+        const phoneErr = validatePhone(quickTenantForm.phone, 'Số điện thoại khách thuê');
+        if (phoneErr) { alert(phoneErr); setSavingContract(false); return; }
+        const emailErr = validateEmail(quickTenantForm.email, true, 'Email đăng nhập (@gmail.com)');
+        if (emailErr) { alert(emailErr); setSavingContract(false); return; }
+        if (!quickTenantForm.password || quickTenantForm.password.trim().length < 6) {
+          alert('Mật khẩu đăng nhập phải có ít nhất 6 ký tự!');
+          setSavingContract(false);
+          return;
+        }
+        const cccdErr = validateCCCD(quickTenantForm.cccd, false, 'Số CCCD/CMND');
+        if (cccdErr) { alert(cccdErr); setSavingContract(false); return; }
+
+        const createdTenant = await tenantService.createTenant({
+          fullName: quickTenantForm.fullName.trim(),
+          phone: quickTenantForm.phone.trim(),
+          email: quickTenantForm.email.trim(),
+          password: quickTenantForm.password.trim(),
+          cccd: quickTenantForm.cccd.trim() || '000000000000',
+          hometown: quickTenantForm.hometown.trim() || 'TP. Hồ Chí Minh',
+          roomId: currentRoomData.id
+        });
+        targetTenantId = createdTenant?.id || createdTenant?.data?.id;
+      }
+
+      if (!targetTenantId) {
+        alert('Vui lòng chọn hoặc tạo hồ sơ khách thuê đứng tên hợp đồng');
+        setSavingContract(false);
+        return;
+      }
+
+      const payload = {
+        contractCode: contractForm.contractCode.trim(),
+        roomId: currentRoomData.id,
+        tenantProfileId: targetTenantId,
+        startDate: contractForm.startDate || new Date().toISOString(),
+        endDate: contractForm.endDate || new Date(Date.now() + 365 * 86400000).toISOString(),
+        rentAmount: Number(contractForm.rentAmount || 0),
+        deposit: Number(contractForm.deposit || 0),
+        paymentTermDay: Number(contractForm.paymentTermDay || 5),
+        terms: contractForm.terms || '',
+        initialElecMeter: Number(contractForm.initialElecMeter || 0),
+        initialWaterMeter: Number(contractForm.initialWaterMeter || 0)
+      };
+
+      await contractService.createContract(payload);
+      setShowContractModal(false);
+      showToast(`Tạo Hợp Đồng cho phòng ${currentRoomData.roomNumber} thành công!`);
+      await loadDetail();
+    } catch (err) {
+      alert('❌ Lỗi tạo hợp đồng: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSavingContract(false);
     }
   };
 
@@ -1338,6 +2171,23 @@ const RoomDetail = ({ room, zone, onBack }) => {
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {(roomDetail?.status === 'Deposit' || roomDetail?.status === 'Vacant' || !activeContract) && (
+              <button
+                className="btn btn-primary"
+                onClick={openConvertToContractFromDetail}
+                style={{
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  borderColor: '#6366f1',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
+                }}
+              >
+                <FilePlus size={16} /> {roomDetail?.status === 'Deposit' ? 'Chuyển thành Hợp đồng' : 'Lập Hợp Đồng'}
+              </button>
+            )}
             <button className="btn btn-primary" onClick={handleOpenInvoiceModal}>
               <FilePlus size={16} /> Lập Hóa Đơn Tháng
             </button>
@@ -1417,6 +2267,53 @@ const RoomDetail = ({ room, zone, onBack }) => {
               <div className="panel-header">
                 <h3 className="panel-title"><Sparkles size={18} color="#10b981" /> Thông Tin Chi Tiết Phòng</h3>
               </div>
+
+              {(roomDetail?.status === 'Deposit' || roomDetail?.depositAmount) && (
+                <div style={{
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: 12,
+                  padding: '14px 18px',
+                  marginBottom: 20,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 12
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#f59e0b', fontWeight: 800, fontSize: 15 }}>
+                      <Sparkles size={18} /> Đang Có Cọc Giữ Chỗ: {formatVND(roomDetail.depositAmount || 0)}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+                      Khách cọc: <strong>{roomDetail.depositTenantName || 'Chưa cập nhật'}</strong> • SĐT: <strong>{roomDetail.depositTenantPhone || 'Chưa cập nhật'}</strong>
+                      {roomDetail.expectedMoveInDate && ` • Hạn vào: ${formatDate(roomDetail.expectedMoveInDate)}`}
+                    </div>
+                    {roomDetail.depositNote && (
+                      <div style={{ fontSize: 12.5, fontStyle: 'italic', color: 'var(--text-muted)', marginTop: 4 }}>
+                        Ghi chú: "{roomDetail.depositNote}"
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={openConvertToContractFromDetail}
+                    style={{
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      borderColor: '#6366f1',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontWeight: 700,
+                      boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+                      padding: '8px 14px'
+                    }}
+                  >
+                    <FilePlus size={15} /> Chuyển Thành Hợp Đồng
+                  </button>
+                </div>
+              )}
+
               <div className="data-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 18 }}>
                 <div className="data-item">
                   <span className="data-label">Mã phòng</span>
@@ -3318,7 +4215,272 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 Đóng
               </button>
             </div>
+          </div>
+        </div>
+      )}
 
+      {/* 📝 MODAL CHUYỂN THÀNH HỢP ĐỒNG / LẬP HỢP ĐỒNG MỚI */}
+      {showContractModal && (
+        <div className="modal-backdrop" onClick={() => !savingContract && setShowContractModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 620, width: '100%', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto' }}>
+            <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6366f1', margin: 0, fontSize: 18 }}>
+                <FilePlus size={20} color="#6366f1" />
+                {(roomDetail?.status === 'Deposit' || roomDetail?.depositAmount) ? `Chuyển Cọc Thành Hợp Đồng: Phòng ${roomDetail?.roomNumber || room.roomNumber}` : `Lập Hợp Đồng Thuê: Phòng ${roomDetail?.roomNumber || room.roomNumber}`}
+              </h3>
+              <button className="btn-close" disabled={savingContract} onClick={() => setShowContractModal(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveContractFromDetail}>
+              <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                
+                {/* Banner Thông Báo Cọc Giữ Chỗ */}
+                {(roomDetail?.status === 'Deposit' || roomDetail?.depositAmount) && (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid #f59e0b', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#f59e0b', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <Sparkles size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <strong>Phòng đang có cọc giữ chỗ: {formatVND(roomDetail.depositAmount || 0)}</strong>
+                      <div style={{ marginTop: 2 }}>
+                        Khách cọc: <strong>{roomDetail.depositTenantName || 'Khách cọc'}</strong> {roomDetail.depositTenantPhone ? `(${roomDetail.depositTenantPhone})` : ''}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>
+                        Khi lưu hợp đồng, số tiền cọc giữ chỗ sẽ tự động chuyển thành hợp đồng chính thức và phòng chuyển sang trạng thái <strong>"Đang thuê" (Occupied)</strong>.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lựa Chọn Khách Thuê */}
+                <div style={{ background: 'var(--bg-dark)', padding: '14px', borderRadius: 10, border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <label className="form-label" style={{ fontWeight: 700, margin: 0 }}>
+                      Khách Thuê Đứng Tên Hợp Đồng <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => setIsQuickCreateTenant(!isQuickCreateTenant)}
+                      style={{ fontSize: 12, padding: '4px 10px' }}
+                    >
+                      {isQuickCreateTenant ? '← Chọn hồ sơ có sẵn' : '+ Tạo nhanh hồ sơ mới'}
+                    </button>
+                  </div>
+
+                  {isQuickCreateTenant ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Họ và tên *</label>
+                        <input
+                          className="form-control"
+                          required
+                          placeholder="VD: Nguyễn Văn A"
+                          value={quickTenantForm.fullName}
+                          onChange={e => setQuickTenantForm({ ...quickTenantForm, fullName: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Số điện thoại (10 số) *</label>
+                        <input
+                          className="form-control"
+                          required
+                          maxLength={10}
+                          inputMode="numeric"
+                          placeholder="0987654321"
+                          value={quickTenantForm.phone}
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                            setQuickTenantForm({ ...quickTenantForm, phone: val });
+                          }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Email đăng nhập (Gmail) *</label>
+                        <input
+                          type="email"
+                          className="form-control"
+                          required
+                          placeholder="khachthue@gmail.com"
+                          value={quickTenantForm.email}
+                          onChange={e => setQuickTenantForm({ ...quickTenantForm, email: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Mật khẩu đăng nhập *</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          required
+                          placeholder="Tenant@123456"
+                          value={quickTenantForm.password}
+                          onChange={e => setQuickTenantForm({ ...quickTenantForm, password: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Số CCCD / CMND (12 số)</label>
+                        <input
+                          className="form-control"
+                          maxLength={12}
+                          inputMode="numeric"
+                          placeholder="12 chữ số"
+                          value={quickTenantForm.cccd}
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                            setQuickTenantForm({ ...quickTenantForm, cccd: val });
+                          }}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Quê quán</label>
+                        <input
+                          className="form-control"
+                          placeholder="VD: TP. Hồ Chí Minh"
+                          value={quickTenantForm.hometown}
+                          onChange={e => setQuickTenantForm({ ...quickTenantForm, hometown: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {loadingTenants ? (
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: 8 }}>Đang tải danh sách khách thuê...</div>
+                      ) : (
+                        <select
+                          className="form-control"
+                          required
+                          value={contractForm.tenantProfileId}
+                          onChange={e => setContractForm({ ...contractForm, tenantProfileId: e.target.value })}
+                        >
+                          <option value="">-- Chọn khách thuê đứng tên HĐ --</option>
+                          {availableTenants.map(t => (
+                            <option key={t.id} value={t.id}>
+                              {t.fullName || t.name} ({t.phone}) {t.email ? `- ${t.email}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Mã Hợp Đồng *</label>
+                    <input
+                      className="form-control"
+                      required
+                      value={contractForm.contractCode}
+                      onChange={e => setContractForm({ ...contractForm, contractCode: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Ngày Đóng Tiền Hàng Tháng</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      className="form-control"
+                      required
+                      value={contractForm.paymentTermDay}
+                      onChange={e => setContractForm({ ...contractForm, paymentTermDay: parseInt(e.target.value) || 5 })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Ngày Bắt Đầu Thuê *</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      required
+                      value={contractForm.startDate}
+                      onChange={e => setContractForm({ ...contractForm, startDate: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Ngày Kết Thúc Hợp Đồng *</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      required
+                      value={contractForm.endDate}
+                      onChange={e => setContractForm({ ...contractForm, endDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Giá Thuê Hàng Tháng (VNĐ) *</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="form-control"
+                      required
+                      placeholder="0"
+                      value={formatNumberWithDots(contractForm.rentAmount)}
+                      onChange={e => setContractForm({ ...contractForm, rentAmount: parseNumberFromDots(e.target.value) })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>Tiền Đặt Cọc Hợp Đồng (VNĐ) *</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="form-control"
+                      required
+                      placeholder="0"
+                      value={formatNumberWithDots(contractForm.deposit)}
+                      onChange={e => setContractForm({ ...contractForm, deposit: parseNumberFromDots(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                {/* Chỉ Số Điện Nước Ban Đầu */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>⚡ Số Điện Ban Đầu (kWh)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      value={contractForm.initialElecMeter}
+                      onChange={e => setContractForm({ ...contractForm, initialElecMeter: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700 }}>💧 Số Nước Ban Đầu (m³)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      value={contractForm.initialWaterMeter}
+                      onChange={e => setContractForm({ ...contractForm, initialWaterMeter: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Điều Khoản & Quy Định</label>
+                  <textarea
+                    className="form-control"
+                    rows={2}
+                    value={contractForm.terms}
+                    onChange={e => setContractForm({ ...contractForm, terms: e.target.value })}
+                  />
+                </div>
+
+              </div>
+              <div className="modal-footer" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button type="button" className="btn btn-secondary" disabled={savingContract} onClick={() => setShowContractModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary" disabled={savingContract} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderColor: '#6366f1', fontWeight: 700 }}>
+                  {savingContract ? 'Đang kích hoạt...' : 'Xác Nhận Tạo HĐ & Nhận Phòng'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

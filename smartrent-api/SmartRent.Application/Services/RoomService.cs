@@ -50,4 +50,12 @@ public class RoomService(
     // Gỡ thành viên ở ghép (Occupant)
     public Task RemoveOccupantAsync(Guid roomId, Guid landlordId, Guid tenantProfileId)
         => occupantService.RemoveOccupantAsync(roomId, landlordId, tenantProfileId);
+
+    // Đặt cọc giữ chỗ phòng
+    public Task<RoomDto> BookDepositAsync(Guid roomId, Guid landlordId, BookRoomDepositRequest req)
+        => lifecycleService.BookDepositAsync(roomId, landlordId, req);
+
+    // Hủy cọc giữ chỗ phòng
+    public Task<RoomDto> CancelDepositAsync(Guid roomId, Guid landlordId, CancelRoomDepositRequest req)
+        => lifecycleService.CancelDepositAsync(roomId, landlordId, req);
 }

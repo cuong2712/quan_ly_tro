@@ -62,6 +62,9 @@ export const roomService = {
   // Quản lý thành viên ở ghép (Occupants) - không tạo Hợp đồng mới
   addOccupant: (roomId, tenantProfileId) => apiClient.post(`/rooms/${roomId}/occupants`, { tenantProfileId }).then(r => r.data),
   removeOccupant: (roomId, tenantId) => apiClient.delete(`/rooms/${roomId}/occupants/${tenantId}`).then(r => r.data),
+  // Đặt cọc giữ chỗ phòng (Booking Deposit)
+  bookDeposit: (roomId, data) => apiClient.post(`/rooms/${roomId}/deposit`, data).then(r => r.data),
+  cancelDeposit: (roomId, data) => apiClient.post(`/rooms/${roomId}/cancel-deposit`, data || {}).then(r => r.data),
 };
 
 export const tenantService = {

@@ -25,6 +25,7 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
     vehicleCount: activeTenant?.vehicleCount ?? 0,
     vehicleInfo: activeTenant?.vehicleInfo ?? '',
   });
+  const [vehicleList, setVehicleList] = useState([]);
 
   const [passwordData, setPasswordData] = useState({ oldPass: '', newPass: '', confirmPass: '' });
   const [successMsg, setSuccessMsg] = useState('');
@@ -52,25 +53,49 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
           roomNumber: p.roomNumber || prev.roomNumber,
           zoneName: p.zoneName || prev.zoneName,
         }));
+        const count = Number(p.vehicleCount !== undefined && p.vehicleCount !== null ? p.vehicleCount : (activeTenant?.vehicleCount || 0));
+        const infoStr = p.vehicleInfo !== undefined && p.vehicleInfo !== null ? p.vehicleInfo : (activeTenant?.vehicleInfo || '');
         setVehicleData({
-          vehicleCount: p.vehicleCount !== undefined && p.vehicleCount !== null ? p.vehicleCount : (activeTenant?.vehicleCount || 0),
-          vehicleInfo: p.vehicleInfo !== undefined && p.vehicleInfo !== null ? p.vehicleInfo : (activeTenant?.vehicleInfo || ''),
+          vehicleCount: count,
+          vehicleInfo: infoStr,
         });
+        const parsed = infoStr.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+        setVehicleList(Array.from({ length: count }, (_, i) => parsed[i] || ''));
       }
     }).catch(err => {
       console.warn('Get profile error:', err);
       if (profileService.getVehicle) {
         profileService.getVehicle().then(v => {
           if (v) {
+            const count = Number(v.vehicleCount ?? 0);
+            const infoStr = v.vehicleInfo ?? '';
             setVehicleData({
-              vehicleCount: v.vehicleCount ?? 0,
-              vehicleInfo: v.vehicleInfo ?? '',
+              vehicleCount: count,
+              vehicleInfo: infoStr,
             });
+            const parsed = infoStr.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+            setVehicleList(Array.from({ length: count }, (_, i) => parsed[i] || ''));
           }
         }).catch(e => console.warn('Get vehicle error:', e));
       }
     });
   }, [activeTenant]);
+
+  const handleVehicleCountChange = (val) => {
+    const count = Math.max(0, Math.min(10, parseInt(val, 10) || 0));
+    setVehicleData(prev => ({ ...prev, vehicleCount: count }));
+    setVehicleList(prev => {
+      return Array.from({ length: count }, (_, i) => prev[i] || '');
+    });
+  };
+
+  const handlePlateChange = (index, val) => {
+    setVehicleList(prev => {
+      const updated = [...prev];
+      updated[index] = val;
+      return updated;
+    });
+  };
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
@@ -123,11 +148,29 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
 
   const handleUpdateVehicle = async (e) => {
     e.preventDefault();
+    const count = Number(vehicleData.vehicleCount || 0);
+
+    if (count > 0) {
+      for (let i = 0; i < count; i++) {
+        const plate = (vehicleList[i] || '').trim();
+        if (!plate) {
+          alert(`⚠️ Bạn đã chọn gửi ${count} xe. Vui lòng nhập đầy đủ biển số cho Xe #${i + 1}!`);
+          return;
+        }
+        if (plate.length < 4 || plate.length > 25) {
+          alert(`⚠️ Biển số Xe #${i + 1} "${plate}" không hợp lệ (độ dài thông thường từ 4 đến 25 ký tự).`);
+          return;
+        }
+      }
+    }
+
+    const combinedInfo = count > 0 ? vehicleList.slice(0, count).map(p => p.trim()).join(', ') : '';
+
     setSavingVehicle(true);
     try {
       const payload = {
-        vehicleCount: Number(vehicleData.vehicleCount || 0),
-        vehicleInfo: vehicleData.vehicleInfo || '',
+        vehicleCount: count,
+        vehicleInfo: combinedInfo,
       };
       const res = await profileService.updateVehicle(payload);
       if (res) {
@@ -485,35 +528,56 @@ export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
             )}
 
             <form onSubmit={handleUpdateVehicle}>
-              <div className="form-row">
-                <div className="form-group" style={{ flex: '0 0 200px' }}>
-                  <label className="form-label">Số Lượng Xe Gửi *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="10"
-                    className="form-control"
-                    required
-                    value={vehicleData.vehicleCount}
-                    onChange={(e) => setVehicleData({ ...vehicleData, vehicleCount: e.target.value })}
-                  />
-                </div>
-
-                <div className="form-group" style={{ flex: '1 1 260px' }}>
-                  <label className="form-label">Chi Tiết Biển Số & Loại Xe</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="VD: 29A1-12345 (Vision), 30B2-67890 (Exciter)"
-                    value={vehicleData.vehicleInfo || ''}
-                    onChange={(e) => setVehicleData({ ...vehicleData, vehicleInfo: e.target.value })}
-                  />
-                </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="form-label" style={{ fontWeight: '700' }}>Số Lượng Xe Gửi Tại Khu Trọ *</label>
+                <select
+                  className="form-control"
+                  style={{ maxWidth: '260px' }}
+                  value={vehicleData.vehicleCount}
+                  onChange={(e) => handleVehicleCountChange(e.target.value)}
+                >
+                  <option value={0}>0 xe (Không gửi phương tiện)</option>
+                  <option value={1}>1 xe máy / xe đạp điện</option>
+                  <option value={2}>2 xe máy / xe đạp điện</option>
+                  <option value={3}>3 xe máy / xe đạp điện</option>
+                  <option value={4}>4 xe máy / xe đạp điện</option>
+                  <option value={5}>5 xe máy / xe đạp điện</option>
+                </select>
               </div>
+
+              {Number(vehicleData.vehicleCount) > 0 ? (
+                <div style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#3b82f6', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Bike size={18} /> Danh sách biển số ({vehicleData.vehicleCount} xe - bắt buộc nhập đủ tất cả):
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: Number(vehicleData.vehicleCount) > 1 ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr', gap: '12px' }}>
+                    {Array.from({ length: Number(vehicleData.vehicleCount) }).map((_, index) => (
+                      <div key={index} className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                          Biển số xe #{index + 1} <span style={{ color: '#ef4444' }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          required
+                          placeholder={`VD: 29A1-${index + 1}23.45 (Vision)`}
+                          value={vehicleList[index] || ''}
+                          onChange={(e) => handlePlateChange(index, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: '14px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px', border: '1px dashed var(--border-color)', color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>
+                  ℹ️ Bạn đang chọn 0 xe. Nếu có phương tiện đi lại gửi tại khu trọ, vui lòng chọn số lượng xe ở trên để khai báo biển số.
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
                 <button type="submit" className="btn btn-primary" disabled={savingVehicle}>
-                  {savingVehicle ? '⏳ Đang lưu...' : 'Cập Nhật Đăng Ký Xe'}
+                  {savingVehicle ? '⏳ Đang lưu...' : 'Lưu Đăng Ký Xe'}
                 </button>
               </div>
             </form>

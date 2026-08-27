@@ -111,4 +111,24 @@ public class RoomsController(RoomService roomService) : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    // Nhận đặt cọc giữ chỗ phòng (Booking Deposit)
+    [HttpPost("{id:guid}/deposit")]
+    public async Task<IActionResult> BookDeposit(Guid id, [FromBody] BookRoomDepositRequest request)
+    {
+        try { return Ok(await roomService.BookDepositAsync(id, LandlordId, request)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Hủy cọc giữ chỗ phòng (Trả về Còn trống)
+    [HttpPost("{id:guid}/cancel-deposit")]
+    public async Task<IActionResult> CancelDeposit(Guid id, [FromBody] CancelRoomDepositRequest? request)
+    {
+        try { return Ok(await roomService.CancelDepositAsync(id, LandlordId, request ?? new CancelRoomDepositRequest())); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

@@ -33,7 +33,12 @@ public static class RoomMappingExtensions
             repTenant?.User?.FullName,
             r.Equipments?.Select(e => new RoomEquipmentDto(e.Id, e.RoomId, e.Name, e.Brand, e.Quantity, e.Condition)).ToList(),
             r.ServiceFee,
-            repTenant?.User?.Phone
+            repTenant?.User?.Phone,
+            r.DepositAmount,
+            r.DepositTenantName,
+            r.DepositTenantPhone,
+            r.ExpectedMoveInDate,
+            r.DepositNote
         );
     }
 }

@@ -236,7 +236,26 @@ app.MapHub<NotificationHub>("/hubs/notifications");
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();  
     try
     {
-        await db.Database.ExecuteSqlRawAsync(@"");
+        await db.Database.ExecuteSqlRawAsync(@"
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'DepositAmount') THEN
+                    ALTER TABLE ""Rooms"" ADD COLUMN ""DepositAmount"" numeric(18,2) NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'DepositTenantName') THEN
+                    ALTER TABLE ""Rooms"" ADD COLUMN ""DepositTenantName"" character varying(255) NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'DepositTenantPhone') THEN
+                    ALTER TABLE ""Rooms"" ADD COLUMN ""DepositTenantPhone"" character varying(50) NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'ExpectedMoveInDate') THEN
+                    ALTER TABLE ""Rooms"" ADD COLUMN ""ExpectedMoveInDate"" timestamp with time zone NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'DepositNote') THEN
+                    ALTER TABLE ""Rooms"" ADD COLUMN ""DepositNote"" text NULL;
+                END IF;
+            END $$;
+        ");
     }
     catch (Exception ex)
     {

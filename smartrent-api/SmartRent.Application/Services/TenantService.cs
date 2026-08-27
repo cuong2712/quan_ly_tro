@@ -74,6 +74,11 @@ public class TenantService(AppDbContext db)
     // Tạo mới một tài khoản và hồ sơ Khách thuê (gán phòng, kiểm tra sức chứa tối đa của phòng).
     public async Task<TenantDto> CreateAsync(Guid landlordId, CreateTenantRequest req)
     {
+        SmartRent.Application.Common.Validators.DataValidator.ValidateFullName(req.FullName, "Họ và tên khách thuê");
+        SmartRent.Application.Common.Validators.DataValidator.ValidatePhone(req.Phone, "Số điện thoại khách thuê");
+        SmartRent.Application.Common.Validators.DataValidator.ValidateCccd(req.CCCD, false, "Số CCCD/CMND");
+        SmartRent.Application.Common.Validators.DataValidator.ValidateEmail(req.Email, true, "Email");
+
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId)
             ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc khu của bạn");
 
@@ -116,6 +121,10 @@ public class TenantService(AppDbContext db)
     // Cập nhật thông tin người thuê (đổi tên, SĐT, quê quán, ảnh CCCD, chuyển sang phòng mới, thông tin xe, avatar).
     public async Task<TenantDto> UpdateAsync(Guid id, Guid landlordId, UpdateTenantRequest req)
     {
+        SmartRent.Application.Common.Validators.DataValidator.ValidateFullName(req.FullName, "Họ và tên khách thuê");
+        SmartRent.Application.Common.Validators.DataValidator.ValidatePhone(req.Phone, "Số điện thoại khách thuê");
+        SmartRent.Application.Common.Validators.DataValidator.ValidateCccd(req.CCCD, false, "Số CCCD/CMND");
+
         var t = await db.TenantProfiles.Include(t => t.User).Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts)
             .FirstOrDefaultAsync(t => t.Id == id && (
                 t.LandlordId == landlordId ||

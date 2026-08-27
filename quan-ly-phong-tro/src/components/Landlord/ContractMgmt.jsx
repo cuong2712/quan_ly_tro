@@ -60,6 +60,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     paymentTermDay: 5,
     status: 'active',
     terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
+    initialElecMeter: 0,
+    initialWaterMeter: 0,
   });
 
   // ─── 1. Tính toán Trạng thái & Thống kê ──────────────────────
@@ -188,6 +190,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       roomId,
       rentAmount: selectedRoom?.price || prev.rentAmount,
       deposit: selectedRoom?.price || prev.deposit,
+      initialElecMeter: selectedRoom?.elecMeter || 0,
+      initialWaterMeter: selectedRoom?.waterMeter || 0,
     }));
   };
 
@@ -229,6 +233,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       paymentTermDay: 5,
       status: 'active',
       terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
+      initialElecMeter: room?.elecMeter || 0,
+      initialWaterMeter: room?.waterMeter || 0,
     });
     setIsModalOpen(true);
   };
@@ -253,6 +259,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       paymentTermDay: 5,
       status: 'active',
       terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
+      initialElecMeter: room?.elecMeter || 0,
+      initialWaterMeter: room?.waterMeter || 0,
     });
     setIsModalOpen(true);
   };
@@ -568,8 +576,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     const room = rooms.find(r => r.id === formData.roomId);
     const roomNumber = room?.roomNumber || '101';
     const payload = {
-      contractCode: formData.contractCode || `HD-2026-${roomNumber}`,
-      roomId: formData.roomId,
+      contractCode: formData.contractCode.trim(),
       tenantProfileId: formData.tenantId,
       startDate: formData.startDate || new Date().toISOString().split('T')[0],
       endDate: formData.endDate || '2027-07-28',
@@ -577,6 +584,8 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       deposit: Number(formData.deposit || 0),
       paymentTermDay: Number(formData.paymentTermDay || 5),
       terms: formData.terms || '',
+      initialElecMeter: Number(formData.initialElecMeter || 0),
+      initialWaterMeter: Number(formData.initialWaterMeter || 0),
     };
 
     try {
@@ -1282,6 +1291,47 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                       required
                       value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {(() => {
+                  const selectedRoom = rooms.find(r => r.id === formData.roomId);
+                  if (selectedRoom && (selectedRoom.status === 'Deposit' || selectedRoom.depositAmount)) {
+                    return (
+                      <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Sparkles size={18} style={{ flexShrink: 0 }} />
+                        <div>
+                          <strong>Phòng đang có cọc giữ chỗ:</strong> {formatVND(selectedRoom.depositAmount || 0)} (Khách: {selectedRoom.depositTenantName || 'Khách cọc'} - {selectedRoom.depositTenantPhone || ''}). Khi ký HĐ, cọc giữ chỗ này sẽ tự động chuyển thành hợp đồng chính thức.
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">⚡ Số Điện Ban Đầu (kWh)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      placeholder="0"
+                      value={formData.initialElecMeter || 0}
+                      onChange={(e) => setFormData({ ...formData, initialElecMeter: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">💧 Số Nước Ban Đầu (m³)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      placeholder="0"
+                      value={formData.initialWaterMeter || 0}
+                      onChange={(e) => setFormData({ ...formData, initialWaterMeter: Number(e.target.value) })}
                     />
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { adminService } from '../../services';
 import { getImageUrl, sanitizeCccd, isValidCccd } from '../../utils/formatters';
+import { validateFullName, validatePhone, validateCCCD, validateEmail } from '../../utils/validators';
 import { AvatarUploader, CccdCardUploader, ImageLightboxModal } from '../Common/ImageUploader';
 
 const normalizeLandlord = (landlord) => ({
@@ -107,32 +108,22 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.name && !formData.fullName) {
-      alert('Vui lòng nhập họ và tên chủ trọ');
-      return;
-    }
-    if (!formData.phone) {
-      alert('Vui lòng nhập số điện thoại');
-      return;
-    }
-    if (!formData.email) {
-      alert('Vui lòng nhập email đăng nhập');
-      return;
-    }
+    const nameErr = validateFullName(formData.name || formData.fullName, 'Họ và tên chủ trọ');
+    if (nameErr) { alert(nameErr); return; }
+
+    const phoneErr = validatePhone(formData.phone, 'Số điện thoại');
+    if (phoneErr) { alert(phoneErr); return; }
+
+    const emailErr = validateEmail(formData.email, !editingLandlord, 'Email');
+    if (emailErr) { alert(emailErr); return; }
+
     if (!editingLandlord && !formData.password?.trim()) {
       alert('Vui lòng nhập mật khẩu cho tài khoản mới');
       return;
     }
 
-    // Yêu cầu bắt buộc nhập CCCD hợp lệ khi tạo chủ trọ (tương tự như landlord tạo tenant)
-    if (!formData.cccd || !formData.cccd.trim()) {
-      alert('Vui lòng nhập số Căn cước công dân (CCCD) của chủ trọ!');
-      return;
-    }
-    if (!isValidCccd(formData.cccd)) {
-      alert('Số CCCD không hợp lệ! Vui lòng nhập đúng 12 chữ số và bắt đầu bằng số 0 (VD: 001201012345).');
-      return;
-    }
+    const cccdErr = validateCCCD(formData.cccd, true, 'Số Căn cước công dân (CCCD)');
+    if (cccdErr) { alert(cccdErr); return; }
 
     const duplicateCccd = landlordRows.find(l => 
       l.cccd === formData.cccd.trim() && 
@@ -525,14 +516,16 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Số Điện Thoại *</label>
+                    <label className="form-label">Số Điện Thoại (10 số) *</label>
                     <input
                       type="tel"
                       className="form-control"
                       required
+                      maxLength={10}
+                      inputMode="numeric"
                       placeholder="VD: 0908123456"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                     />
                   </div>
                 </div>
@@ -577,7 +570,7 @@ export const LandlordsMgmt = ({ landlords, setLandlords, onRefresh }) => {
                       inputMode="numeric"
                       placeholder="VD: 001201012345 (12 số, bắt đầu bằng 0)"
                       value={formData.cccd}
-                      onChange={(e) => setFormData({ ...formData, cccd: sanitizeCccd(e.target.value) })}
+                      onChange={(e) => setFormData({ ...formData, cccd: e.target.value.replace(/\D/g, '').slice(0, 12) })}
                     />
                     <small style={{ fontSize: '11px', color: formData.cccd && !isValidCccd(formData.cccd) ? '#ef4444' : 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
                       {formData.cccd && !isValidCccd(formData.cccd)

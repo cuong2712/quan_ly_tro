@@ -56,6 +56,11 @@ public class AdminService(AppDbContext db)
     // Tạo mới một tài khoản Chủ trọ.
     public async Task<LandlordListDto> CreateLandlordAsync(CreateLandlordRequest request)
     {
+        SmartRent.Application.Common.Validators.DataValidator.ValidateFullName(request.FullName, "Họ và tên chủ trọ");
+        SmartRent.Application.Common.Validators.DataValidator.ValidatePhone(request.Phone, "Số điện thoại");
+        SmartRent.Application.Common.Validators.DataValidator.ValidateEmail(request.Email, true, "Email");
+        SmartRent.Application.Common.Validators.DataValidator.ValidateCccd(request.CCCD, true, "Số CCCD");
+
         if (await db.Users.AnyAsync(u => u.Email == request.Email))
             throw new InvalidOperationException("Email đã tồn tại trong hệ thống");
 
@@ -99,6 +104,10 @@ public class AdminService(AppDbContext db)
     // Cập nhật thông tin cá nhân của tài khoản Chủ trọ.
     public async Task<LandlordListDto> UpdateLandlordAsync(Guid id, UpdateLandlordRequest request)
     {
+        SmartRent.Application.Common.Validators.DataValidator.ValidateFullName(request.FullName, "Họ và tên chủ trọ");
+        SmartRent.Application.Common.Validators.DataValidator.ValidatePhone(request.Phone, "Số điện thoại");
+        SmartRent.Application.Common.Validators.DataValidator.ValidateCccd(request.CCCD, false, "Số CCCD");
+
         var user = await db.Users.Include(u => u.TenantProfile).FirstOrDefaultAsync(u => u.Id == id) ?? throw new KeyNotFoundException("Không tìm thấy chủ trọ");
         user.FullName = request.FullName;
         user.Phone = request.Phone;
