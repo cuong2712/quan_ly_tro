@@ -184,6 +184,15 @@ builder.Services.AddScoped<SmartRent.Application.Services.Rooms.RoomQueryService
 builder.Services.AddScoped<SmartRent.Application.Services.Rooms.RoomLifecycleService>();
 builder.Services.AddScoped<SmartRent.Application.Services.Rooms.RoomOccupantService>();
 
+builder.Services.AddScoped<SmartRent.Application.Services.Admin.AdminAnalyticsService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Admin.AdminLandlordService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Admin.AdminTenantService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Admin.AdminComplaintService>();
+
+builder.Services.AddScoped<SmartRent.Application.Services.Utilities.UtilityRateService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Utilities.UtilityQueryService>();
+builder.Services.AddScoped<SmartRent.Application.Services.Utilities.UtilityRecordService>();
+
 // Application Services & Facades
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AdminService>();
