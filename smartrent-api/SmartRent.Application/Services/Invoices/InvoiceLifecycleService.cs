@@ -36,41 +36,71 @@ public class InvoiceLifecycleService(AppDbContext db, BillingEngine billingEngin
                 ?? throw new KeyNotFoundException("Không có khách thuê trong phòng này. Vui lòng tạo hợp đồng trước khi phát hành hóa đơn.");
         }
 
-        var existingInvoice = await db.Invoices.FirstOrDefaultAsync(i => i.RoomId == req.RoomId && i.Month == req.Month);
-        if (existingInvoice != null)
-        {
-            throw new InvalidOperationException($"Phòng {room.RoomNumber} đã có hóa đơn tiền nhà cho tháng {req.Month} (Mã hóa đơn: {existingInvoice.InvoiceCode}). Mỗi phòng chỉ được tạo 1 hóa đơn trong 1 tháng. Vui lòng cập nhật hóa đơn hiện tại nếu cần sửa đổi thông tin.");
-        }
+        var existingInvoice = await db.Invoices
+            .Include(i => i.Items)
+            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(i => i.RoomId == req.RoomId && i.Month == req.Month);
 
         var (itemsList, calculatedServiceFee, totalAmount) = await billingEngine.CalculateChargesAsync(
             landlordId, room, req.RentFee, req.ElecFee, req.WaterFee, req.ServiceFee);
 
         var code = $"HD-{req.Month.Replace("-", "")}-{room.RoomNumber}";
 
-        var inv = new Invoice
+        Invoice inv;
+        if (existingInvoice != null)
         {
-            InvoiceCode = code,
-            RoomId = req.RoomId,
-            TenantProfileId = tenant.Id,
-            Month = req.Month,
-            RentFee = req.RentFee,
-            ElecFee = req.ElecFee,
-            WaterFee = req.WaterFee,
-            ServiceFee = calculatedServiceFee,
-            TotalAmount = totalAmount,
-            DueDate = req.DueDate,
-            Status = InvoiceStatus.Unpaid,
-            Items = itemsList
-        };
+            // Cập nhật hóa đơn hiện có
+            existingInvoice.TenantProfileId = tenant.Id;
+            existingInvoice.RentFee = req.RentFee;
+            existingInvoice.ElecFee = req.ElecFee;
+            existingInvoice.WaterFee = req.WaterFee;
+            existingInvoice.ServiceFee = calculatedServiceFee;
+            existingInvoice.TotalAmount = totalAmount;
+            existingInvoice.DueDate = req.DueDate;
+            
+            // Xóa items cũ và thêm items mới
+            var oldItems = await db.InvoiceItems.Where(it => it.InvoiceId == existingInvoice.Id).ToListAsync();
+            if (oldItems.Count > 0)
+            {
+                db.InvoiceItems.RemoveRange(oldItems);
+            }
 
-        db.Invoices.Add(inv);
+            foreach (var it in itemsList)
+            {
+                it.InvoiceId = existingInvoice.Id;
+                db.InvoiceItems.Add(it);
+            }
+
+            inv = existingInvoice;
+        }
+        else
+        {
+            inv = new Invoice
+            {
+                InvoiceCode = code,
+                RoomId = req.RoomId,
+                TenantProfileId = tenant.Id,
+                Month = req.Month,
+                RentFee = req.RentFee,
+                ElecFee = req.ElecFee,
+                WaterFee = req.WaterFee,
+                ServiceFee = calculatedServiceFee,
+                TotalAmount = totalAmount,
+                DueDate = req.DueDate,
+                Status = InvoiceStatus.Unpaid,
+                Items = itemsList
+            };
+            db.Invoices.Add(inv);
+        }
+
         await db.SaveChangesAsync();
 
-        // Tự động tạo thông báo gửi đến app cho khách thuê khi hóa đơn tiền nhà được phát hành
+        // Tự động tạo thông báo gửi đến app cho khách thuê khi hóa đơn tiền nhà được phát hành/cập nhật
         await notificationService.SendNotificationAsync(
             landlordId,
             $"Thông báo hóa đơn tiền nhà tháng {req.Month}",
-            $"Phòng {room.RoomNumber}: Hóa đơn mã {code} với tổng số tiền {totalAmount:N0} VNĐ đã được phát hành. Hạn đóng: {req.DueDate:dd/MM/yyyy}.",
+            $"Phòng {room.RoomNumber}: Hóa đơn mã {inv.InvoiceCode} với tổng số tiền {totalAmount:N0} VNĐ đã được phát hành. Hạn đóng: {req.DueDate:dd/MM/yyyy}.",
             NotificationTarget.User,
             tenant.UserId
         );

@@ -12,7 +12,8 @@ public record ContractDto(
     DateTime CreatedAt,
     int? RequestedRenewMonths = null,
     string? RenewNotes = null,
-    DateTime? RenewRequestedAt = null
+    DateTime? RenewRequestedAt = null,
+    string? CustomContent = null
 );
 
 public class CreateContractRequest
@@ -26,6 +27,7 @@ public class CreateContractRequest
     public decimal Deposit { get; set; }
     public int PaymentTermDay { get; set; } = 5;
     public string? Terms { get; set; }
+    public string? CustomContent { get; set; }
     public decimal? InitialElecMeter { get; set; }
     public decimal? InitialWaterMeter { get; set; }
 }
@@ -33,7 +35,25 @@ public class CreateContractRequest
 public record UpdateContractRequest(
     DateTime StartDate, DateTime EndDate,
     decimal RentAmount, int PaymentTermDay, string? Terms,
-    Guid? RoomId = null
+    Guid? RoomId = null,
+    string? CustomContent = null
+);
+
+public record ContractTemplateDto(
+    string Content,
+    bool IsCustom,
+    List<TemplateVariableHelpDto> AvailableVariables,
+    DateTime? UpdatedAt = null
+);
+
+public record TemplateVariableHelpDto(string Tag, string Description, string Example);
+
+public record SaveContractTemplateRequest(string Content);
+
+public record PreviewContractTemplateRequest(
+    string? TemplateContent = null,
+    Guid? RoomId = null,
+    Guid? TenantProfileId = null
 );
 
 public record RequestRenewContractRequest(int ExtendMonths = 12, string? Notes = null);

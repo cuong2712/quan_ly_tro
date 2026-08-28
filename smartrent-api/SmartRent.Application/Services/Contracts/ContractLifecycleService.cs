@@ -31,6 +31,9 @@ public class ContractLifecycleService(AppDbContext db, NotificationService notif
         var tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.Id == req.TenantProfileId || t.UserId == req.TenantProfileId)
             ?? throw new KeyNotFoundException("Hồ sơ khách thuê không tồn tại");
 
+        var landlord = await db.Users.FirstOrDefaultAsync(u => u.Id == landlordId);
+        var utilityRate = await db.UtilityRates.FirstOrDefaultAsync(u => u.LandlordId == landlordId);
+
         var contract = new Contract
         {
             ContractCode = req.ContractCode,
@@ -43,6 +46,12 @@ public class ContractLifecycleService(AppDbContext db, NotificationService notif
             PaymentTermDay = req.PaymentTermDay,
             Terms = req.Terms
         };
+
+        // Render nội dung hợp đồng tùy biến theo mẫu của chủ trọ hoặc mẫu pháp lý chuẩn
+        contract.CustomContent = !string.IsNullOrWhiteSpace(req.CustomContent)
+            ? req.CustomContent
+            : ContractTemplateEngine.Render(landlord?.CustomContractTemplate, contract, room, landlord, tenant, utilityRate);
+
         db.Contracts.Add(contract);
 
         // Gán phòng cho Primary Tenant, cập nhật phòng cũ nếu chuyển phòng
@@ -112,6 +121,10 @@ public class ContractLifecycleService(AppDbContext db, NotificationService notif
         c.RentAmount = req.RentAmount;
         c.PaymentTermDay = req.PaymentTermDay;
         c.Terms = req.Terms;
+        if (!string.IsNullOrWhiteSpace(req.CustomContent))
+        {
+            c.CustomContent = req.CustomContent;
+        }
 
         if (req.RoomId.HasValue && c.RoomId != req.RoomId.Value)
         {
@@ -430,5 +443,103 @@ public class ContractLifecycleService(AppDbContext db, NotificationService notif
         }
 
         return count;
+    }
+
+    // ─── QUẢN LÝ MẪU HỢP ĐỒNG TÙY BIẾN (CUSTOM CONTRACT TEMPLATE) ───
+
+    // Lấy Mẫu hợp đồng hiện tại của Chủ trọ (hoặc Mẫu chuẩn mặc định)
+    public async Task<ContractTemplateDto> GetTemplateAsync(Guid landlordId)
+    {
+        var landlord = await db.Users.FirstOrDefaultAsync(u => u.Id == landlordId)
+            ?? throw new KeyNotFoundException("Chủ trọ không tồn tại");
+
+        bool isCustom = !string.IsNullOrWhiteSpace(landlord.CustomContractTemplate);
+        string content = isCustom ? landlord.CustomContractTemplate! : ContractTemplateEngine.GetDefaultTemplate();
+
+        return new ContractTemplateDto(
+            content,
+            isCustom,
+            ContractTemplateEngine.Variables
+        );
+    }
+
+    // Lưu Mẫu hợp đồng tùy biến mới của Chủ trọ
+    public async Task<ContractTemplateDto> SaveTemplateAsync(Guid landlordId, SaveContractTemplateRequest req)
+    {
+        var landlord = await db.Users.FirstOrDefaultAsync(u => u.Id == landlordId)
+            ?? throw new KeyNotFoundException("Chủ trọ không tồn tại");
+
+        if (string.IsNullOrWhiteSpace(req.Content))
+        {
+            throw new ArgumentException("Nội dung mẫu hợp đồng không được để trống.");
+        }
+
+        landlord.CustomContractTemplate = req.Content.Trim();
+        await db.SaveChangesAsync();
+
+        return new ContractTemplateDto(
+            landlord.CustomContractTemplate,
+            true,
+            ContractTemplateEngine.Variables,
+            DateTime.UtcNow
+        );
+    }
+
+    // Khôi phục Mẫu hợp đồng về Mẫu pháp lý chuẩn Bộ Xây Dựng
+    public async Task<ContractTemplateDto> ResetTemplateAsync(Guid landlordId)
+    {
+        var landlord = await db.Users.FirstOrDefaultAsync(u => u.Id == landlordId)
+            ?? throw new KeyNotFoundException("Chủ trọ không tồn tại");
+
+        landlord.CustomContractTemplate = null;
+        await db.SaveChangesAsync();
+
+        return new ContractTemplateDto(
+            ContractTemplateEngine.GetDefaultTemplate(),
+            false,
+            ContractTemplateEngine.Variables,
+            DateTime.UtcNow
+        );
+    }
+
+    // Xem trước nội dung hợp đồng sau khi điền dữ liệu mẫu hoặc dữ liệu phòng thực tế
+    public async Task<string> PreviewTemplateAsync(Guid landlordId, PreviewContractTemplateRequest req)
+    {
+        var landlord = await db.Users.FirstOrDefaultAsync(u => u.Id == landlordId)
+            ?? throw new KeyNotFoundException("Chủ trọ không tồn tại");
+
+        var template = !string.IsNullOrWhiteSpace(req.TemplateContent)
+            ? req.TemplateContent
+            : (!string.IsNullOrWhiteSpace(landlord.CustomContractTemplate) ? landlord.CustomContractTemplate : ContractTemplateEngine.GetDefaultTemplate());
+
+        Room? room = null;
+        if (req.RoomId.HasValue)
+        {
+            room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId.Value);
+        }
+
+        TenantProfile? tenant = null;
+        if (req.TenantProfileId.HasValue)
+        {
+            tenant = await db.TenantProfiles.Include(t => t.User).FirstOrDefaultAsync(t => t.Id == req.TenantProfileId.Value);
+        }
+
+        var utilityRate = await db.UtilityRates.FirstOrDefaultAsync(u => u.LandlordId == landlordId);
+
+        var sampleContract = new Contract
+        {
+            ContractCode = "HD-MAU-" + DateTime.Now.ToString("yyyyMM"),
+            RoomId = room?.Id ?? Guid.Empty,
+            TenantProfileId = tenant?.Id ?? Guid.Empty,
+            StartDate = DateTime.UtcNow,
+            EndDate = DateTime.UtcNow.AddYears(1),
+            RentAmount = room?.Price ?? 4000000,
+            Deposit = room?.Price ?? 4000000,
+            PaymentTermDay = 5,
+            Terms = "Bên B giữ gìn vệ sinh chung, không gây ồn sau 22h, thanh toán đúng hạn trước ngày 05 hàng tháng.",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        return ContractTemplateEngine.Render(template, sampleContract, room, landlord, tenant, utilityRate);
     }
 }

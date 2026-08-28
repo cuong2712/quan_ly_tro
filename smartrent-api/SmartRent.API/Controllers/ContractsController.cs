@@ -178,4 +178,59 @@ public class ContractsController(ContractService contractService) : ControllerBa
         int count = await contractService.CheckAndNotifyExpiringContractsAsync(CurrentUserId);
         return Ok(new { message = $"Đã kiểm tra và phát hành {count} thông báo hợp đồng sắp hết hạn.", notifiedCount = count });
     }
+
+    // ─── QUẢN LÝ MẪU HỢP ĐỒNG TÙY BIẾN (CUSTOM CONTRACT TEMPLATE) ───
+
+    // Lấy mẫu hợp đồng hiện tại của chủ trọ (hoặc mẫu chuẩn mặc định)
+    [HttpGet("template")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> GetTemplate()
+    {
+        try
+        {
+            var template = await contractService.GetTemplateAsync(CurrentUserId);
+            return Ok(template);
+        }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Lưu mẫu hợp đồng tùy biến mới
+    [HttpPut("template")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> SaveTemplate([FromBody] SaveContractTemplateRequest request)
+    {
+        try
+        {
+            var template = await contractService.SaveTemplateAsync(CurrentUserId, request);
+            return Ok(template);
+        }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Khôi phục mẫu hợp đồng về mẫu pháp lý chuẩn Bộ Xây Dựng
+    [HttpPost("template/reset")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> ResetTemplate()
+    {
+        try
+        {
+            var template = await contractService.ResetTemplateAsync(CurrentUserId);
+            return Ok(template);
+        }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Xem trước hợp đồng sau khi điền dữ liệu mẫu
+    [HttpPost("template/preview")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> PreviewTemplate([FromBody] PreviewContractTemplateRequest request)
+    {
+        try
+        {
+            var rendered = await contractService.PreviewTemplateAsync(CurrentUserId, request);
+            return Ok(new { content = rendered });
+        }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

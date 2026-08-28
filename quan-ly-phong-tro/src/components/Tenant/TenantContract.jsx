@@ -223,30 +223,36 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
             </button>
           </div>
 
-          <div style={{ lineHeight: '1.8', fontSize: '14px' }}>
-            <div className="form-row" style={{ marginBottom: '16px' }}>
-              <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <strong>Bên Cho Thuê (Chủ nhà):</strong> {myContract.landlordName || 'Chủ trọ'}<br />
-                <strong>SĐT:</strong> {myContract.landlordPhone || 'Chưa cập nhật'}<br />
-                {myContract.zoneName && <small style={{ color: 'var(--text-muted)' }}>Khu: {myContract.zoneName} {myContract.zoneAddress ? `(${myContract.zoneAddress})` : ''}</small>}
+          {myContract.customContent ? (
+            <div style={{ background: '#ffffff', color: '#0f172a', padding: '32px 40px', borderRadius: '12px', whiteSpace: 'pre-wrap', lineHeight: '1.9', fontSize: '14.5px', fontFamily: 'Times New Roman, serif', border: '1px solid #cbd5e1' }}>
+              {myContract.customContent}
+            </div>
+          ) : (
+            <div style={{ lineHeight: '1.8', fontSize: '14px' }}>
+              <div className="form-row" style={{ marginBottom: '16px' }}>
+                <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <strong>Bên Cho Thuê (Chủ nhà):</strong> {myContract.landlordName || 'Chủ trọ'}<br />
+                  <strong>SĐT:</strong> {myContract.landlordPhone || 'Chưa cập nhật'}<br />
+                  {myContract.zoneName && <small style={{ color: 'var(--text-muted)' }}>Khu: {myContract.zoneName} {myContract.zoneAddress ? `(${myContract.zoneAddress})` : ''}</small>}
+                </div>
+                <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <strong>Bên Thuê (Khách):</strong> {myContract.tenantName || activeTenant?.fullName || activeTenant?.name || 'Khách thuê'}<br />
+                  <strong>SĐT:</strong> {myContract.tenantPhone || activeTenant?.phone || 'Chưa cập nhật'}<br />
+                  <strong>CCCD:</strong> {myContract.tenantCccd || activeTenant?.cccd || 'Đã cập nhật'}
+                </div>
               </div>
-              <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <strong>Bên Thuê (Khách):</strong> {myContract.tenantName || activeTenant?.fullName || activeTenant?.name || 'Khách thuê'}<br />
-                <strong>SĐT:</strong> {myContract.tenantPhone || activeTenant?.phone || 'Chưa cập nhật'}<br />
-                <strong>CCCD:</strong> {myContract.tenantCccd || activeTenant?.cccd || 'Đã cập nhật'}
+
+              <p><strong>Phòng Thuê:</strong> Phòng {roomNum} {myContract.zoneName ? `(${myContract.zoneName})` : ''}</p>
+              <p><strong>Thời Hạn Hợp Đồng:</strong> Từ <strong>{formatDate(myContract.startDate)}</strong> đến <strong>{formatDate(myContract.endDate)}</strong></p>
+              <p><strong>Giá Thuê Phòng:</strong> <strong style={{ color: '#10b981' }}>{formatVND(myContract.rentAmount)} / tháng</strong></p>
+              <p><strong>Tiền Đặt Cọc:</strong> {formatVND(myContract.deposit)}</p>
+
+              <h4 style={{ marginTop: '20px', fontSize: '15px', color: 'var(--primary)' }}>Nội Dung Điều Khoản & Quy Định Phòng Trọ:</h4>
+              <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', marginTop: '8px', border: '1px solid var(--border-color)' }}>
+                {myContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}
               </div>
             </div>
-
-            <p><strong>Phòng Thuê:</strong> Phòng {roomNum} {myContract.zoneName ? `(${myContract.zoneName})` : ''}</p>
-            <p><strong>Thời Hạn Hợp Đồng:</strong> Từ <strong>{formatDate(myContract.startDate)}</strong> đến <strong>{formatDate(myContract.endDate)}</strong></p>
-            <p><strong>Giá Thuê Phòng:</strong> <strong style={{ color: '#10b981' }}>{formatVND(myContract.rentAmount)} / tháng</strong></p>
-            <p><strong>Tiền Đặt Cọc:</strong> {formatVND(myContract.deposit)}</p>
-
-            <h4 style={{ marginTop: '20px', fontSize: '15px', color: 'var(--primary)' }}>Nội Dung Điều Khoản & Quy Định Phòng Trọ:</h4>
-            <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', marginTop: '8px', border: '1px solid var(--border-color)' }}>
-              {myContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}
-            </div>
-          </div>
+          )}
         </div>
       ) : (
         <div className="card-table-container" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>

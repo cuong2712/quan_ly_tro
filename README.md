@@ -63,7 +63,6 @@ npm install
 npm run dev
 ```
 
-- **Frontend Web App**: `http://localhost:5173`
 
 ---
 

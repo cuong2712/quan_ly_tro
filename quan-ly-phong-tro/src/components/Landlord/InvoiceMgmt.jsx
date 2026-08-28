@@ -69,10 +69,21 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
   const currentMonthKey = monthFilter || new Date().toISOString().slice(0, 7);
 
+  const normalizeRoomNum = (num) => String(num || '').toLowerCase().replace(/^p\.?\s*/i, '').trim();
+  const isRoomMatchingInvoice = (r, i) => {
+    if (!r || !i) return false;
+    const rId = String(r.id || r.Id || '').toLowerCase();
+    const iRoomId = String(i.roomId || i.RoomId || '').toLowerCase();
+    if (rId && iRoomId && rId === iRoomId) return true;
+    const rNum = normalizeRoomNum(r.roomNumber || r.RoomNumber);
+    const iNum = normalizeRoomNum(i.roomNumber || i.RoomNumber);
+    return !!(rNum && iNum && rNum === iNum);
+  };
+
   // Lọc theo Khu trọ
   const roomMatchesZone = (roomId, zId) => {
     if (zId === 'all') return true;
-    const r = roomsList.find(room => room.id === roomId);
+    const r = roomsList.find(room => room.id === roomId || room.Id === roomId);
     return r && (r.zoneId === zId || r.ZoneId === zId);
   };
 
@@ -81,10 +92,10 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   const targetRooms = occupiedRooms.length > 0 ? occupiedRooms : relevantRooms;
 
   const billedRoomsThisMonth = targetRooms.filter(r => 
-    invoicesList.some(i => (i.roomId === r.id || (r.roomNumber && i.roomNumber === r.roomNumber)) && i.month === currentMonthKey)
+    invoicesList.some(i => isRoomMatchingInvoice(r, i) && i.month === currentMonthKey)
   );
   const unbilledRoomsThisMonth = targetRooms.filter(r => 
-    !invoicesList.some(i => (i.roomId === r.id || (r.roomNumber && i.roomNumber === r.roomNumber)) && i.month === currentMonthKey)
+    !invoicesList.some(i => isRoomMatchingInvoice(r, i) && i.month === currentMonthKey)
   );
 
   // Bộ lọc hóa đơn tổng hợp
@@ -147,9 +158,20 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   const getRoomServiceFee = (roomId, zoneId) => {
     let totalService = 0;
     const currentZone = zonesList.find(z => (z.id || z.Id) === zoneId);
+    const roomObj = roomsList.find(r => (r.id || r.Id) === roomId);
+    const roomTenants = (roomObj?.tenants || tenantsList.filter(t => (t.roomId || t.RoomId) === roomId)) || [];
+    const totalVehicles = roomTenants.reduce((sum, t) => sum + (Number(t.vehicleCount || t.VehicleCount) || 0), 0);
+
     if (currentZone && currentZone.services) {
       currentZone.services.forEach(s => {
-        totalService += Number(s.price || s.Price || 0);
+        const isParking = (s.name || s.Name || '').toLowerCase().includes('xe');
+        if (isParking) {
+          if (totalVehicles > 0) {
+            totalService += (Number(s.price || s.Price || 0) * totalVehicles);
+          }
+        } else {
+          totalService += Number(s.price || s.Price || 0);
+        }
       });
     }
     return totalService;
@@ -253,7 +275,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
       const selectedRoom = roomsList.find(r => (r.id || r.Id) === singleInvoiceForm.roomId);
       const existing = invoicesList.find(i => 
-        (i.roomId === singleInvoiceForm.roomId || (selectedRoom && i.roomNumber === selectedRoom.roomNumber)) && 
+        isRoomMatchingInvoice(selectedRoom, i) && 
         i.month === singleInvoiceForm.month
       );
 
@@ -276,7 +298,9 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
       }
 
       setIsCreateModalOpen(false);
-      alert(`✅ Đã lập & phát hành hóa đơn tháng ${singleInvoiceForm.month} cho phòng ${selectedRoom?.roomNumber || ''} thành công!`);
+      alert(existing 
+        ? `✅ Đã cập nhật hóa đơn tháng ${singleInvoiceForm.month} cho phòng ${selectedRoom?.roomNumber || ''} thành công!`
+        : `✅ Đã lập & phát hành hóa đơn tháng ${singleInvoiceForm.month} cho phòng ${selectedRoom?.roomNumber || ''} thành công!`);
       onRefresh?.();
     } catch (err) {
       alert('Lỗi lập hóa đơn lẻ: ' + (err.response?.data?.message || err.message));
@@ -1383,7 +1407,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
         const totalEstAmount = Number(singleInvoiceForm.rentFee || 0) + calculatedElecCost + calculatedWaterCost + Number(singleInvoiceForm.serviceFee || 0);
 
         const existingInvoice = invoicesList.find(i => 
-          (i.roomId === singleInvoiceForm.roomId || (selectedRoom && i.roomNumber === selectedRoom.roomNumber)) && 
+          isRoomMatchingInvoice(selectedRoom, i) && 
           i.month === singleInvoiceForm.month
         );
 
@@ -1637,7 +1661,7 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                     Hủy
                   </button>
                   <button type="submit" className="btn btn-primary" disabled={singleSaving || !singleInvoiceForm.roomId} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-                    {singleSaving ? '⏳ Đang lập hóa đơn...' : '🚀 Xác Nhận Phát Hành Hóa Đơn'}
+                    {singleSaving ? '⏳ Đang lưu...' : (existingInvoice ? '🔄 Cập Nhật Hóa Đơn' : '🚀 Xác Nhận Phát Hành Hóa Đơn')}
                   </button>
                 </div>
               </form>

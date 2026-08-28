@@ -92,6 +92,11 @@ export const contractService = {
   checkExpiring: () => apiClient.post('/contracts/check-expiring').then(r => r.data),
   // Chuyển quyền đại diện hợp đồng sang thành viên ở ghép
   transferRepresentative: (id, data) => apiClient.post(`/contracts/${id}/transfer-representative`, data).then(r => r.data),
+  // Quản lý mẫu hợp đồng tùy biến (Custom Contract Template)
+  getTemplate: () => apiClient.get('/contracts/template').then(r => r.data),
+  saveTemplate: (content) => apiClient.put('/contracts/template', { content }).then(r => r.data),
+  resetTemplate: () => apiClient.post('/contracts/template/reset').then(r => r.data),
+  previewTemplate: (data) => apiClient.post('/contracts/template/preview', data || {}).then(r => r.data),
 };
 
 export const utilityService = {

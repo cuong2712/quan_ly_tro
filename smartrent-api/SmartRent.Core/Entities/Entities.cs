@@ -14,6 +14,7 @@ public class User
     public string? BankName { get; set; }
     public string? BankAccountNumber { get; set; }
     public string? BankAccountName { get; set; }
+    public string? CustomContractTemplate { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
@@ -128,6 +129,7 @@ public class Contract
     public ContractStatus Status { get; set; } = ContractStatus.Active;
     public int PaymentTermDay { get; set; } = 5;
     public string? Terms { get; set; }
+    public string? CustomContent { get; set; }
     public string? FileUrl { get; set; }
     public int? RequestedRenewMonths { get; set; }
     public string? RenewNotes { get; set; }

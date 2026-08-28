@@ -1195,7 +1195,7 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
           {/* Booking Deposit Modal (Nhận cọc giữ chỗ) */}
           {bookingModalOpen && bookingRoom && (
             <div className="modal-overlay" onClick={() => !savingBooking && setBookingModalOpen(false)}>
-              <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
                 <div className="modal-header">
                   <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#f59e0b' }}>
                     <Sparkles size={20} color="#f59e0b" /> Nhận Cọc Giữ Chỗ: Phòng {bookingRoom.roomNumber}
@@ -1637,7 +1637,9 @@ const RoomDetail = ({ room, zone, onBack }) => {
       zoneServices.forEach(s => {
         if (s.name?.toLowerCase().includes('xe')) {
           const vehCount = (roomDetail?.tenants || []).reduce((acc, t) => acc + (t.vehicleCount || 0), 0);
-          calculatedSvc += (vehCount > 0 ? vehCount * (s.price || 0) : (s.price || 0));
+          if (vehCount > 0) {
+            calculatedSvc += vehCount * (s.price || 0);
+          }
         } else {
           calculatedSvc += (s.price || 0);
         }

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { FileText, Plus, Search, Edit, Trash2, Download, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft, RefreshCw, ChevronRight, UserCheck, ShieldCheck, Info } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import mammoth from 'mammoth';
+import { FileText, Plus, Search, Edit, Trash2, Download, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft, RefreshCw, ChevronRight, UserCheck, ShieldCheck, Info, FileCode, Sparkles, BookOpen, Settings } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { contractService, roomService } from '../../services';
 import { Pagination } from '../Common/Pagination';
@@ -21,6 +22,18 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     otherDeductionAmount: 0,
     settlementNotes: ''
   });
+
+  // ─── Quản Lý Mẫu Hợp Đồng Tùy Biến (Custom Template Engine) ───
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [templateContent, setTemplateContent] = useState('');
+  const [isCustomTemplate, setIsCustomTemplate] = useState(false);
+  const [availableVariables, setAvailableVariables] = useState([]);
+  const [activeTemplateTab, setActiveTemplateTab] = useState('editor'); // 'editor' | 'preview'
+  const [previewContent, setPreviewContent] = useState('');
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const [renewModalOpen, setRenewModalOpen] = useState(false);
   const [renewingContract, setRenewingContract] = useState(null);
@@ -494,6 +507,166 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
+  // ─── QUẢN LÝ MẪU HỢP ĐỒNG TÙY BIẾN (CUSTOM TEMPLATE HANDLERS) ───
+  const handleOpenTemplateModal = async () => {
+    setIsLoadingTemplate(true);
+    setTemplateModalOpen(true);
+    setActiveTemplateTab('editor');
+    try {
+      const res = await contractService.getTemplate();
+      const data = res?.data || res;
+      setTemplateContent(data.content || '');
+      setIsCustomTemplate(data.isCustom || false);
+      setAvailableVariables(data.availableVariables || []);
+    } catch (err) {
+      alert('Lỗi tải mẫu hợp đồng: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsLoadingTemplate(false);
+    }
+  };
+
+  const handleInsertVariable = (tag) => {
+    if (!textareaRef.current) {
+      setTemplateContent(prev => prev + ' ' + tag);
+      return;
+    }
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = templateContent;
+    const before = text.substring(0, start);
+    const after = text.substring(end, text.length);
+    const newText = before + tag + after;
+    setTemplateContent(newText);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + tag.length, start + tag.length);
+    }, 0);
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateContent.trim()) {
+      alert('Vui lòng không để trống nội dung mẫu hợp đồng.');
+      return;
+    }
+    setIsSavingTemplate(true);
+    try {
+      const res = await contractService.saveTemplate(templateContent);
+      const data = res?.data || res;
+      setIsCustomTemplate(true);
+      alert('✅ Đã lưu mẫu hợp đồng tùy biến thành công! Mọi hợp đồng mới sẽ áp dụng mẫu này.');
+    } catch (err) {
+      alert('Lỗi lưu mẫu hợp đồng: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleResetTemplate = async () => {
+    if (!confirm('Bạn có chắc chắn muốn khôi phục về Mẫu Hợp Đồng Chuẩn của Bộ Xây Dựng không?')) return;
+    setIsSavingTemplate(true);
+    try {
+      const res = await contractService.resetTemplate();
+      const data = res?.data || res;
+      setTemplateContent(data.content || '');
+      setIsCustomTemplate(false);
+      alert('✅ Đã khôi phục về mẫu hợp đồng chuẩn thành công!');
+    } catch (err) {
+      alert('Lỗi khôi phục mẫu: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  // Hàm biên dịch nhanh bản xem trước mẫu hợp đồng trên Client
+  const renderPreviewClient = (rawText) => {
+    if (!rawText) return '';
+    const map = {
+      '{{MA_HOP_DONG}}': 'HD-MAU-2026',
+      '{{NGAY_KY}}': formatDate(new Date().toISOString()),
+      '{{TEN_CHU_TRO}}': 'Nguyễn Văn Hải (Chủ trọ)',
+      '{{SDT_CHU_TRO}}': '0908.123.456',
+      '{{CCCD_CHU_TRO}}': '079201012345',
+      '{{STK_CHU_TRO}}': '6531211114',
+      '{{NGAN_HANG_CHU_TRO}}': 'BIDV',
+      '{{TEN_KHACH}}': 'Nguyễn Minh Tuấn',
+      '{{SDT_KHACH}}': '0912.345.678',
+      '{{CCCD_KHACH}}': '079202008899',
+      '{{SO_PHONG}}': '202',
+      '{{TEN_KHU_TRO}}': 'Khu Trọ Gigamall Thủ Đức',
+      '{{DIA_CHI_KHU_TRO}}': '240 Phạm Văn Đồng, TP. Thủ Đức',
+      '{{DIEN_TICH}}': '28 m²',
+      '{{GIA_THUE}}': '4.000.000 đ',
+      '{{TIEN_COC}}': '4.000.000 đ',
+      '{{NGAY_BAT_DAU}}': '01/09/2026',
+      '{{NGAY_KET_THUC}}': '01/09/2027',
+      '{{THOI_HAN_THUE}}': '12 tháng',
+      '{{NGAY_DONG_TIEN}}': 'Ngày 05 hàng tháng',
+      '{{GIA_DIEN}}': '3.500 đ/kWh',
+      '{{GIA_NUOC}}': '18.000 đ/m³',
+      '{{CHI_SO_DIEN_BAN_DAU}}': '120 kWh',
+      '{{CHI_SO_NUOC_BAN_DAU}}': '45 m³',
+      '{{DIEU_KHOAN_RIENG}}': 'Bên B giữ gìn vệ sinh chung, không gây ồn sau 22h, thanh toán đúng hạn trước ngày 05 hàng tháng.'
+    };
+    let result = rawText;
+    Object.keys(map).forEach(tag => {
+      const reg = new RegExp(tag.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, '\\$1'), 'gi');
+      result = result.replace(reg, map[tag]);
+    });
+    return result;
+  };
+
+  const handlePreviewTemplate = async () => {
+    setActiveTemplateTab('preview');
+    const localRender = renderPreviewClient(templateContent);
+    setPreviewContent(localRender);
+    try {
+      const res = await contractService.previewTemplate({ templateContent });
+      const data = res?.data || res;
+      if (data?.content) {
+        setPreviewContent(data.content);
+      }
+    } catch (err) {
+      // Giữ bản biên dịch localRender nếu API gặp độ trễ
+    }
+  };
+
+  const handleFileImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fileName = file.name.toLowerCase();
+
+    try {
+      if (fileName.endsWith('.docx')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const mammothLib = mammoth?.default || mammoth;
+        const result = await mammothLib.extractRawText({ arrayBuffer });
+        const text = result?.value || '';
+        if (text && text.trim()) {
+          setTemplateContent(text.trim());
+          alert(`✅ Đã trích xuất thành công toàn bộ văn bản từ file Word "${file.name}" vào trình soạn thảo!`);
+        } else {
+          alert('Không tìm thấy nội dung văn bản trong file Word này.');
+        }
+      } else {
+        // Đọc file .txt hoặc định dạng văn bản thuần
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const text = event.target.result;
+          if (text) {
+            setTemplateContent(text.trim());
+            alert(`✅ Đã nạp thành công nội dung từ file "${file.name}" vào trình soạn thảo!`);
+          }
+        };
+        reader.readAsText(file);
+      }
+    } catch (err) {
+      alert('Lỗi đọc file: ' + (err.message || 'Không thể trích xuất văn bản từ file này.'));
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   const handleCheckExpiring = async () => {
     try {
       const res = await contractService.checkExpiring();
@@ -625,10 +798,13 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={handleCheckExpiring} style={{ padding: '6px 14px', fontSize: '12.5px', height: '34px' }}>
+          <button className="btn btn-secondary" onClick={handleOpenTemplateModal} style={{ padding: '6px 14px', fontSize: '12.5px', height: '34px', borderColor: 'rgba(99, 102, 241, 0.5)', color: '#818cf8', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
+            <Settings size={16} color="#818cf8" /> Cấu Hình Mẫu HĐ
+          </button>
+          <button className="btn btn-secondary" onClick={handleCheckExpiring} style={{ padding: '6px 14px', fontSize: '12.5px', height: '34px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Clock size={16} color="#f59e0b" /> Quét HĐ Sắp Hết Hạn
           </button>
-          <button className="btn btn-primary" onClick={handleOpenAdd} style={{ padding: '6px 16px', fontSize: '12.5px', height: '34px', fontWeight: 700 }}>
+          <button className="btn btn-primary" onClick={handleOpenAdd} style={{ padding: '6px 16px', fontSize: '12.5px', height: '34px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Plus size={18} /> Tạo Hợp Đồng Mới
           </button>
         </div>
@@ -1096,30 +1272,38 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
               </div>
 
               {/* Modal Document Body */}
-              <div className="modal-body contract-paper" id="contract-pdf-content" style={{ background: '#ffffff', color: '#0f172a', padding: '28px', overflowY: 'auto', flex: 1 }}>
-                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                  <h2 style={{ fontSize: '20px', textTransform: 'uppercase', color: '#1e3a8a', fontWeight: '800', margin: 0 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
-                  <p style={{ fontWeight: 'bold', color: '#0f172a', marginTop: '4px', marginBottom: 0 }}>Độc lập - Tự do - Hạnh phúc</p>
-                  <h3 style={{ marginTop: '16px', marginBottom: '4px', fontSize: '18px', color: '#1e3a8a', fontWeight: '700' }}>HỢP ĐỒNG THUÊ PHÒNG TRỌ</h3>
-                  <p style={{ fontSize: '12px', color: '#475569', margin: 0 }}>Mã số: {viewingContract.contractCode}</p>
-                </div>
+              <div className="modal-body contract-paper" id="contract-pdf-content" style={{ background: '#ffffff', color: '#0f172a', padding: '32px 40px', overflowY: 'auto', flex: 1, fontFamily: 'serif, system-ui' }}>
+                {viewingContract.customContent ? (
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.9', fontSize: '14.5px', color: '#0f172a', fontFamily: 'Times New Roman, serif' }}>
+                    {viewingContract.customContent}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                      <h2 style={{ fontSize: '20px', textTransform: 'uppercase', color: '#1e3a8a', fontWeight: '800', margin: 0 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
+                      <p style={{ fontWeight: 'bold', color: '#0f172a', marginTop: '4px', marginBottom: 0 }}>Độc lập - Tự do - Hạnh phúc</p>
+                      <h3 style={{ marginTop: '16px', marginBottom: '4px', fontSize: '18px', color: '#1e3a8a', fontWeight: '700' }}>HỢP ĐỒNG THUÊ PHÒNG TRỌ</h3>
+                      <p style={{ fontSize: '12px', color: '#475569', margin: 0 }}>Mã số: {viewingContract.contractCode}</p>
+                    </div>
 
-                <div style={{ lineHeight: '1.8', fontSize: '14px', color: '#0f172a' }}>
-                  <p style={{ color: '#0f172a', margin: '6px 0' }}><strong style={{ color: '#0f172a' }}>BÊN CHO THUÊ (BÊN A):</strong> {landlordName} {landlordPhone ? `- SĐT: ${landlordPhone}` : ''} {landlordEmail ? `(${landlordEmail})` : ''}</p>
-                  <p style={{ color: '#0f172a', margin: '6px 0' }}><strong style={{ color: '#0f172a' }}>BÊN THUÊ PHÒNG (BÊN B):</strong> {tenantName} {tenantPhone ? `- SĐT: ${tenantPhone}` : ''} - CCCD: {tenantCccd}</p>
+                    <div style={{ lineHeight: '1.8', fontSize: '14px', color: '#0f172a' }}>
+                      <p style={{ color: '#0f172a', margin: '6px 0' }}><strong style={{ color: '#0f172a' }}>BÊN CHO THUÊ (BÊN A):</strong> {landlordName} {landlordPhone ? `- SĐT: ${landlordPhone}` : ''} {landlordEmail ? `(${landlordEmail})` : ''}</p>
+                      <p style={{ color: '#0f172a', margin: '6px 0' }}><strong style={{ color: '#0f172a' }}>BÊN THUÊ PHÒNG (BÊN B):</strong> {tenantName} {tenantPhone ? `- SĐT: ${tenantPhone}` : ''} - CCCD: {tenantCccd}</p>
 
-                  <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
-                  <p style={{ color: '#0f172a', margin: '4px 0' }}>Bên A đồng ý cho Bên B thuê phòng số <strong style={{ color: '#0f172a' }}>{room?.roomNumber || viewingContract.roomNumber || viewingContract.roomId}</strong> thuộc {zoneName} {zoneAddress ? `(Địa chỉ: ${zoneAddress})` : ''}.</p>
-                  <p style={{ color: '#0f172a', margin: '4px 0' }}>Thời hạn thuê: Từ ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.startDate)}</strong> đến ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.endDate)}</strong>.</p>
+                      <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 1: ĐỐI TƯỢNG HỢP ĐỒNG</h4>
+                      <p style={{ color: '#0f172a', margin: '4px 0' }}>Bên A đồng ý cho Bên B thuê phòng số <strong style={{ color: '#0f172a' }}>{room?.roomNumber || viewingContract.roomNumber || viewingContract.roomId}</strong> thuộc {zoneName} {zoneAddress ? `(Địa chỉ: ${zoneAddress})` : ''}.</p>
+                      <p style={{ color: '#0f172a', margin: '4px 0' }}>Thời hạn thuê: Từ ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.startDate)}</strong> đến ngày <strong style={{ color: '#0f172a' }}>{formatDate(viewingContract.endDate)}</strong>.</p>
 
-                  <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 2: GIÁ THUÊ VÀ ĐẶT CỌC</h4>
-                  <p style={{ color: '#0f172a', margin: '4px 0' }}>1. Giá tiền thuê phòng: <strong style={{ color: '#059669' }}>{formatVND(viewingContract.rentAmount)} / tháng</strong>.</p>
-                  <p style={{ color: '#0f172a', margin: '4px 0' }}>2. Số tiền đặt cọc giữ phòng: <strong style={{ color: '#0f172a' }}>{formatVND(viewingContract.deposit)}</strong>.</p>
-                  <p style={{ color: '#0f172a', margin: '4px 0' }}>3. Ngày thanh toán tiền nhà hàng tháng: Trước ngày <strong style={{ color: '#0f172a' }}>{viewingContract.paymentTermDay || 5}</strong> hàng tháng.</p>
+                      <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 2: GIÁ THUÊ VÀ ĐẶT CỌC</h4>
+                      <p style={{ color: '#0f172a', margin: '4px 0' }}>1. Giá tiền thuê phòng: <strong style={{ color: '#059669' }}>{formatVND(viewingContract.rentAmount)} / tháng</strong>.</p>
+                      <p style={{ color: '#0f172a', margin: '4px 0' }}>2. Số tiền đặt cọc giữ phòng: <strong style={{ color: '#0f172a' }}>{formatVND(viewingContract.deposit)}</strong>.</p>
+                      <p style={{ color: '#0f172a', margin: '4px 0' }}>3. Ngày thanh toán tiền nhà hàng tháng: Trước ngày <strong style={{ color: '#0f172a' }}>{viewingContract.paymentTermDay || 5}</strong> hàng tháng.</p>
 
-                  <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 3: QUY ĐỊNH CHUNG</h4>
-                  <p style={{ color: '#0f172a', margin: '4px 0' }}>{viewingContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}</p>
-                </div>
+                      <h4 style={{ marginTop: '16px', marginBottom: '6px', borderBottom: '1px solid #cbd5e1', paddingBottom: '4px', color: '#1e3a8a', fontWeight: '700' }}>ĐIỀU 3: QUY ĐỊNH CHUNG</h4>
+                      <p style={{ color: '#0f172a', margin: '4px 0' }}>{viewingContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}</p>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Modal Footer */}
@@ -2015,6 +2199,271 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
           </div>
         </div>
       )}
+
+      {/* ⚙️ MODAL CẤU HÌNH MẪU HỢP ĐỒNG TÙY BIẾN (CUSTOM TEMPLATE ENGINE) */}
+      {templateModalOpen && (
+        <div className="modal-overlay" onClick={() => setTemplateModalOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '1050px', width: '100%', maxHeight: '94vh', display: 'flex', flexDirection: 'column', borderRadius: '16px', overflow: 'hidden' }}>
+            
+            {/* Header */}
+            <div className="modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(99, 102, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Settings size={20} color="#818cf8" />
+                </div>
+                <div>
+                  <h3 className="modal-title" style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>
+                    Cấu Hình Mẫu Hợp Đồng Thuê Nhà
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Tùy chỉnh nội dung điều khoản pháp lý và quy định riêng áp dụng tự động cho mọi khách thuê mới
+                  </p>
+                </div>
+                <span className="badge" style={{
+                  padding: '4px 10px',
+                  fontSize: '12px',
+                  borderRadius: '20px',
+                  background: isCustomTemplate ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                  color: isCustomTemplate ? '#10b981' : '#818cf8',
+                  border: isCustomTemplate ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(99, 102, 241, 0.4)'
+                }}>
+                  {isCustomTemplate ? '✨ Đang dùng Mẫu Tùy Biến Riêng' : '🏛️ Đang dùng Mẫu Chuẩn Bộ Xây Dựng'}
+                </span>
+              </div>
+              <button className="btn btn-sm btn-secondary" onClick={() => setTemplateModalOpen(false)}>✕</button>
+            </div>
+
+            {/* Sub-Header Toolbar (Tabs & Quick Tools) */}
+            <div style={{ padding: '10px 24px', background: 'rgba(15, 23, 42, 0.4)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 6, background: 'var(--bg-dark)', padding: 4, borderRadius: 10, border: '1px solid var(--border-color)' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTemplateTab('editor')}
+                  style={{
+                    padding: '6px 16px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    borderRadius: 8,
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: activeTemplateTab === 'editor' ? 'var(--primary)' : 'transparent',
+                    color: activeTemplateTab === 'editor' ? '#fff' : 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  <Edit size={14} /> Soạn Thảo Mẫu
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePreviewTemplate}
+                  style={{
+                    padding: '6px 16px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    borderRadius: 8,
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: activeTemplateTab === 'preview' ? 'var(--primary)' : 'transparent',
+                    color: activeTemplateTab === 'preview' ? '#fff' : 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  <BookOpen size={14} /> Xem Trước Trực Quan
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileImport}
+                  accept=".txt,.doc,.docx"
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '12.5px' }}
+                  title="Nhập nội dung mẫu từ file Word hoặc Text có sẵn"
+                >
+                  <Upload size={14} /> 📥 Import File (.txt / Word)
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={handleResetTemplate}
+                  disabled={isSavingTemplate}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '12.5px', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+                  title="Khôi phục về mẫu hợp đồng theo quy định chuẩn của Bộ Xây Dựng"
+                >
+                  <RefreshCw size={14} /> 🔄 Khôi Phục Mẫu Chuẩn
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="modal-body" style={{ padding: '16px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {isLoadingTemplate ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                  <RefreshCw size={32} className="spin-slow" style={{ marginBottom: 12, color: 'var(--primary)' }} />
+                  <div>Đang tải nội dung mẫu hợp đồng...</div>
+                </div>
+              ) : activeTemplateTab === 'editor' ? (
+                <>
+                  {/* Variable Chips Toolbar */}
+                  <div style={{ background: 'var(--bg-dark)', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Sparkles size={14} color="#818cf8" /> BẤM ĐỂ CHÈN BIẾN SỐ TỰ ĐỘNG VÀO VỊ TRÍ CON TRỎ:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {[
+                        { tag: '{{TEN_KHACH}}', label: 'Tên Khách', color: '#60a5fa' },
+                        { tag: '{{SDT_KHACH}}', label: 'SĐT Khách', color: '#60a5fa' },
+                        { tag: '{{CCCD_KHACH}}', label: 'CCCD Khách', color: '#60a5fa' },
+                        { tag: '{{SO_PHONG}}', label: 'Số Phòng', color: '#34d399' },
+                        { tag: '{{TEN_KHU_TRO}}', label: 'Tên Khu Trọ', color: '#34d399' },
+                        { tag: '{{DIA_CHI_KHU_TRO}}', label: 'Địa Chỉ Khu', color: '#34d399' },
+                        { tag: '{{DIEN_TICH}}', label: 'Diện Tích', color: '#34d399' },
+                        { tag: '{{GIA_THUE}}', label: 'Giá Thuê', color: '#fbbf24' },
+                        { tag: '{{TIEN_COC}}', label: 'Tiền Cọc', color: '#fbbf24' },
+                        { tag: '{{GIA_DIEN}}', label: 'Giá Điện', color: '#fbbf24' },
+                        { tag: '{{GIA_NUOC}}', label: 'Giá Nước', color: '#fbbf24' },
+                        { tag: '{{NGAY_DONG_TIEN}}', label: 'Hạn Đóng Tiền', color: '#fbbf24' },
+                        { tag: '{{NGAY_BAT_DAU}}', label: 'Ngày Bắt Đầu', color: '#a78bfa' },
+                        { tag: '{{NGAY_KET_THUC}}', label: 'Ngày Hết Hạn', color: '#a78bfa' },
+                        { tag: '{{THOI_HAN_THUE}}', label: 'Thời Hạn', color: '#a78bfa' },
+                        { tag: '{{NGAY_KY}}', label: 'Ngày Ký', color: '#a78bfa' },
+                        { tag: '{{TEN_CHU_TRO}}', label: 'Tên Chủ Trọ', color: '#f472b6' },
+                        { tag: '{{SDT_CHU_TRO}}', label: 'SĐT Chủ Trọ', color: '#f472b6' },
+                        { tag: '{{STK_CHU_TRO}}', label: 'STK Nhận Tiền', color: '#f472b6' },
+                        { tag: '{{DIEU_KHOAN_RIENG}}', label: 'Điều Khoản Riêng', color: '#38bdf8' },
+                      ].map(item => (
+                        <button
+                          key={item.tag}
+                          type="button"
+                          onClick={() => handleInsertVariable(item.tag)}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: `1px solid ${item.color}55`,
+                            color: item.color,
+                            padding: '3px 9px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}
+                          title={`Chèn biến ${item.tag}`}
+                        >
+                          <span style={{ fontWeight: 700 }}>+</span> {item.label} <code style={{ fontSize: '10px', opacity: 0.8 }}>{item.tag}</code>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Textarea Editor */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <textarea
+                      ref={textareaRef}
+                      className="form-control"
+                      value={templateContent}
+                      onChange={e => setTemplateContent(e.target.value)}
+                      placeholder="Dán hoặc soạn thảo nội dung hợp đồng mẫu tại đây..."
+                      style={{
+                        flex: 1,
+                        minHeight: '380px',
+                        fontFamily: 'Consolas, "Fira Code", monospace',
+                        fontSize: '13px',
+                        lineHeight: '1.6',
+                        padding: '16px',
+                        background: 'var(--bg-dark)',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-color)',
+                        resize: 'vertical',
+                        whiteSpace: 'pre'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Info size={14} color="#818cf8" /> Mẹo: Mọi hợp đồng tạo mới sẽ tự động nạp dữ liệu khách và phòng vào đúng các vị trí thẻ biến số dạng <code>{"{{TEN_BIEN}}"}</code>.
+                  </div>
+                </>
+              ) : (
+                /* Preview Paper View (A4 Document Layout with Full Length Continuous Scrolling) */
+                <div style={{
+                  background: 'var(--bg-dark, #0b0f19)',
+                  padding: '24px 16px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-color)',
+                  overflowY: 'auto',
+                  flex: 1,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  minHeight: '450px'
+                }}>
+                  <div style={{
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    padding: '48px 56px',
+                    borderRadius: '8px',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+                    fontFamily: '"Times New Roman", Times, serif',
+                    lineHeight: '1.9',
+                    fontSize: '15px',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    width: '100%',
+                    maxWidth: '850px',
+                    height: 'fit-content',
+                    minHeight: '100%',
+                    border: '1px solid #cbd5e1',
+                    boxSizing: 'border-box'
+                  }}>
+                    {previewContent || 'Đang biên dịch bản xem trước mẫu hợp đồng...'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="modal-footer" style={{ padding: '14px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                {templateContent.length} ký tự
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setTemplateModalOpen(false)}>
+                  Đóng
+                </button>
+                {activeTemplateTab === 'editor' && (
+                  <button type="button" className="btn btn-secondary" onClick={handlePreviewTemplate} style={{ color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.4)' }}>
+                    <BookOpen size={16} /> Xem Thử
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSaveTemplate}
+                  disabled={isSavingTemplate}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
+                >
+                  <CheckCircle size={16} /> {isSavingTemplate ? 'Đang lưu...' : 'Lưu Mẫu Hợp Đồng Mới'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

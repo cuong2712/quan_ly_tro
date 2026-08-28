@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CreditCard, Upload, CheckCircle, Clock, Image as ImageIcon, Eye, 
-  Copy, Check, RefreshCw, Maximize2, ZoomIn, Download, X
+  Copy, Check, RefreshCw, Maximize2, ZoomIn, Download, X, Receipt
 } from 'lucide-react';
 import { formatVND, formatDate, getVietQRUrl, VIETNAM_BANKS } from '../../utils/formatters';
 import { paymentService } from '../../services';
@@ -17,8 +17,9 @@ const getImageFullUrl = (url) => {
 };
 
 export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setPayments, onRefresh }) => {
-  // Tìm hóa đơn chưa thanh toán đầu tiên làm mặc định
-  const defaultInvoice = invoices.find(i => (i.status || '').toLowerCase() === 'unpaid') || invoices[0];
+  // Chỉ lấy danh sách các hóa đơn CHƯA thanh toán (loại bỏ các hóa đơn đã trả)
+  const unpaidInvoices = (Array.isArray(invoices) ? invoices : []).filter(i => (i.status || '').toLowerCase() !== 'paid');
+  const defaultInvoice = unpaidInvoices[0] || null;
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(defaultInvoice?.id || '');
   const [submitting, setSubmitting] = useState(false);
   const [viewingProofPayment, setViewingProofPayment] = useState(null);
@@ -26,13 +27,16 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
   const [copiedField, setCopiedField] = useState(null);
 
   useEffect(() => {
-    if (!selectedInvoiceId && invoices.length > 0) {
-      const def = invoices.find(i => (i.status || '').toLowerCase() === 'unpaid') || invoices[0];
-      setSelectedInvoiceId(def?.id || '');
+    if (unpaidInvoices.length > 0) {
+      if (!selectedInvoiceId || !unpaidInvoices.some(i => i.id === selectedInvoiceId)) {
+        setSelectedInvoiceId(unpaidInvoices[0].id);
+      }
+    } else {
+      setSelectedInvoiceId('');
     }
   }, [invoices]);
 
-  const selectedInvoice = invoices.find(i => i.id === selectedInvoiceId) || defaultInvoice;
+  const selectedInvoice = unpaidInvoices.find(i => i.id === selectedInvoiceId) || defaultInvoice;
 
   const [proofImage, setProofImage] = useState('https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=400');
   const [note, setNote] = useState('');
@@ -42,9 +46,9 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
   const roomNum = selectedInvoice?.roomNumber || activeTenant?.roomNumber || '101';
   const transferContent = selectedInvoice ? `Phong ${roomNum} thanh toan ${selectedInvoice.invoiceCode}` : `Phong ${roomNum} thanh toan tien nha`;
 
-  const landlordBank = selectedInvoice?.landlordBankName || 'BIDV';
-  const landlordAccNo = selectedInvoice?.landlordBankAccountNumber || '6531211114';
-  const landlordAccName = selectedInvoice?.landlordBankAccountName || 'NGUYEN MANH CUONG';
+  const landlordBank = selectedInvoice?.landlordBankName || invoices[0]?.landlordBankName || 'BIDV';
+  const landlordAccNo = selectedInvoice?.landlordBankAccountNumber || invoices[0]?.landlordBankAccountNumber || '6531211114';
+  const landlordAccName = selectedInvoice?.landlordBankAccountName || invoices[0]?.landlordBankAccountName || 'NGUYEN MANH CUONG';
 
   const bankObj = VIETNAM_BANKS.find(b => b.code.toUpperCase() === landlordBank.toUpperCase() || b.shortName.toLowerCase() === landlordBank.toLowerCase()) || { shortName: landlordBank };
   const bankDisplay = bankObj.shortName || landlordBank;
@@ -235,29 +239,64 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
               
               <div>
                 {/* 1. Chọn hóa đơn */}
-                <div className="form-group" style={{ marginBottom: '18px' }}>
-                  <label className="form-label" style={{ fontSize: '14px', fontWeight: 700 }}>1. Chọn Hóa Đơn Cần Thanh Toán *</label>
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label className="form-label" style={{ fontSize: '14px', fontWeight: 700, marginBottom: '6px' }}>1. Chọn Hóa Đơn Cần Thanh Toán *</label>
                   <select
                     className="form-control"
                     required
+                    disabled={unpaidInvoices.length === 0}
                     value={selectedInvoiceId}
                     onChange={(e) => setSelectedInvoiceId(e.target.value)}
                     style={{ height: '46px', padding: '8px 14px', fontSize: '14px', boxSizing: 'border-box', fontWeight: 600 }}
                   >
-                    {invoices.length === 0 ? (
-                      <option value="">Không có hóa đơn nào</option>
+                    {unpaidInvoices.length === 0 ? (
+                      <option value="">🎉 Tất cả hóa đơn đã được thanh toán đầy đủ!</option>
                     ) : (
-                      invoices.map(inv => {
-                        const isPaid = (inv.status || '').toLowerCase() === 'paid';
+                      unpaidInvoices.map(inv => {
+                        const hasPending = payments.some(p => p.invoiceId === inv.id && (p.status === 'PendingApproval' || p.status === 'Pending' || (p.status || '').toLowerCase().includes('pending')));
                         return (
                           <option key={inv.id} value={inv.id}>
-                            {inv.invoiceCode} - Tháng {inv.month} ({formatVND(inv.totalAmount)}) {isPaid ? '✅ Đã trả' : '⏳ Chưa trả'}
+                            {inv.invoiceCode} - Tháng {inv.month} ({formatVND(inv.totalAmount)}) {hasPending ? '⏳ Đang chờ duyệt' : '⏳ Chưa thanh toán'}
                           </option>
                         );
                       })
                     )}
                   </select>
                 </div>
+
+                {/* 🌟 THẺ TÓM TẮT TRỰC QUAN CÁC KHOẢN PHÍ TRONG HÓA ĐƠN */}
+                {selectedInvoice && (
+                  <div style={{ 
+                    background: 'rgba(99, 102, 241, 0.06)', 
+                    border: '1px solid rgba(99, 102, 241, 0.22)', 
+                    borderRadius: '10px', 
+                    padding: '12px 14px', 
+                    marginBottom: '16px' 
+                  }}>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Receipt size={14} color="#6366f1" /> Chi tiết các khoản phí của {selectedInvoice.invoiceCode}:
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(95px, 1fr))', gap: '8px', fontSize: '12px' }}>
+                      <div style={{ background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                        <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>🏠 Tiền phòng</span>
+                        <strong>{formatVND(selectedInvoice.rentFee || 0)}</strong>
+                      </div>
+                      <div style={{ background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                        <span style={{ color: '#f59e0b', display: 'block', fontSize: '11px' }}>⚡ Tiền điện</span>
+                        <strong>{formatVND(selectedInvoice.elecFee || 0)}</strong>
+                      </div>
+                      <div style={{ background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                        <span style={{ color: '#06b6d4', display: 'block', fontSize: '11px' }}>💧 Tiền nước</span>
+                        <strong>{formatVND(selectedInvoice.waterFee || 0)}</strong>
+                      </div>
+                      <div style={{ background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                        <span style={{ color: '#8b5cf6', display: 'block', fontSize: '11px' }}>🚲 Dịch vụ & Xe</span>
+                        <strong>{formatVND(selectedInvoice.serviceFee || 0)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 2. Upload file ảnh */}
                 <div className="form-group" style={{ marginBottom: '18px' }}>

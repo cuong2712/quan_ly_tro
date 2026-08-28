@@ -69,4 +69,17 @@ public class ContractService(
     // Chuyển quyền đại diện hợp đồng
     public Task<ContractDto> TransferRepresentativeAsync(Guid contractId, Guid landlordId, TransferRepresentativeRequest req)
         => transferService.TransferRepresentativeAsync(contractId, landlordId, req);
+
+    // Quản lý mẫu hợp đồng tùy biến
+    public Task<ContractTemplateDto> GetTemplateAsync(Guid landlordId)
+        => lifecycleService.GetTemplateAsync(landlordId);
+
+    public Task<ContractTemplateDto> SaveTemplateAsync(Guid landlordId, SaveContractTemplateRequest req)
+        => lifecycleService.SaveTemplateAsync(landlordId, req);
+
+    public Task<ContractTemplateDto> ResetTemplateAsync(Guid landlordId)
+        => lifecycleService.ResetTemplateAsync(landlordId);
+
+    public Task<string> PreviewTemplateAsync(Guid landlordId, PreviewContractTemplateRequest req)
+        => lifecycleService.PreviewTemplateAsync(landlordId, req);
 }

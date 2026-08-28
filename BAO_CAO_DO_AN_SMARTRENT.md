@@ -48,6 +48,7 @@ graph LR
         UC_LL_Occupant["Quản lý Thành viên ở ghép"]
         UC_LL_Deposit["Đặt cọc giữ chỗ & Hủy cọc"]
         UC_LL_Contract["Lập & Quản lý Hợp đồng"]
+        UC_LL_CustomTemplate["Cấu hình Mẫu HĐ Tùy Biến (Dynamic Template)"]
         UC_LL_Transfer["Chuyển quyền đại diện hợp đồng"]
         UC_LL_Settle["Thanh lý & Quyết toán cọc"]
         UC_LL_Utility["Ghi điện nước & Chốt hàng loạt"]

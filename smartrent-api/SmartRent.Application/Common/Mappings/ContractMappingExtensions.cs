@@ -41,7 +41,8 @@ public static class ContractMappingExtensions
             c.CreatedAt,
             c.RequestedRenewMonths,
             c.RenewNotes,
-            c.RenewRequestedAt
+            c.RenewRequestedAt,
+            c.CustomContent
         );
     }
 }

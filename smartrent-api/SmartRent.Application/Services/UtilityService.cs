@@ -323,11 +323,15 @@ public class UtilityService(AppDbContext db, NotificationService notificationSer
                     {
                         var isParking = svc.Name.Contains("xe", StringComparison.OrdinalIgnoreCase);
                         var zoneTag = svc.Zone != null ? $" ({svc.Zone.Name})" : "";
-                        if (isParking && totalVehicles > 0)
+                        if (isParking)
                         {
-                            decimal parkCost = totalVehicles * svc.Price;
-                            serviceFee += parkCost;
-                            itemsList.Add(new InvoiceItem { Name = $"{svc.Name} ({totalVehicles} xe){zoneTag}", Amount = parkCost });
+                            if (totalVehicles > 0)
+                            {
+                                decimal parkCost = totalVehicles * svc.Price;
+                                serviceFee += parkCost;
+                                itemsList.Add(new InvoiceItem { Name = $"{svc.Name} ({totalVehicles} xe){zoneTag}", Amount = parkCost });
+                            }
+                            // Nếu không có xe (totalVehicles == 0), KHÔNG tính tiền gửi xe
                         }
                         else
                         {

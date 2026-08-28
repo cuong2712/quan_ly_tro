@@ -17,7 +17,7 @@ const getImageFullUrl = (url) => {
   return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-export const TenantInvoice = ({ activeTenant = {}, invoices = [], setInvoices, onRefresh }) => {
+export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [], setInvoices, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [reportingInvoice, setReportingInvoice] = useState(null);
@@ -200,13 +200,17 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], setInvoices, o
             ) : (
               filtered.map((inv) => {
                 const isPaid = (inv.status || '').toLowerCase() === 'paid';
+                const isPendingPayment = !isPaid && (
+                  (inv.status || '').toLowerCase().includes('pending') ||
+                  payments.some(p => p.invoiceId === inv.id && (p.status === 'PendingApproval' || p.status === 'Pending' || (p.status || '').toLowerCase().includes('pending')))
+                );
                 const isDisputed = inv.isReported && inv.disputeStatus;
                 const isPendingDispute = inv.disputeStatus === 'Pending';
                 const isResolvedDispute = inv.disputeStatus === 'Resolved';
                 const isRejectedDispute = inv.disputeStatus === 'Rejected';
 
                 return (
-                  <tr key={inv.id} style={isPendingDispute ? { background: 'rgba(245, 158, 11, 0.05)' } : {}}>
+                  <tr key={inv.id} style={isPendingDispute || isPendingPayment ? { background: 'rgba(245, 158, 11, 0.05)' } : {}}>
                     <td><strong>{inv.invoiceCode}</strong></td>
                     <td>Tháng {inv.month}</td>
                     <td>{formatVND(inv.rentFee)}</td>
@@ -219,9 +223,31 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], setInvoices, o
                     </td>
                     <td>{formatDate(inv.dueDate)}</td>
                     <td>
-                      <span className={`status-pill ${isPaid ? 'occupied' : 'vacant'}`}>
-                        {isPaid ? '✅ Đã thanh toán' : '⏳ Chưa thanh toán'}
-                      </span>
+                      {isPaid ? (
+                        <span className="status-pill occupied">
+                          ✅ Đã thanh toán
+                        </span>
+                      ) : isPendingPayment ? (
+                        <span 
+                          className="status-pill" 
+                          style={{ 
+                            background: 'rgba(245, 158, 11, 0.15)', 
+                            color: '#f59e0b', 
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title="Bạn đã gửi minh chứng chuyển khoản, đang chờ chủ trọ xác nhận duyệt tiền"
+                        >
+                          <Clock size={12} /> Đang chờ duyệt
+                        </span>
+                      ) : (
+                        <span className="status-pill vacant">
+                          ⏳ Chưa thanh toán
+                        </span>
+                      )}
                     </td>
                     <td>
                       {isPendingDispute ? (
@@ -370,12 +396,54 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], setInvoices, o
                 </div>
               )}
 
+              {(() => {
+                const isPaid = (selectedInvoice.status || '').toLowerCase() === 'paid';
+                const isPending = !isPaid && (
+                  (selectedInvoice.status || '').toLowerCase().includes('pending') ||
+                  payments.some(p => p.invoiceId === selectedInvoice.id && (p.status === 'PendingApproval' || p.status === 'Pending' || (p.status || '').toLowerCase().includes('pending')))
+                );
+                if (isPending) {
+                  return (
+                    <div style={{
+                      background: 'rgba(245, 158, 11, 0.1)',
+                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                      color: '#b45309',
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      marginBottom: '14px',
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <Clock size={18} color="#f59e0b" />
+                      <div>
+                        <strong>Đang chờ chủ trọ duyệt:</strong> Bạn đã gửi ảnh biên lai chuyển khoản. Chủ trọ sẽ đối soát tài khoản và xác nhận thanh toán sớm.
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <div style={{ fontSize: '13px', lineHeight: '1.8', marginBottom: '16px' }}>
                 <p><strong>Khách thuê:</strong> {activeTenant.fullName || activeTenant.name}</p>
                 <p><strong>Phòng thuê:</strong> Phòng {selectedInvoice.roomNumber || activeTenant.roomNumber || 'Đang cập nhật'}</p>
                 <p><strong>Ngày phát hành:</strong> {formatDate(selectedInvoice.createdAt)}</p>
                 <p><strong>Hạn thanh toán:</strong> {formatDate(selectedInvoice.dueDate)}</p>
-                <p><strong>Trạng thái:</strong> {(selectedInvoice.status || '').toLowerCase() === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}</p>
+                <p>
+                  <strong>Trạng thái:</strong>{' '}
+                  {(selectedInvoice.status || '').toLowerCase() === 'paid' ? (
+                    <span style={{ color: '#16a34a', fontWeight: 700 }}>✅ Đã thanh toán</span>
+                  ) : (
+                    (selectedInvoice.status || '').toLowerCase().includes('pending') ||
+                    payments.some(p => p.invoiceId === selectedInvoice.id && (p.status === 'PendingApproval' || p.status === 'Pending' || (p.status || '').toLowerCase().includes('pending')))
+                  ) ? (
+                    <span style={{ color: '#d97706', fontWeight: 700 }}>⏳ Đang chờ chủ trọ duyệt</span>
+                  ) : (
+                    <span style={{ color: '#dc2626', fontWeight: 700 }}>⏳ Chưa thanh toán</span>
+                  )}
+                </p>
               </div>
 
               {/* BẢNG KÊ CHI TIẾT TỪNG KHOẢN TIỀN MINH BẠCH */}

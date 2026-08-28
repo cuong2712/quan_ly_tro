@@ -254,6 +254,12 @@ app.MapHub<NotificationHub>("/hubs/notifications");
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'DepositNote') THEN
                     ALTER TABLE ""Rooms"" ADD COLUMN ""DepositNote"" text NULL;
                 END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'CustomContractTemplate') THEN
+                    ALTER TABLE ""Users"" ADD COLUMN ""CustomContractTemplate"" text NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contracts' AND column_name = 'CustomContent') THEN
+                    ALTER TABLE ""Contracts"" ADD COLUMN ""CustomContent"" text NULL;
+                END IF;
             END $$;
         ");
     }

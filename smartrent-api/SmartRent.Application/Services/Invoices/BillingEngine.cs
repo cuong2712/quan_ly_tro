@@ -37,15 +37,11 @@ public class BillingEngine(AppDbContext db)
             {
                 var isParking = svc.Name.Contains("xe", StringComparison.OrdinalIgnoreCase);
                 var zoneTag = svc.Zone != null ? $" ({svc.Zone.Name})" : "";
-                if (isParking && totalRoomVehicles > 0)
-                {
-                    decimal parkCost = totalRoomVehicles * svc.Price;
-                    calculatedServiceFee += parkCost;
-                    itemsList.Add(new InvoiceItem { Name = $"{svc.Name} ({totalRoomVehicles} xe){zoneTag}", Amount = parkCost });
-                }
-                else
-                {
-                    calculatedServiceFee += svc.Price;
+                if (isParking)
+                    if (totalRoomVehicles > 0)
+                    {
+                        decimal parkCost = totalRoomVehicles * svc.Price;
+                        calculatedServiceFee += parkCost;
                     itemsList.Add(new InvoiceItem { Name = $"{svc.Name}{zoneTag}", Amount = svc.Price });
                 }
             }
