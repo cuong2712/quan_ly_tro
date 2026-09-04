@@ -8,6 +8,7 @@
 **SmartRent** là nền tảng quản lý nhà trọ và căn hộ dịch vụ cao cấp, giải quyết bài toán quản lý phân tán giữa Chủ trọ và Khách thuê. Hệ thống tự động hóa toàn bộ các khâu từ ký hợp đồng, ghi nhận chỉ số điện nước, tính toán hóa đơn, thanh toán tự động qua mã VietQR chuẩn NAPAS247, xử lý khiếu nại và phản ánh sự cố kỹ thuật theo thời gian thực (Realtime WebSocket).
 
 ### 1.2. Công nghệ sử dụng
+- **Backend**: .NET 9 Web API, Clean Architecture (Domain, Application, Infrastructure, Presentation).
 - **Backend**: .NET 9 Web API, Clean Architecture (Domain, Application, Infrastructure, Presentation) áp dụng **Facade Pattern** (chia nhỏ domain services thành `Contracts/`, `Rooms/`, `Invoices/`, `Admin/`, `Utilities/`).
 - **ORM & Database**: Entity Framework Core 9.0 + PostgreSQL.
 - **Realtime**: ASP.NET Core SignalR (WebSockets & LongPolling).

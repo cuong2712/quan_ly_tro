@@ -140,8 +140,7 @@ export default function TenantPage() {
       case 'tn_contract':
         return <TenantContract activeTenant={activeTenant} contracts={contracts || []} rooms={[]} setContracts={setContracts} onRefresh={refetchContracts} />;
       case 'tn_invoices':
-        return <TenantInvoice activeTenant={activeTenant} invoices={invoices || []} payments={payments || []} setInvoices={setInvoices} onRefresh={refetchInvoices} />;
-        return <TenantPayment activeTenant={activeTenant} invoices={invoices || []} payments={payments || []} setPayments={setPayments} onRefresh={() => { refetchPayments(); refetchInvoices(); refetchDashboard(); }} />;
+        return <TenantInvoice activeTenant={activeTenant} invoices={invoices || []} payments={payments || []} setInvoices={setInvoices} onRefresh={refetchInvoices} setActiveTab={setActiveTab} />;
       case 'tn_repairs':
         return (
           <TenantRepair 

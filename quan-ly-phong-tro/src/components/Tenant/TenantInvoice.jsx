@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { 
   Receipt, Printer, Search, Eye, AlertTriangle, Send, 
   CheckCircle, Upload, 
-  Clock, RefreshCw, MessageSquare, AlertCircle, Trash2
+  Clock, RefreshCw, MessageSquare, AlertCircle, Trash2, CreditCard
 } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF } from '../../utils/formatters';
 import { invoiceService, fileService } from '../../services';
@@ -17,7 +17,7 @@ const getImageFullUrl = (url) => {
   return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [], setInvoices, onRefresh }) => {
+export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [], setInvoices, onRefresh, setActiveTab }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [reportingInvoice, setReportingInvoice] = useState(null);
@@ -301,6 +301,17 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {inv.status !== 'Paid' && setActiveTab && (
+                          <button 
+                            className="btn btn-sm btn-primary" 
+                            style={{ background: '#10b981', borderColor: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            title="Thanh toán ngay qua mã VietQR"
+                            onClick={() => setActiveTab('tn_payment')}
+                          >
+                            <CreditCard size={14} /> Thanh toán QR
+                          </button>
+                        )}
+
                         <button 
                           className="btn btn-sm btn-secondary" 
                           title="Xem chi tiết hóa đơn"
@@ -344,10 +355,10 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
 
       {/* Modal 1: Invoice Detail Modal */}
       {selectedInvoice && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '650px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title">Chi Tiết Hóa Đơn: {selectedInvoice.invoiceCode}</h3>
+        <div className="modal-overlay" onClick={() => setSelectedInvoice(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: '16px', overflow: 'hidden' }}>
+            <div className="modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <h3 className="modal-title" style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>Chi Tiết Hóa Đơn: {selectedInvoice.invoiceCode}</h3>
               <button className="btn btn-sm btn-secondary" onClick={() => setSelectedInvoice(null)}>✕</button>
             </div>
             <div className="modal-body" id="tenant-invoice-pdf" style={{ background: '#fff', color: '#1e293b', padding: '24px', borderRadius: '8px' }}>
@@ -547,7 +558,7 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
               </table>
             </div>
 
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', position: 'sticky', bottom: 0, zIndex: 10, background: 'var(--bg-card)', padding: '14px 24px', borderTop: '1px solid var(--border-color)', flexShrink: 0 }}>
               {!selectedInvoice.isReported ? (
                 <button 
                   type="button" 
@@ -578,6 +589,18 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
 
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button className="btn btn-secondary" onClick={() => setSelectedInvoice(null)}>Đóng</button>
+                {selectedInvoice.status !== 'Paid' && setActiveTab && (
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ background: '#10b981', borderColor: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    onClick={() => {
+                      setSelectedInvoice(null);
+                      setActiveTab('tn_payment');
+                    }}
+                  >
+                    <CreditCard size={16} /> Quét QR Thanh Toán
+                  </button>
+                )}
                 <button className="btn btn-primary" onClick={() => exportToPDF('tenant-invoice-pdf', `${selectedInvoice.invoiceCode}.pdf`)}>
                   <Printer size={16} /> In / Xuất PDF
                 </button>
@@ -589,118 +612,130 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
 
       {/* Modal 2: Form Gửi Báo Cáo Sai Sót Hóa Đơn (Upload ảnh trực tiếp) */}
       {reportingInvoice && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '600px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b' }}>
-                <AlertTriangle size={20} /> Báo Cáo Sai Sót Hóa Đơn: {reportingInvoice.invoiceCode}
+        <div className="modal-overlay" onClick={() => setReportingInvoice(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '750px', width: '100%', display: 'flex', flexDirection: 'column', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.7)' }}>
+            <div className="modal-header" style={{ padding: '18px 28px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#f59e0b', fontSize: '19px', fontWeight: 800, margin: 0 }}>
+                <AlertTriangle size={22} /> Báo Cáo Sai Sót Hóa Đơn: {reportingInvoice.invoiceCode}
               </h3>
-              <button className="btn btn-sm btn-secondary" onClick={() => setReportingInvoice(null)}>✕</button>
+              <button className="btn btn-sm btn-secondary" style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} onClick={() => setReportingInvoice(null)}>✕</button>
             </div>
 
             {reportSuccess ? (
-              <div className="modal-body" style={{ padding: '28px', textAlign: 'center' }}>
-                <CheckCircle size={48} color="#10b981" style={{ margin: '0 auto 16px' }} />
-                <div style={{ color: '#10b981', fontSize: '15px', lineHeight: '1.6', marginBottom: '20px', fontWeight: 600 }}>
+              <div className="modal-body" style={{ padding: '36px 28px', textAlign: 'center' }}>
+                <CheckCircle size={52} color="#10b981" style={{ margin: '0 auto 16px' }} />
+                <div style={{ color: '#10b981', fontSize: '16px', lineHeight: '1.6', marginBottom: '24px', fontWeight: 600 }}>
                   {reportSuccess}
                 </div>
-                <button className="btn btn-primary" onClick={() => setReportingInvoice(null)}>Đóng cửa sổ</button>
+                <button className="btn btn-primary" style={{ padding: '10px 24px', fontSize: '14px' }} onClick={() => setReportingInvoice(null)}>Đóng cửa sổ</button>
               </div>
             ) : (
-              <form onSubmit={handleSubmitReport}>
-                <div className="modal-body">
-                  {/* Tóm tắt thông tin hóa đơn đang xem */}
+              <form onSubmit={handleSubmitReport} style={{ display: 'flex', flexDirection: 'column' }}>
+                <div className="modal-body" style={{ padding: '20px 28px', overflow: 'visible' }}>
+                  {/* Tóm tắt thông tin hóa đơn đang xem (Dạng thanh ngang 4 cột rộng rãi) */}
                   <div style={{
                     background: 'rgba(99, 102, 241, 0.08)',
                     border: '1px solid var(--border-color)',
-                    padding: '12px 16px',
-                    borderRadius: '8px',
+                    padding: '14px 18px',
+                    borderRadius: '10px',
                     marginBottom: '16px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: '12px',
                     fontSize: '13px'
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span>Kỳ hóa đơn:</span>
-                      <strong>Tháng {reportingInvoice.month}</strong>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '12px', marginBottom: '3px' }}>Kỳ hóa đơn:</span>
+                      <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Tháng {reportingInvoice.month}</strong>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span>Phòng thuê:</span>
-                      <strong>Phòng {reportingInvoice.roomNumber || activeTenant.roomNumber || 'Hiện tại'}</strong>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '12px', marginBottom: '3px' }}>Phòng thuê:</span>
+                      <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Phòng {reportingInvoice.roomNumber || activeTenant.roomNumber || 'Hiện tại'}</strong>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span>Số tiền đang tính:</span>
-                      <strong style={{ color: '#34d399' }}>{formatVND(reportingInvoice.totalAmount)}</strong>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '12px', marginBottom: '3px' }}>Số tiền đang tính:</span>
+                      <strong style={{ color: '#34d399', fontSize: '15px' }}>{formatVND(reportingInvoice.totalAmount)}</strong>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Hạn đóng tiền:</span>
-                      <span>{formatDate(reportingInvoice.dueDate)}</span>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '12px', marginBottom: '3px' }}>Hạn đóng tiền:</span>
+                      <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{formatDate(reportingInvoice.dueDate)}</span>
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Loại Sai Sót Cần Kiểm Tra *</label>
-                    <select
-                      className="form-control"
-                      value={reportForm.reason}
-                      onChange={(e) => setReportForm({ ...reportForm, reason: e.target.value })}
-                    >
-                      <option value="Sai chỉ số điện / Tiền điện">⚡ Sai chỉ số điện / Tiền điện tính thừa</option>
-                      <option value="Sai chỉ số nước / Tiền nước">💧 Sai chỉ số nước / Tiền nước tính thừa</option>
-                      <option value="Sai tiền thuê phòng">🏠 Sai giá tiền thuê phòng so với hợp đồng</option>
-                      <option value="Sai phí dịch vụ (rác, wifi, gửi xe...)">🛵 Sai phí dịch vụ (xe cộ, vệ sinh, internet)</option>
-                      <option value="Đã thanh toán nhưng chưa cập nhật">💳 Đã chuyển khoản nhưng trạng thái chưa cập nhật</option>
-                      <option value="Lý do khác">❓ Lý do khác</option>
-                    </select>
+                  {/* Hàng 1: Loại sai sót & Chỉ số thực tế */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: (reportForm.reason.includes('điện') || reportForm.reason.includes('nước')) ? '1.25fr 1fr' : '1fr',
+                    gap: '16px',
+                    marginBottom: '14px'
+                  }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>Loại Sai Sót Cần Kiểm Tra *</label>
+                      <select
+                        className="form-control"
+                        style={{ height: '44px', padding: '8px 14px', fontSize: '14px', lineHeight: '1.5', boxSizing: 'border-box' }}
+                        value={reportForm.reason}
+                        onChange={(e) => setReportForm({ ...reportForm, reason: e.target.value })}
+                      >
+                        <option value="Sai chỉ số điện / Tiền điện">⚡ Sai chỉ số điện / Tiền điện tính thừa</option>
+                        <option value="Sai chỉ số nước / Tiền nước">💧 Sai chỉ số nước / Tiền nước tính thừa</option>
+                        <option value="Sai tiền thuê phòng">🏠 Sai giá tiền thuê phòng so với hợp đồng</option>
+                        <option value="Sai phí dịch vụ (rác, wifi, gửi xe...)">🛵 Sai phí dịch vụ (xe cộ, vệ sinh, internet)</option>
+                        <option value="Đã thanh toán nhưng chưa cập nhật">💳 Đã chuyển khoản nhưng trạng thái chưa cập nhật</option>
+                        <option value="Lý do khác">❓ Lý do khác</option>
+                      </select>
+                    </div>
+
+                    {reportForm.reason.includes('điện') && (
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>Số Điện Thực Tế Trên Công Tơ (kWh)</label>
+                        <input
+                          type="number"
+                          step="any"
+                          className="form-control"
+                          style={{ height: '44px', padding: '8px 14px', fontSize: '14px', lineHeight: '1.5', boxSizing: 'border-box' }}
+                          placeholder="VD: 1250"
+                          value={reportForm.suggestedElecNumber}
+                          onChange={(e) => setReportForm({ ...reportForm, suggestedElecNumber: e.target.value })}
+                        />
+                      </div>
+                    )}
+
+                    {reportForm.reason.includes('nước') && (
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>Số Nước Thực Tế Trên Đồng Hồ (m³)</label>
+                        <input
+                          type="number"
+                          step="any"
+                          className="form-control"
+                          style={{ height: '44px', padding: '8px 14px', fontSize: '14px', lineHeight: '1.5', boxSizing: 'border-box' }}
+                          placeholder="VD: 45"
+                          value={reportForm.suggestedWaterNumber}
+                          onChange={(e) => setReportForm({ ...reportForm, suggestedWaterNumber: e.target.value })}
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  {/* Nhập chỉ số đề xuất nếu liên quan đến điện hoặc nước */}
-                  {(reportForm.reason.includes('điện') || reportForm.reason.includes('nước')) && (
-                    <div className="form-row">
-                      {reportForm.reason.includes('điện') && (
-                        <div className="form-group">
-                          <label className="form-label">Chỉ Số Điện Thực Tế Trên Công Tơ (kWh)</label>
-                          <input
-                            type="number"
-                            step="any"
-                            className="form-control"
-                            placeholder="VD: 1250"
-                            value={reportForm.suggestedElecNumber}
-                            onChange={(e) => setReportForm({ ...reportForm, suggestedElecNumber: e.target.value })}
-                          />
-                        </div>
-                      )}
-                      {reportForm.reason.includes('nước') && (
-                        <div className="form-group">
-                          <label className="form-label">Chỉ Số Nước Thực Tế Trên Đồng Hồ (Khối / m³)</label>
-                          <input
-                            type="number"
-                            step="any"
-                            className="form-control"
-                            placeholder="VD: 45"
-                            value={reportForm.suggestedWaterNumber}
-                            onChange={(e) => setReportForm({ ...reportForm, suggestedWaterNumber: e.target.value })}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="form-group">
-                    <label className="form-label">Mô Tả Chi Tiết Sai Sót & Số Liệu Thực Tế *</label>
+                  {/* Hàng 2: Mô tả chi tiết sai sót */}
+                  <div className="form-group" style={{ marginBottom: '14px' }}>
+                    <label className="form-label" style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>Mô Tả Chi Tiết Sai Sót & Số Liệu Thực Tế *</label>
                     <textarea
                       className="form-control"
                       rows="3"
                       required
-                      placeholder="VD: Chỉ số điện tháng này ghi nhầm từ 1250 thành 1520 kWh (chênh 270 kWh). Nhờ chủ trọ xem lại ảnh chụp công tơ và điều chỉnh lại hóa đơn giúp em..."
+                      style={{ fontSize: '14px', resize: 'none', lineHeight: '1.5', padding: '10px 14px', minHeight: '80px', boxSizing: 'border-box' }}
+                      placeholder="VD: Chỉ số điện tháng này ghi nhầm từ 1250 thành 1520 kWh (chênh 270 kWh). Nhờ chủ trọ xem lại ảnh chụp công tơ và điều chỉnh lại giúp em..."
                       value={reportForm.description}
                       onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })}
                     ></textarea>
                   </div>
 
-                  {/* Tải ảnh minh chứng trực tiếp từ thiết bị */}
-                  <div className="form-group">
-                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {/* Hàng 3: Tải ảnh minh chứng trực tiếp (Thanh ngang tiện lợi) */}
+                  <div className="form-group" style={{ marginBottom: '6px' }}>
+                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
                       <span>Ảnh Minh Chứng Trực Tiếp (Ảnh chụp công tơ, đồng hồ, biên lai)</span>
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tối đa 5MB</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 'normal' }}>Tối đa 5MB</span>
                     </label>
 
                     <input
@@ -715,29 +750,31 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
                       <div
                         onClick={() => fileInputRef.current?.click()}
                         style={{
-                          border: '2px dashed var(--border-color)',
-                          borderRadius: '8px',
-                          padding: '24px 16px',
+                          border: '1px dashed rgba(99, 102, 241, 0.45)',
+                          borderRadius: '10px',
+                          padding: '12px 18px',
                           textAlign: 'center',
                           cursor: uploadingImage ? 'not-allowed' : 'pointer',
-                          background: 'var(--bg-dark)',
+                          background: 'rgba(99, 102, 241, 0.05)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '10px',
                           transition: 'all 0.2s ease',
                         }}
                       >
                         {uploadingImage ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#6366f1' }}>
-                            <RefreshCw className="spin" size={24} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6366f1' }}>
+                            <RefreshCw className="spin" size={18} />
                             <span style={{ fontSize: '13px', fontWeight: 600 }}>Đang tải ảnh lên máy chủ...</span>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                            <Upload size={28} color="#6366f1" />
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Upload size={20} color="#818cf8" />
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
                               Bấm để chọn hoặc chụp ảnh trực tiếp từ máy
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                              Chấp nhận định dạng: JPG, PNG, WEBP
-                            </div>
+                            </span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>(JPG, PNG, WEBP)</span>
                           </div>
                         )}
                       </div>
@@ -745,8 +782,8 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
                       <div style={{
                         position: 'relative',
                         border: '1px solid var(--border-color)',
-                        borderRadius: '8px',
-                        padding: '10px',
+                        borderRadius: '10px',
+                        padding: '8px 14px',
                         background: 'var(--bg-dark)',
                         display: 'flex',
                         alignItems: 'center',
@@ -755,40 +792,42 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
                         <img
                           src={getImageFullUrl(reportForm.imageUrl)}
                           alt="Minh chứng"
-                          style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
+                          style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
                           onClick={() => setZoomedImageUrl(getImageFullUrl(reportForm.imageUrl))}
                         />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <CheckCircle size={14} /> Đã tải ảnh minh chứng lên thành công
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <CheckCircle size={14} /> Đã tải ảnh minh chứng thành công
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '340px' }}>
+                              {reportForm.imageUrl}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                            {reportForm.imageUrl}
-                          </div>
-                          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
                             <button
                               type="button"
                               className="btn btn-sm btn-secondary"
-                              style={{ padding: '2px 8px', fontSize: '11px' }}
+                              style={{ padding: '3px 10px', fontSize: '12px' }}
                               onClick={() => setZoomedImageUrl(getImageFullUrl(reportForm.imageUrl))}
                             >
-                              <Eye size={12} /> Xem phóng to
+                              <Eye size={13} /> Xem
                             </button>
                             <button
                               type="button"
                               className="btn btn-sm btn-secondary"
-                              style={{ padding: '2px 8px', fontSize: '11px' }}
+                              style={{ padding: '3px 10px', fontSize: '12px' }}
                               onClick={() => fileInputRef.current?.click()}
                             >
-                              Đổi ảnh khác
+                              Đổi ảnh
                             </button>
                             <button
                               type="button"
                               className="btn btn-sm btn-danger"
-                              style={{ padding: '2px 8px', fontSize: '11px' }}
+                              style={{ padding: '3px 10px', fontSize: '12px' }}
                               onClick={handleRemoveImage}
                             >
-                              <Trash2 size={12} /> Xóa ảnh
+                              <Trash2 size={13} /> Xóa
                             </button>
                           </div>
                         </div>
@@ -797,14 +836,14 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
                   </div>
                 </div>
 
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setReportingInvoice(null)}>
+                <div className="modal-footer" style={{ background: 'var(--bg-card)', padding: '16px 28px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                  <button type="button" className="btn btn-secondary" style={{ padding: '9px 20px', fontSize: '14px' }} onClick={() => setReportingInvoice(null)}>
                     Hủy
                   </button>
                   <button 
                     type="submit" 
                     className="btn btn-primary" 
-                    style={{ background: '#f59e0b', borderColor: '#f59e0b' }} 
+                    style={{ background: '#f59e0b', borderColor: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 700, padding: '9px 22px', fontSize: '14px' }} 
                     disabled={submittingReport || uploadingImage}
                   >
                     <Send size={16} /> {submittingReport ? '⏳ Đang gửi yêu cầu...' : 'Gửi Báo Cáo Cho Chủ Trọ'}
@@ -818,15 +857,15 @@ export const TenantInvoice = ({ activeTenant = {}, invoices = [], payments = [],
 
       {/* Modal 3: Xem Tiến Độ & Chi Tiết Khiếu Nại Đã Gửi */}
       {viewingDisputeInvoice && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '620px' }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="modal-overlay" onClick={() => setViewingDisputeInvoice(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '620px', width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: '16px', overflow: 'hidden' }}>
+            <div className="modal-header" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px', fontWeight: 800, margin: 0 }}>
                 <AlertCircle size={20} color="#6366f1" /> Tiến Độ Kiểm Tra Hóa Đơn: {viewingDisputeInvoice.invoiceCode}
               </h3>
               <button className="btn btn-sm btn-secondary" onClick={() => setViewingDisputeInvoice(null)}>✕</button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body" style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
               {/* Trạng thái xử lý */}
               <div style={{
                 padding: '14px 16px',
