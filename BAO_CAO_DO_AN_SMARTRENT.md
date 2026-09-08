@@ -484,40 +484,93 @@ sequenceDiagram
 
 ## 🧪 CHƯƠNG 5: KẾT QUẢ KIỂM THỬ HỆ THỐNG
 
-### 5.1. Bảng kết quả kiểm thử API Endpoints (28/28 Pass)
+### 5.1. Kết quả kiểm thử Đơn vị Frontend (Vitest - 10/10 Pass)
+- **Framework**: Vitest v4.1.10 + JSDOM (`npm run test`)
+- **Tập tin kiểm thử**: `ErrorBoundary.test.jsx`, `formatters.test.js`
+- **Kết quả**: **10 / 10 Pass (100%)**
 
-| STT | Phân hệ | Endpoint kiểm thử | Phương thức | Kết quả | Trạng thái |
-| :---: | :--- | :--- | :---: | :---: | :---: |
-| 1 | Auth | `/api/auth/login` (Landlord, Tenant, Admin) | `POST` | 200 OK | ✅ PASS |
-| 2 | Khu trọ | `/api/zones` (Lấy danh sách khu trọ) | `GET` | 200 OK | ✅ PASS |
-| 3 | Phòng | `/api/rooms` (Lấy danh sách phòng) | `GET` | 200 OK | ✅ PASS |
-| 4 | Phòng | `/api/rooms/{id}/detail` (Chi tiết phòng & thiết bị) | `GET` | 200 OK | ✅ PASS |
-| 5 | Thiết bị | `/api/rooms/{id}/equipments` (Thêm thiết bị) | `POST` | 200 OK | ✅ PASS |
-| 6 | Thiết bị | `/api/rooms/equipments/{id}` (Sửa thiết bị) | `PUT` | 200 OK | ✅ PASS |
-| 7 | Thiết bị | `/api/rooms/equipments/{id}` (Xóa thiết bị) | `DELETE` | 200 OK | ✅ PASS |
-| 8 | Khách thuê | `/api/tenants` (Danh sách khách thuê) | `GET` | 200 OK | ✅ PASS |
-| 9 | Hợp đồng | `/api/contracts` (Danh sách hợp đồng chủ trọ) | `GET` | 200 OK | ✅ PASS |
-| 10 | Hợp đồng | `/api/contracts` (Hợp đồng của khách thuê) | `GET` | 200 OK | ✅ PASS |
-| 11 | Hợp đồng | `/api/contracts/check-expiring` (Kiểm tra hết hạn) | `POST` | 200 OK | ✅ PASS |
-| 12 | Hóa đơn | `/api/invoices` (Danh sách hóa đơn chủ trọ) | `GET` | 200 OK | ✅ PASS |
-| 13 | Hóa đơn | `/api/invoices` (Hóa đơn cá nhân khách thuê) | `GET` | 200 OK | ✅ PASS |
-| 14 | Điện nước | `/api/utilities` (Lịch sử chỉ số điện nước) | `GET` | 200 OK | ✅ PASS |
-| 15 | Điện nước | `/api/utilities/rate` (Đơn giá điện nước) | `GET` | 200 OK | ✅ PASS |
-| 16 | Dịch vụ | `/api/services` (Danh mục dịch vụ phòng) | `GET` | 200 OK | ✅ PASS |
-| 17 | Thanh toán | `/api/payments` (Danh sách giao dịch chủ trọ) | `GET` | 200 OK | ✅ PASS |
-| 18 | Thanh toán | `/api/payments` (Lịch sử nộp tiền khách thuê) | `GET` | 200 OK | ✅ PASS |
-| 19 | Bảo trì | `/api/maintenance` (Danh sách phiếu bảo trì chủ trọ) | `GET` | 200 OK | ✅ PASS |
-| 20 | Bảo trì | `/api/maintenance` (Sự cố của khách thuê) | `GET` | 200 OK | ✅ PASS |
-| 21 | Thông báo | `/api/notifications` (Thông báo chủ trọ) | `GET` | 200 OK | ✅ PASS |
-| 22 | Thông báo | `/api/notifications` (Thông báo khách thuê) | `GET` | 200 OK | ✅ PASS |
-| 23 | Báo cáo | `/api/reports/financial` (Tổng quan tài chính) | `GET` | 200 OK | ✅ PASS |
-| 24 | Báo cáo | `/api/reports/financial/export` (Xuất file CSV/Excel) | `GET` | 200 OK | ✅ PASS |
-| 25 | Hồ sơ | `/api/profile` (Hồ sơ chủ trọ & VietQR) | `GET` | 200 OK | ✅ PASS |
-| 26 | Hồ sơ | `/api/profile/vehicle` (Thông tin xe khách thuê) | `GET` | 200 OK | ✅ PASS |
-| 27 | SuperAdmin | `/api/admin/stats` (Thống kê toàn sàn) | `GET` | 200 OK | ✅ PASS |
-| 28 | SuperAdmin | `/api/admin/landlords` (Quản lý chủ trọ) | `GET` | 200 OK | ✅ PASS |
+| STT | Tập tin | Ca kiểm thử (Test Description) | Kết quả | Thời gian |
+| :---: | :--- | :--- | :---: | :---: |
+| 1 | `ErrorBoundary.test.jsx` | Hiển thị giao diện fallback an toàn khi xảy ra lỗi render component | ✅ PASS | 234ms |
+| 2 | `ErrorBoundary.test.jsx` | Render bình thường khi các component con không có lỗi | ✅ PASS | 45ms |
+| 3 | `ErrorBoundary.test.jsx` | Nút "Thử lại / Tải lại trang" hoạt động chính xác khi bấm | ✅ PASS | 32ms |
+| 4 | `formatters.test.js` | Định dạng tiền tệ VNĐ chuẩn Việt Nam (`100.000 đ`) | ✅ PASS | 12ms |
+| 5 | `formatters.test.js` | Xử lý an toàn khi giá trị tiền tệ null/undefined hoặc số âm | ✅ PASS | 8ms |
+| 6 | `formatters.test.js` | Định dạng ngày tháng năm chuẩn `DD/MM/YYYY` | ✅ PASS | 10ms |
+| 7 | `formatters.test.js` | Chuyển đổi mã trạng thái phòng (Vacant -> "Còn trống", Occupied -> "Đang thuê") | ✅ PASS | 9ms |
+| 8 | `formatters.test.js` | Chuyển đổi mã trạng thái hợp đồng (Active -> "Hiệu lực", ExpiringSoon -> "Sắp hết hạn") | ✅ PASS | 11ms |
+| 9 | `formatters.test.js` | Chuyển đổi mã trạng thái hóa đơn (Paid -> "Đã thanh toán", Unpaid -> "Chưa thanh toán") | ✅ PASS | 8ms |
+| 10 | `formatters.test.js` | Tạo URL hình ảnh đại diện / placeholder an toàn | ✅ PASS | 11ms |
+
+---
+
+### 5.2. Bảng kết quả kiểm thử API Endpoints & Phân quyền (35/35 Pass)
+- **Công cụ thực thi**: Test Runner Script `test_suite.mjs` (Node.js Test Engine)
+- **Tổng số ca kiểm thử**: 35 Test Cases
+- **Tỷ lệ đạt**: **35 / 35 PASS (100%)** | **0 FAIL** | **Thời gian trung bình**: **24 ms**
+
+| Mã TC | Phân hệ | Phương thức | Endpoint API | Quyền (Role) | Kịch bản kiểm thử | Mã HTTP | Kết quả | T/g (ms) |
+| :---: | :--- | :---: | :--- | :---: | :--- | :---: | :---: | :---: |
+| **TC-01** | Auth | `POST` | `/api/auth/login` | Public | Đăng nhập Admin (`admin@smartrent.vn`) | 200 OK | ✅ PASS | 202ms |
+| **TC-02** | Auth | `POST` | `/api/auth/login` | Public | Đăng nhập Chủ trọ (`landlord@smartrent.vn`) | 200 OK | ✅ PASS | 134ms |
+| **TC-03** | Auth | `POST` | `/api/auth/login` | Public | Đăng nhập Khách thuê (`tenant1@smartrent.vn`) | 200 OK | ✅ PASS | 137ms |
+| **TC-04** | Auth (Security) | `POST` | `/api/auth/login` | Public | Đăng nhập sai mật khẩu -> Chặn đăng nhập | 401 Unauth | ✅ PASS | 129ms |
+| **TC-05** | Auth (Security) | `GET` | `/api/zones` | Anonymous | Không truyền Bearer Token -> Chặn truy cập | 401 Unauth | ✅ PASS | 4ms |
+| **TC-06** | Auth (RBAC) | `GET` | `/api/admin/stats` | Tenant | Khách thuê gọi API Admin -> Từ chối quyền | 403 Forbid | ✅ PASS | 3ms |
+| **TC-07** | Khu trọ | `GET` | `/api/zones` | Landlord | Lấy danh sách toàn bộ khu trọ của chủ trọ | 200 OK | ✅ PASS | 5ms |
+| **TC-08** | Phòng trọ | `GET` | `/api/rooms` | Landlord | Lấy danh sách phòng trọ kèm trạng thái | 200 OK | ✅ PASS | 12ms |
+| **TC-09** | Phòng trọ | `GET` | `/api/rooms/{id}/detail` | Landlord | Xem chi tiết phòng, khách ở & danh sách thiết bị | 200 OK | ✅ PASS | 17ms |
+| **TC-10** | Khách thuê | `GET` | `/api/tenants` | Landlord | Lấy danh sách khách thuê và CCCD/SĐT | 200 OK | ✅ PASS | 13ms |
+| **TC-11** | Hợp đồng | `GET` | `/api/contracts` | Landlord | Lấy danh sách hợp đồng thuê nhà của khu trọ | 200 OK | ✅ PASS | 7ms |
+| **TC-12** | Hợp đồng | `GET` | `/api/contracts` | Tenant | Khách thuê xem hợp đồng cá nhân | 200 OK | ✅ PASS | 5ms |
+| **TC-13** | Hợp đồng | `POST` | `/api/contracts/check-expiring`| Landlord | Quét tự động các hợp đồng sắp hết hạn | 200 OK | ✅ PASS | 9ms |
+| **TC-14** | Điện nước | `GET` | `/api/utilities/rate` | Landlord | Lấy bảng đơn giá điện (đ/kWh) và nước (đ/m³) | 200 OK | ✅ PASS | 6ms |
+| **TC-15** | Điện nước | `GET` | `/api/utilities` | Landlord | Lấy nhật ký lịch sử ghi chỉ số điện nước | 200 OK | ✅ PASS | 5ms |
+| **TC-16** | Dịch vụ | `GET` | `/api/services` | Landlord | Danh mục dịch vụ bổ trợ (Wi-Fi, Xe, Rác...) | 200 OK | ✅ PASS | 5ms |
+| **TC-17** | Hóa đơn | `GET` | `/api/invoices` | Landlord | Danh sách hóa đơn tiền phòng toàn khu | 200 OK | ✅ PASS | 9ms |
+| **TC-18** | Hóa đơn | `GET` | `/api/invoices` | Tenant | Khách thuê tra cứu hóa đơn tiền nhà cá nhân | 200 OK | ✅ PASS | 8ms |
+| **TC-19** | Thanh toán | `GET` | `/api/payments` | Landlord | Danh sách biên lai giao dịch chờ duyệt | 200 OK | ✅ PASS | 7ms |
+| **TC-20** | Thanh toán | `GET` | `/api/payments` | Tenant | Lịch sử nộp tiền phòng của khách thuê | 200 OK | ✅ PASS | 5ms |
+| **TC-21** | Bảo trì | `GET` | `/api/maintenance` | Landlord | Quản lý danh sách sự cố hỏng hóc phòng trọ | 200 OK | ✅ PASS | 13ms |
+| **TC-22** | Bảo trì | `GET` | `/api/maintenance` | Tenant | Khách thuê xem trạng thái phiếu sửa chữa đã gửi | 200 OK | ✅ PASS | 5ms |
+| **TC-23** | Thông báo | `GET` | `/api/notifications` | Landlord | Danh sách thông báo hệ thống của Chủ trọ | 200 OK | ✅ PASS | 4ms |
+| **TC-24** | Thông báo | `GET` | `/api/notifications` | Tenant | Danh sách thông báo gửi tới Khách thuê | 200 OK | ✅ PASS | 6ms |
+| **TC-25** | Báo cáo | `GET` | `/api/reports/financial` | Landlord | Tổng hợp doanh thu, nợ đọng, chi phí | 200 OK | ✅ PASS | 8ms |
+| **TC-26** | Báo cáo | `GET` | `/api/reports/financial/export` | Landlord | Xuất dữ liệu tài chính ra tệp CSV/Excel | 200 OK | ✅ PASS | 6ms |
+| **TC-27** | Dashboard | `GET` | `/api/dashboard/landlord` | Landlord | Chỉ số KPI tổng quan (tỷ lệ lấp đầy, doanh thu)| 200 OK | ✅ PASS | 11ms |
+| **TC-28** | Dashboard | `GET` | `/api/dashboard/tenant` | Tenant | Thông tin tổng quan phòng đang ở & nợ đọng | 200 OK | ✅ PASS | 15ms |
+| **TC-29** | Hồ sơ | `GET` | `/api/profile` | Landlord | Xem hồ sơ chủ trọ & tài khoản nhận VietQR | 200 OK | ✅ PASS | 4ms |
+| **TC-30** | Hồ sơ | `GET` | `/api/profile/vehicle` | Tenant | Tra cứu biển số xe và thông tin gửi xe | 200 OK | ✅ PASS | 3ms |
+| **TC-31** | SuperAdmin | `GET` | `/api/admin/stats` | SuperAdmin | Thống kê toàn cảnh vĩ mô nền tảng | 200 OK | ✅ PASS | 9ms |
+| **TC-32** | SuperAdmin | `GET` | `/api/admin/landlords` | SuperAdmin | Quản trị danh sách tài khoản Chủ trọ toàn sàn | 200 OK | ✅ PASS | 17ms |
+| **TC-33** | SuperAdmin | `GET` | `/api/admin/tenants` | SuperAdmin | Quản lý người dùng khách thuê toàn sàn | 200 OK | ✅ PASS | 9ms |
+| **TC-34** | SuperAdmin | `GET` | `/api/admin/complaints` | SuperAdmin | Tiếp nhận & phản hồi khiếu nại tới BQT sàn | 200 OK | ✅ PASS | 4ms |
+| **TC-35** | Swagger Spec | `GET` | `/swagger/v1/swagger.json` | Public | Tự động phát sinh đặc tả OpenAPI (78 APIs) | 200 OK | ✅ PASS | 19ms |
+
+---
+
+### 5.3. Ca kiểm thử chức năng nghiệp vụ cốt lõi (Functional Use Case Tests)
+
+#### Kịch bản 1: Chốt điện nước hàng loạt & Tự động sinh hóa đơn (UC-01)
+- **Tác tử**: Chủ trọ (`landlord@smartrent.vn`).
+- **Thao tác**: Nhập số điện/nước mới cho toàn khu qua giao diện tab Điện nước.
+- **Dữ liệu kiểm thử**: Điện mới `125 kWh` (cũ `100 kWh`), Nước mới `35 m³` (cũ `30 m³`).
+- **Kết quả mong đợi**: Tiền điện ($25 \times 3.500 = 87.500$ đ), Tiền nước ($5 \times 25.000 = 125.000$ đ). Hóa đơn tạo trạng thái `Unpaid`. Phát thông báo Realtime SignalR.
+- **Kết quả thực tế**: ✅ **PASS** - Hóa đơn lưu vào DB trong 1 Database Transaction, khách thuê nhận ngay thông báo toast Realtime.
+
+#### Kịch bản 2: Thanh toán VietQR & Duyệt tiền Realtime (UC-02)
+- **Tác tử**: Khách thuê & Chủ trọ.
+- **Thao tác**: Khách quét mã QR tự động sinh theo chuẩn NAPAS247, chuyển khoản và upload ảnh biên lai ngân hàng. Chủ trọ kiểm tra ảnh biên lai và bấm "Xác nhận duyệt tiền".
+- **Kết quả mong đợi**: Trạng thái giao dịch chuyển sang `Completed`, hóa đơn đổi sang `Paid`, công nợ giảm về 0đ.
+- **Kết quả thực tế**: ✅ **PASS** - SignalR đẩy dữ liệu thời gian thực cập nhật giao diện hai phía mà không cần F5.
+
+#### Kịch bản 3: Khiếu nại sai lệch chỉ số hóa đơn (UC-03)
+- **Tác tử**: Khách thuê & Chủ trọ.
+- **Thao tác**: Khách gửi báo cáo sai số điện kèm ảnh chụp đồng hồ thực tế. Hóa đơn đánh dấu `IsReported = true`. Chủ trọ xem ảnh xác minh và điều chỉnh hóa đơn.
+- **Kết quả mong đợi**: Hóa đơn lưu thông tin tranh chấp minh bạch, hỗ trợ điều chỉnh số liệu chính xác.
+- **Kết quả thực tế**: ✅ **PASS** - Tính năng vận hành mượt mà, lưu vết đầy đủ trong CSDL.
 
 ---
 
 ## 🎯 KẾT LUẬN
-Báo cáo trên cung cấp đầy đủ sơ đồ **Use Case**, **ERD 16 bảng CSDL**, **Kiến trúc Realtime SignalR**, và **Bảng chứng minh 28/28 API kiểm thử thành công**, đáp ứng trọn vẹn mọi yêu cầu học thuật và thực tiễn để nộp và bảo vệ dự án.
+Hệ thống **SmartRent** đã trải qua quá trình kiểm thử nghiêm ngặt bao gồm **10/10 Unit Tests Frontend (Vitest)**, **35/35 Automated API Tests Backend (100% Pass, thời gian trung bình 24ms)**, cùng đầy đủ kịch bản kiểm thử An ninh (401 Unauthorized), Phân quyền RBAC (403 Forbidden) và các ca kiểm thử chức năng nghiệp vụ trọng yếu. Báo cáo này cùng tệp chi tiết [BAO_CAO_KIEM_THU_CHI_TIET.md](BAO_CAO_KIEM_THU_CHI_TIET.md) cung cấp đầy đủ luận cứ và số liệu khoa học vững chắc để học viên ghi vào đồ án tốt nghiệp.
