@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-09-08T08:27:13.060Z",
+  "timestamp": "2026-09-08T08:52:52.489Z",
   "total": 35,
   "passed": 35,
   "failed": 0,
-  "avgDuration": 26,
+  "avgDuration": 44,
   "results": [
     {
       "id": "TC-01",
@@ -14,7 +14,7 @@
       "url": "/auth/login",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 239,
+      "duration": 614,
       "pass": true,
       "note": "Nhận JWT SuperAdmin",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2F"
@@ -28,7 +28,7 @@
       "url": "/auth/login",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 135,
+      "duration": 165,
       "pass": true,
       "note": "Nhận JWT Landlord",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2F"
@@ -42,7 +42,7 @@
       "url": "/auth/login",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 130,
+      "duration": 156,
       "pass": true,
       "note": "Nhận JWT Tenant",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2F"
@@ -56,7 +56,7 @@
       "url": "/auth/login",
       "expectedStatus": 401,
       "actualStatus": 401,
-      "duration": 129,
+      "duration": 150,
       "pass": true,
       "note": "Bảo mật: Hệ thống chặn và trả về 401 Unauthorized",
       "dataSample": "{\"code\":401,\"success\":false,\"message\":\"Email hoặc mật khẩu không đúng\",\"data\":null}"
@@ -70,7 +70,7 @@
       "url": "/zones",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 3,
+      "duration": 27,
       "pass": true,
       "note": "Mã lỗi 401 Unauthorized",
       "dataSample": "{\"code\":401,\"success\":false,\"message\":\"Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.\",\"data\":null}"
@@ -84,7 +84,7 @@
       "url": "/admin/stats",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 2,
+      "duration": 6,
       "pass": true,
       "note": "Mã lỗi 403 Forbidden",
       "dataSample": "{\"code\":403,\"success\":false,\"message\":\"Bạn không có quyền truy cập chức năng này.\",\"data\":null}"
@@ -98,7 +98,7 @@
       "url": "/zones",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 4,
+      "duration": 27,
       "pass": true,
       "note": "Tìm thấy 2 khu trọ",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"10000000-0000-0000-0000-000000000002\",\"name\":\"Khu Trọ Xanh Bình Thạnh\",\"addr"
@@ -112,7 +112,7 @@
       "url": "/rooms",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 11,
+      "duration": 33,
       "pass": true,
       "note": "Tìm thấy 6 phòng",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"20000000-0000-0000-0000-000000000001\",\"zoneId\":\"10000000-0000-0000-0000-0000"
@@ -126,7 +126,7 @@
       "url": "/rooms/20000000-0000-0000-0000-000000000001/detail",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 17,
+      "duration": 42,
       "pass": true,
       "note": "Phòng P.101",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"id\":\"20000000-0000-0000-0000-000000000001\",\"zoneId\":\"10000000-0000-0000-0000-00000"
@@ -140,7 +140,7 @@
       "url": "/tenants",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 13,
+      "duration": 18,
       "pass": true,
       "note": "Danh sách khách thuê hợp lệ",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"30000000-0000-0000-0000-000000000003\",\"userId\":\"00000000-0000-0000-0000-0000"
@@ -154,7 +154,7 @@
       "url": "/contracts",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 10,
+      "duration": 12,
       "pass": true,
       "note": "Hợp đồng Chủ trọ",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"40000000-0000-0000-0000-000000000003\",\"contractCode\":\"HD-2026-P301\",\"roomId\""
@@ -182,7 +182,7 @@
       "url": "/contracts/check-expiring",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 10,
+      "duration": 20,
       "pass": true,
       "note": "Quét hợp đồng thành công",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Đã kiểm tra và phát hành 0 thông báo hợp đồng sắp hết hạn.\",\"data\":{\"message\":\"Đã kiểm tra và phát hành 0 thông "
@@ -196,7 +196,7 @@
       "url": "/utilities/rate",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 4,
+      "duration": 7,
       "pass": true,
       "note": "Điện: 3500đ, Nước: 18000đ",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"id\":\"45131720-d32f-4098-b264-60754e6ba697\",\"elecPrice\":3500,\"waterPrice\":18000,\"up"
@@ -210,7 +210,7 @@
       "url": "/utilities",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 5,
+      "duration": 10,
       "pass": true,
       "note": "Nhật ký chỉ số điện nước",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"db674928-d3c1-4b1a-b727-7d17fb7f58c5\",\"roomId\":\"20000000-0000-0000-0000-0000"
@@ -224,7 +224,7 @@
       "url": "/services",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 9,
+      "duration": 11,
       "pass": true,
       "note": "Danh mục dịch vụ",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"38dce026-eb03-4e29-a5dc-5ed758be6fa4\",\"name\":\"Phí Quản lý & An ninh\",\"price\""
@@ -238,7 +238,7 @@
       "url": "/invoices",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 9,
+      "duration": 11,
       "pass": true,
       "note": "Tổng 2 hóa đơn",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"50000000-0000-0000-0000-000000000001\",\"invoiceCode\":\"HD-0726-P101\",\"roomId\":"
@@ -252,7 +252,7 @@
       "url": "/invoices",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 9,
+      "duration": 7,
       "pass": true,
       "note": "Danh sách hóa đơn của khách",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"50000000-0000-0000-0000-000000000001\",\"invoiceCode\":\"HD-0726-P101\",\"roomId\":"
@@ -266,7 +266,7 @@
       "url": "/payments",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 13,
+      "duration": 14,
       "pass": true,
       "note": "Lịch sử thanh toán & biên lai",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"aea30dce-889d-445b-87c3-292e6866a1fc\",\"invoiceId\":\"50000000-0000-0000-0000-0"
@@ -280,7 +280,7 @@
       "url": "/payments",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 6,
+      "duration": 5,
       "pass": true,
       "note": "Lịch sử nộp tiền cá nhân",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"aea30dce-889d-445b-87c3-292e6866a1fc\",\"invoiceId\":\"50000000-0000-0000-0000-0"
@@ -322,7 +322,7 @@
       "url": "/notifications",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 5,
+      "duration": 10,
       "pass": true,
       "note": "Thông báo Chủ trọ",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"0d10795b-a613-4c26-9bf1-ed823e8dac48\",\"senderName\":\"Nguyễn Văn Hải\",\"title\":"
@@ -336,7 +336,7 @@
       "url": "/notifications",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 6,
+      "duration": 13,
       "pass": true,
       "note": "Thông báo Khách thuê",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"c6bc1193-ed08-4d3f-a86b-8cc77ee7dfd8\",\"senderName\":\"Nguyễn Văn Hải\",\"title\":"
@@ -350,7 +350,7 @@
       "url": "/reports/financial",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 5,
+      "duration": 13,
       "pass": true,
       "note": "Chỉ số tài chính hợp lệ",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"totalRevenue\":10520000,\"totalUnpaidDebt\":0,\"totalMaintenanceExpense\":0,\"totalNetPr"
@@ -364,10 +364,10 @@
       "url": "/reports/financial/export",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 8,
+      "duration": 18,
       "pass": true,
       "note": "File CSV dung lượng 260 bytes",
-      "dataSample": "Mã Hóa Đơn,Tháng,Số Phòng,Khách Thuê,Số Tiền (VNĐ),Trạng Thái,Ngày Tạo\r\n\"HD-0726-P101\",\"2026-07\",\"P.101\",\"Nguyễn Văn Minh\",\"5090000.00\",\"Đã thanh toán"
+      "dataSample": "Mã Hóa Đơn,Tháng,Số Phòng,Khách Thuê,Số Tiền (VNĐ),Trạng Thái,Ngày Tạo\r\n\"HD-0726-P102\",\"2026-07\",\"P.102\",\"Lê Thị Thu Thảo\",\"5430000.00\",\"Đã thanh toán"
     },
     {
       "id": "TC-27",
@@ -378,7 +378,7 @@
       "url": "/dashboard/landlord",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 16,
+      "duration": 14,
       "pass": true,
       "note": "Tổng phòng: 6, Đang ở: 2, Trống: 3",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"totalZones\":2,\"totalRooms\":6,\"occupied\":2,\"vacant\":3,\"tenants\":2,\"unpaidInvoices\":"
@@ -392,7 +392,7 @@
       "url": "/dashboard/tenant",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 16,
+      "duration": 10,
       "pass": true,
       "note": "Dữ liệu dashboard cư dân",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"roomNumber\":\"P.101\",\"zoneName\":\"Khu Trọ SmartRent Quận 1\",\"rentAmount\":4200000,\"de"
@@ -406,7 +406,7 @@
       "url": "/profile",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 4,
+      "duration": 6,
       "pass": true,
       "note": "Email: landlord@smartrent.vn",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"id\":\"00000000-0000-0000-0000-000000000002\",\"fullName\":\"Nguyễn Văn Hải\",\"email\":\"la"
@@ -420,7 +420,7 @@
       "url": "/profile/vehicle",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 3,
+      "duration": 4,
       "pass": true,
       "note": "Thông tin phương tiện",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"vehicleCount\":2,\"vehicleInfo\":\"29A1-12345, 30B2-67890\"}}"
@@ -434,7 +434,7 @@
       "url": "/admin/stats",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 9,
+      "duration": 7,
       "pass": true,
       "note": "Chủ trọ: 5, Khách thuê: 19",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":{\"totalLandlords\":5,\"totalTenants\":19,\"totalZones\":10,\"totalRooms\":19,\"occupiedRooms"
@@ -462,7 +462,7 @@
       "url": "/admin/tenants",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 9,
+      "duration": 13,
       "pass": true,
       "note": "Danh sách khách thuê toàn hệ thống",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"f537e8bc-be43-41dd-936b-1ab1b44c102a\",\"userId\":\"cc71a573-cd80-4421-b9a1-228a"
@@ -476,7 +476,7 @@
       "url": "/admin/complaints",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 3,
+      "duration": 5,
       "pass": true,
       "note": "Danh sách khiếu nại hệ thống",
       "dataSample": "{\"code\":200,\"success\":true,\"message\":\"Thao tác thành công\",\"data\":[{\"id\":\"6b33d835-e96a-44cf-bac0-d720f076c5b6\",\"senderName\":\"LanHuyen\",\"senderEmail\":"
@@ -490,7 +490,7 @@
       "url": "/../swagger/v1/swagger.json",
       "expectedStatus": 200,
       "actualStatus": 200,
-      "duration": 17,
+      "duration": 48,
       "pass": true,
       "note": "Đặc tả Swagger v3.0.4, 78 APIs",
       "dataSample": "{\"openapi\":\"3.0.4\",\"info\":{\"title\":\"SmartRent API\",\"description\":\"API SmartRent - 3 roles: SuperAdmin, Landlord, Tenant\",\"version\":\"v1\"},\"paths\":{\"/ap"

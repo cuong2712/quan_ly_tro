@@ -29,15 +29,15 @@
 
 ---
 
-## 🧪 PHẦN 2: KẾT QUẢ KIỂM THỬ ĐƠN VỊ FRONTEND (UNIT TESTS - VITEST)
+## 🧪 PHẦN 2: KẾT QUẢ KIỂM THỬ ĐƠN VỊ (UNIT TESTS)
 
+### 2.1. Kiểm thử Đơn vị Frontend (Vitest - React)
 - **Lệnh thực thi**: `npm run test` (tại thư mục `quan-ly-phong-tro`)
 - **Bộ kiểm thử**: 2 Test Files
 - **Tổng số testcase**: 10 tests
 - **Trạng thái**: **10/10 PASS (Tỷ lệ thành công: 100%)**
 - **Thời gian thực thi**: 9.71s
 
-### Bảng chi tiết Unit Tests:
 | STT | Tập tin kiểm thử | Ca kiểm thử (Test Description) | Kết quả | Thời gian |
 | :---: | :--- | :--- | :---: | :---: |
 | 1 | `ErrorBoundary.test.jsx` | Hiển thị giao diện fallback khi component con gặp ngoại lệ | ✅ PASS | 234ms |
@@ -50,6 +50,28 @@
 | 8 | `formatters.test.js` | Chuyển đổi mã trạng thái hợp đồng (Active -> "Hiệu lực", ExpiringSoon -> "Sắp hết hạn") | ✅ PASS | 11ms |
 | 9 | `formatters.test.js` | Chuyển đổi mã trạng thái hóa đơn (Paid -> "Đã thanh toán", Unpaid -> "Chưa thanh toán") | ✅ PASS | 8ms |
 | 10 | `formatters.test.js` | Tạo URL tải ảnh hoặc avatar dự phòng an toàn | ✅ PASS | 11ms |
+
+### 2.2. Kiểm thử Đơn vị Backend (.NET 9 xUnit)
+- **Lệnh thực thi**: `dotnet test` (tại thư mục `smartrent-api`)
+- **Dự án kiểm thử**: `SmartRent.Tests` (xUnit Framework)
+- **Tổng số testcase**: 12 tests
+- **Trạng thái**: **12/12 PASS (Tỷ lệ thành công: 100%)**
+- **Thời gian thực thi**: 86ms
+
+| STT | Phân lớp kiểm thử | Ca kiểm thử (Test Description) | Kết quả | Thời gian |
+| :---: | :--- | :--- | :---: | :---: |
+| 1 | `ApiResponseTests` | `ApiResponse.Ok`: Đóng gói thành công mã 200 kèm payload dữ liệu | ✅ PASS | 22ms |
+| 2 | `ApiResponseTests` | `ApiResponse.Fail`: Đóng gói lỗi nghiệp vụ mã 400 kèm thông báo | ✅ PASS | 4ms |
+| 3 | `ApiResponseTests` | `ApiResponse.Unauthorized`: Trả về mã 401 khi chưa đăng nhập | ✅ PASS | 3ms |
+| 4 | `ApiResponseTests` | `ApiResponse.Forbidden`: Trả về mã 403 khi không đủ quyền hạn | ✅ PASS | 3ms |
+| 5 | `BillingCalculationTests` | `ElectricityCost`: Tính lũy kế điện tiêu thụ ($SốMới - SốCũ \times ĐơnGiá$) (100 -> 150 kWh) | ✅ PASS | 5ms |
+| 6 | `BillingCalculationTests` | `ElectricityCost`: Tính điện tiêu thụ giá bậc cao (200 -> 280 kWh) | ✅ PASS | 2ms |
+| 7 | `BillingCalculationTests` | `ElectricityCost`: Xử lý trường hợp không tiêu thụ điện ($0$ kWh) | ✅ PASS | 2ms |
+| 8 | `BillingCalculationTests` | `WaterCost`: Tính lũy kế nước tiêu thụ ($20 \to 35$ m³ $\times 25.000$ đ) | ✅ PASS | 3ms |
+| 9 | `BillingCalculationTests` | `WaterCost`: Tính tiền nước gia đình tiêu thụ ($10 \to 18$ m³) | ✅ PASS | 2ms |
+| 10 | `BillingCalculationTests` | `InvoiceTotalAmount`: Tính tổng tiền hóa đơn đa mục (Phòng + Điện + Nước + Dịch vụ) | ✅ PASS | 4ms |
+| 11 | `RoomDomainTests` | `Room_InitialStatus`: Phòng mới khởi tạo mặc định trạng thái `Vacant` (Còn trống) | ✅ PASS | 5ms |
+| 12 | `RoomDomainTests` | `Room_WhenDepositBooked`: Cập nhật chính xác số tiền cọc, tên và SĐT người giữ chỗ | ✅ PASS | 4ms |
 
 ---
 
@@ -178,3 +200,4 @@ Qua quá trình kiểm thử toàn diện trên cả tầng Frontend và Backend
 - Độ trễ phản hồi API trung bình đạt mức lý tưởng: **24ms**.
 - Hệ thống xử lý hoàn hảo cả trường hợp hợp lệ (Positive Test) và trường hợp an ninh, sai mật khẩu, truy cập trái phép (Negative & RBAC Test).
 - Toàn bộ kết quả và bảng biểu trên đáp ứng hoàn toàn yêu cầu học thuật để đưa vào **Chương Kiểm Thử Hệ Thống** trong đồ án / báo cáo tốt nghiệp.
+

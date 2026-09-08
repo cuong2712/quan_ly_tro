@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartRent.Application", "Sm
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartRent.API", "SmartRent.API\SmartRent.API.csproj", "{76A1DA3C-57A9-4F24-968A-856F32E47852}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartRent.Tests", "SmartRent.Tests\SmartRent.Tests.csproj", "{4CB8DE73-1E94-47FF-B8E3-1D5EE39B1DE6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +38,9 @@ Global
 		{76A1DA3C-57A9-4F24-968A-856F32E47852}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{76A1DA3C-57A9-4F24-968A-856F32E47852}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{76A1DA3C-57A9-4F24-968A-856F32E47852}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4CB8DE73-1E94-47FF-B8E3-1D5EE39B1DE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CB8DE73-1E94-47FF-B8E3-1D5EE39B1DE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CB8DE73-1E94-47FF-B8E3-1D5EE39B1DE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4CB8DE73-1E94-47FF-B8E3-1D5EE39B1DE6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

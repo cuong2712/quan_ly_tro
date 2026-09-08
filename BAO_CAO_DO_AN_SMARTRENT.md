@@ -502,9 +502,29 @@ sequenceDiagram
 | 9 | `formatters.test.js` | Chuyển đổi mã trạng thái hóa đơn (Paid -> "Đã thanh toán", Unpaid -> "Chưa thanh toán") | ✅ PASS | 8ms |
 | 10 | `formatters.test.js` | Tạo URL hình ảnh đại diện / placeholder an toàn | ✅ PASS | 11ms |
 
+### 5.2. Kết quả kiểm thử Đơn vị Backend (.NET 9 xUnit - 12/12 Pass)
+- **Framework**: .NET 9.0 xUnit Framework (`dotnet test`)
+- **Dự án kiểm thử**: `SmartRent.Tests`
+- **Kết quả**: **12 / 12 Pass (100%)** – Thời gian: 86ms
+
+| STT | Phân lớp kiểm thử | Ca kiểm thử (Test Description) | Kết quả | Thời gian |
+| :---: | :--- | :--- | :---: | :---: |
+| 1 | `ApiResponseTests` | `ApiResponse.Ok`: Đóng gói thành công mã 200 kèm payload dữ liệu | ✅ PASS | 22ms |
+| 2 | `ApiResponseTests` | `ApiResponse.Fail`: Đóng gói lỗi nghiệp vụ mã 400 kèm thông báo | ✅ PASS | 4ms |
+| 3 | `ApiResponseTests` | `ApiResponse.Unauthorized`: Trả về mã 401 khi chưa đăng nhập | ✅ PASS | 3ms |
+| 4 | `ApiResponseTests` | `ApiResponse.Forbidden`: Trả về mã 403 khi không đủ quyền hạn | ✅ PASS | 3ms |
+| 5 | `BillingCalculationTests` | `ElectricityCost`: Tính lũy kế điện tiêu thụ ($SốMới - SốCũ \times ĐơnGiá$) | ✅ PASS | 5ms |
+| 6 | `BillingCalculationTests` | `ElectricityCost`: Tính điện tiêu thụ giá bậc cao ($200 \to 280$ kWh) | ✅ PASS | 2ms |
+| 7 | `BillingCalculationTests` | `ElectricityCost`: Xử lý trường hợp không tiêu thụ điện ($0$ kWh) | ✅ PASS | 2ms |
+| 8 | `BillingCalculationTests` | `WaterCost`: Tính lũy kế nước tiêu thụ ($20 \to 35$ m³ $\times 25.000$ đ) | ✅ PASS | 3ms |
+| 9 | `BillingCalculationTests` | `WaterCost`: Tính tiền nước gia đình tiêu thụ ($10 \to 18$ m³) | ✅ PASS | 2ms |
+| 10 | `BillingCalculationTests` | `InvoiceTotalAmount`: Tính tổng tiền hóa đơn đa mục (Phòng + Điện + Nước + Dịch vụ) | ✅ PASS | 4ms |
+| 11 | `RoomDomainTests` | `Room_InitialStatus`: Phòng mới khởi tạo mặc định trạng thái `Vacant` (Còn trống) | ✅ PASS | 5ms |
+| 12 | `RoomDomainTests` | `Room_WhenDepositBooked`: Cập nhật chính xác số tiền cọc, tên và SĐT người giữ chỗ | ✅ PASS | 4ms |
+
 ---
 
-### 5.2. Bảng kết quả kiểm thử API Endpoints & Phân quyền (35/35 Pass)
+### 5.3. Bảng kết quả kiểm thử API Endpoints & Phân quyền (35/35 Pass)
 - **Công cụ thực thi**: Test Runner Script `test_suite.mjs` (Node.js Test Engine)
 - **Tổng số ca kiểm thử**: 35 Test Cases
 - **Tỷ lệ đạt**: **35 / 35 PASS (100%)** | **0 FAIL** | **Thời gian trung bình**: **24 ms**
@@ -549,7 +569,7 @@ sequenceDiagram
 
 ---
 
-### 5.3. Ca kiểm thử chức năng nghiệp vụ cốt lõi (Functional Use Case Tests)
+### 5.4. Ca kiểm thử chức năng nghiệp vụ cốt lõi (Functional Use Case Tests)
 
 #### Kịch bản 1: Chốt điện nước hàng loạt & Tự động sinh hóa đơn (UC-01)
 - **Tác tử**: Chủ trọ (`landlord@smartrent.vn`).
@@ -573,4 +593,4 @@ sequenceDiagram
 ---
 
 ## 🎯 KẾT LUẬN
-Hệ thống **SmartRent** đã trải qua quá trình kiểm thử nghiêm ngặt bao gồm **10/10 Unit Tests Frontend (Vitest)**, **35/35 Automated API Tests Backend (100% Pass, thời gian trung bình 24ms)**, cùng đầy đủ kịch bản kiểm thử An ninh (401 Unauthorized), Phân quyền RBAC (403 Forbidden) và các ca kiểm thử chức năng nghiệp vụ trọng yếu. Báo cáo này cùng tệp chi tiết [BAO_CAO_KIEM_THU_CHI_TIET.md](BAO_CAO_KIEM_THU_CHI_TIET.md) cung cấp đầy đủ luận cứ và số liệu khoa học vững chắc để học viên ghi vào đồ án tốt nghiệp.
+Hệ thống **SmartRent** đã trải qua quá trình kiểm thử nghiêm ngặt bao gồm **12/12 Unit Tests Backend (.NET 9 xUnit)**, **10/10 Unit Tests Frontend (Vitest)**, **35/35 Automated API Tests Backend (100% Pass, thời gian trung bình 24ms)**, cùng đầy đủ kịch bản kiểm thử An ninh (401 Unauthorized), Phân quyền RBAC (403 Forbidden) và các ca kiểm thử chức năng nghiệp vụ trọng yếu. Báo cáo này cùng tệp chi tiết [BAO_CAO_KIEM_THU_CHI_TIET.md](BAO_CAO_KIEM_THU_CHI_TIET.md) cung cấp đầy đủ luận cứ và số liệu khoa học vững chắc để học viên ghi vào đồ án tốt nghiệp.

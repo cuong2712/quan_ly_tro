@@ -186,13 +186,29 @@ SmartRent/
   cd smartrent-api
   dotnet build
   ```
+* **Chạy kiểm thử Đơn vị Backend (.NET xUnit - 12 Tests):**
+  ```powershell
+  cd smartrent-api
+  dotnet test
+  ```
 * **Kiểm tra biên dịch Frontend:**
   ```powershell
   cd quan-ly-phong-tro
   npm run build
   ```
-* **Chạy kiểm thử tự động Frontend (Vitest):**
+* **Chạy kiểm thử tự động Frontend (Vitest - 10 Tests):**
   ```powershell
   cd quan-ly-phong-tro
   npm run test
   ```
+* **Chạy kiểm thử tự động toàn diện Backend API & An ninh (35 Endpoints):**
+  *(Yêu cầu Backend đang chạy ở cổng 5000)*
+  ```powershell
+  # Đứng tại thư mục gốc dự án:
+  node test_suite.mjs
+  ```
+* **Xem tài liệu minh chứng kiểm thử chi tiết:**
+  * Báo cáo kiểm thử chi tiết: [BAO_CAO_KIEM_THU_CHI_TIET.md](BAO_CAO_KIEM_THU_CHI_TIET.md)
+  * Dữ liệu log kiểm thử định dạng JSON: [test_results.json](test_results.json)
+  * Giao diện kiểm thử trực quan Swagger UI: `http://localhost:5000/swagger`
+
