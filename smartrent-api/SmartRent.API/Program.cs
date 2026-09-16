@@ -36,7 +36,6 @@ var rawConnection = builder.Configuration.GetConnectionString("DefaultConnection
 var connectionString = ConvertPostgresUrlToConnectionString(rawConnection);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
     options.UseNpgsql(connectionString)
            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
