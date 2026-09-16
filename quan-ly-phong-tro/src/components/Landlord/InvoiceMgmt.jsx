@@ -67,6 +67,12 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
   const pendingDisputesCount = invoicesList.filter(i => i.isReported && i.disputeStatus === 'Pending').length;
 
+  const resolveCalculatedTotal = 
+    (Number(disputeResolveData.rentFee) || 0) +
+    (Number(disputeResolveData.elecFee) || 0) +
+    (Number(disputeResolveData.waterFee) || 0) +
+    (Number(disputeResolveData.serviceFee) || 0);
+
   const currentMonthKey = monthFilter || new Date().toISOString().slice(0, 7);
 
   const normalizeRoomNum = (num) => String(num || '').toLowerCase().replace(/^p\.?\s*/i, '').trim();
@@ -903,51 +909,96 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
 
             <form onSubmit={handleResolveDisputeSubmit}>
               <div className="modal-body">
-                {/* Hộp thông tin phản ánh từ khách thuê */}
-                <div style={{
-                  background: 'rgba(245, 158, 11, 0.08)',
-                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                  borderRadius: '8px',
-                  padding: '14px 16px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#f59e0b', marginBottom: '8px' }}>
-                    📌 Thông Tin Khách Thuê Báo Sai (Phòng {resolvingInvoice.roomNumber || resolvingInvoice.roomId}):
-                  </div>
-                  <div style={{ fontSize: '13px', lineHeight: '1.7', color: 'var(--text-primary)' }}>
-                    <div><strong>Lý do:</strong> {resolvingInvoice.disputeReason}</div>
-                    <div><strong>Chi tiết:</strong> {resolvingInvoice.disputeDescription}</div>
-                    {resolvingInvoice.suggestedElecNumber && (
-                      <div><strong>Chỉ số điện khách đề xuất:</strong> <span style={{ color: '#6366f1', fontWeight: 600 }}>{resolvingInvoice.suggestedElecNumber} kWh</span></div>
-                    )}
-                    {resolvingInvoice.suggestedWaterNumber && (
-                      <div><strong>Chỉ số nước khách đề xuất:</strong> <span style={{ color: '#6366f1', fontWeight: 600 }}>{resolvingInvoice.suggestedWaterNumber} m³</span></div>
-                    )}
-                  </div>
+                {/* Hộp thông tin phản ánh từ khách thuê & đối chiếu số liệu */}
+                {(() => {
+                  const rLog = utilityLogsList.find(u => 
+                    ((u.roomId && resolvingInvoice.roomId && (u.roomId === resolvingInvoice.roomId || u.RoomId === resolvingInvoice.roomId)) ||
+                     isRoomMatchingInvoice(roomsList.find(r => r.id === u.roomId || r.Id === u.roomId), resolvingInvoice)) &&
+                    (u.month === resolvingInvoice.month || u.Month === resolvingInvoice.month)
+                  );
 
-                  {/* Hiển thị ảnh minh chứng công tơ do khách upload trực tiếp */}
-                  {resolvingInvoice.disputeImageUrl && (
-                    <div style={{ marginTop: '12px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                        📷 Ảnh minh chứng khách gửi (Bấm vào ảnh để xem kích thước gốc):
+                  return (
+                    <div style={{
+                      background: 'rgba(245, 158, 11, 0.08)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#f59e0b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <AlertTriangle size={16} /> Thông Tin Khách Thuê Báo Sai (Phòng {resolvingInvoice.roomNumber || resolvingInvoice.roomId} - Kỳ thu: Tháng {resolvingInvoice.month}):
                       </div>
-                      <a href={getImageFullUrl(resolvingInvoice.disputeImageUrl)} target="_blank" rel="noreferrer">
-                        <img
-                          src={getImageFullUrl(resolvingInvoice.disputeImageUrl)}
-                          alt="Ảnh công tơ khách gửi"
-                          style={{
-                            maxWidth: '100%',
-                            maxHeight: '200px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-color)',
-                            objectFit: 'contain',
-                            background: '#000'
-                          }}
-                        />
-                      </a>
+                      <div style={{ fontSize: '13.5px', lineHeight: '1.7', color: 'var(--text-primary)' }}>
+                        <div><strong>Lý do báo sai:</strong> <span style={{ color: '#f59e0b', fontWeight: 600 }}>{resolvingInvoice.disputeReason || 'Báo sai chỉ số điện / nước'}</span></div>
+                        <div><strong>Chi tiết phản ánh:</strong> {resolvingInvoice.disputeDescription || 'Không có mô tả chi tiết'}</div>
+                        
+                        {/* Bảng so sánh chỉ số điện nước giữa Hóa đơn hiện tại và Khách đề xuất */}
+                        <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '6px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+                          <table style={{ width: '100%', fontSize: '12.5px', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ background: 'rgba(0, 0, 0, 0.1)', textAlign: 'left', borderBottom: '1px solid var(--border-color)' }}>
+                                <th style={{ padding: '6px 10px' }}>Hạng mục</th>
+                                <th style={{ padding: '6px 10px' }}>Đang tính trên HĐ</th>
+                                <th style={{ padding: '6px 10px', color: '#6366f1' }}>Khách đề xuất</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                <td style={{ padding: '6px 10px', fontWeight: 600 }}>⚡ Điện</td>
+                                <td style={{ padding: '6px 10px' }}>
+                                  {rLog ? (
+                                    <span>{rLog.oldElec} → <strong>{rLog.newElec}</strong> ({rLog.elecUsed} kWh) • {formatVND(resolvingInvoice.elecFee)}</span>
+                                  ) : (
+                                    <span>{formatVND(resolvingInvoice.elecFee)}</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '6px 10px', color: '#6366f1', fontWeight: 700 }}>
+                                  {resolvingInvoice.suggestedElecNumber != null ? `${resolvingInvoice.suggestedElecNumber} kWh` : '—'}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td style={{ padding: '6px 10px', fontWeight: 600 }}>💧 Nước</td>
+                                <td style={{ padding: '6px 10px' }}>
+                                  {rLog ? (
+                                    <span>{rLog.oldWater} → <strong>{rLog.newWater}</strong> ({rLog.waterUsed} m³) • {formatVND(resolvingInvoice.waterFee)}</span>
+                                  ) : (
+                                    <span>{formatVND(resolvingInvoice.waterFee)}</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '6px 10px', color: '#6366f1', fontWeight: 700 }}>
+                                  {resolvingInvoice.suggestedWaterNumber != null ? `${resolvingInvoice.suggestedWaterNumber} m³` : '—'}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Hiển thị ảnh minh chứng công tơ do khách upload trực tiếp */}
+                      {resolvingInvoice.disputeImageUrl && resolvingInvoice.disputeImageUrl.trim().length > 0 && (
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                            📷 Ảnh minh chứng khách gửi (Bấm vào ảnh để xem kích thước gốc):
+                          </div>
+                          <a href={getImageFullUrl(resolvingInvoice.disputeImageUrl)} target="_blank" rel="noreferrer">
+                            <img
+                              src={getImageFullUrl(resolvingInvoice.disputeImageUrl)}
+                              alt="Ảnh công tơ khách gửi"
+                              style={{
+                                maxWidth: '100%',
+                                maxHeight: '200px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-color)',
+                                objectFit: 'contain',
+                                background: '#000'
+                              }}
+                            />
+                          </a>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {/* Chọn hành động xử lý */}
                 <div className="form-group">
@@ -1209,6 +1260,48 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                 </p>
               </div>
 
+              {viewingInvoice.isReported && viewingInvoice.disputeStatus === 'Pending' && (
+                <div style={{
+                  background: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: '6px',
+                  padding: '12px 14px',
+                  marginBottom: '14px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#b45309', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <AlertTriangle size={16} color="#d97706" /> Khách thuê đang báo sai sót hóa đơn này!
+                    </div>
+                    <div style={{ fontSize: '12.5px', marginTop: '3px', color: '#1e293b' }}>
+                      <strong>Lý do:</strong> {viewingInvoice.disputeReason || 'Báo sai tiền điện/nước'} • <strong>Chi tiết:</strong> {viewingInvoice.disputeDescription || 'Xem chi tiết khi xử lý'}
+                    </div>
+                    {(viewingInvoice.suggestedElecNumber != null || viewingInvoice.suggestedWaterNumber != null) && (
+                      <div style={{ fontSize: '12px', marginTop: '3px', color: '#4f46e5' }}>
+                        {viewingInvoice.suggestedElecNumber != null && <span style={{ marginRight: '10px' }}>⚡ Điện đề xuất: <strong>{viewingInvoice.suggestedElecNumber} kWh</strong></span>}
+                        {viewingInvoice.suggestedWaterNumber != null && <span>💧 Nước đề xuất: <strong>{viewingInvoice.suggestedWaterNumber} m³</strong></span>}
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn btn-sm btn-primary"
+                    style={{ background: '#f59e0b', borderColor: '#f59e0b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px' }}
+                    onClick={() => {
+                      const inv = viewingInvoice;
+                      setViewingInvoice(null);
+                      handleOpenResolveDispute(inv);
+                    }}
+                  >
+                    <AlertTriangle size={14} /> Xử lý ngay
+                  </button>
+                </div>
+              )}
+
               {viewingInvoice.disputeStatus === 'Resolved' && (
                 <div style={{
                   background: '#f0fdf4',
@@ -1346,6 +1439,20 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
               </button>
 
               <div style={{ display: 'flex', gap: '8px' }}>
+                {viewingInvoice.isReported && viewingInvoice.disputeStatus === 'Pending' && (
+                  <button 
+                    type="button" 
+                    className="btn btn-warning" 
+                    style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}
+                    onClick={() => {
+                      const inv = viewingInvoice;
+                      setViewingInvoice(null);
+                      handleOpenResolveDispute(inv);
+                    }}
+                  >
+                    <AlertTriangle size={15} /> Xử Lý Báo Sai
+                  </button>
+                )}
                 <button 
                   type="button" 
                   className="btn btn-secondary" 
