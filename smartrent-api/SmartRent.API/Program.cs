@@ -262,6 +262,24 @@ app.MapHub<NotificationHub>("/hubs/notifications");
         await db.Database.ExecuteSqlRawAsync(@"
             DO $$
             BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'BankName') THEN
+                    ALTER TABLE ""Users"" ADD COLUMN ""BankName"" character varying(100) NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'BankAccountNumber') THEN
+                    ALTER TABLE ""Users"" ADD COLUMN ""BankAccountNumber"" character varying(50) NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'BankAccountName') THEN
+                    ALTER TABLE ""Users"" ADD COLUMN ""BankAccountName"" character varying(256) NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'CustomContractTemplate') THEN
+                    ALTER TABLE ""Users"" ADD COLUMN ""CustomContractTemplate"" text NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'Amenities') THEN
+                    ALTER TABLE ""Rooms"" ADD COLUMN ""Amenities"" text NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'ServiceFee') THEN
+                    ALTER TABLE ""Rooms"" ADD COLUMN ""ServiceFee"" numeric NOT NULL DEFAULT 0;
+                END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Rooms' AND column_name = 'DepositAmount') THEN
                     ALTER TABLE ""Rooms"" ADD COLUMN ""DepositAmount"" numeric(18,2) NULL;
                 END IF;
@@ -283,8 +301,21 @@ app.MapHub<NotificationHub>("/hubs/notifications");
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contracts' AND column_name = 'CustomContent') THEN
                     ALTER TABLE ""Contracts"" ADD COLUMN ""CustomContent"" text NULL;
                 END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contracts' AND column_name = 'FileUrl') THEN
+                    ALTER TABLE ""Contracts"" ADD COLUMN ""FileUrl"" text NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contracts' AND column_name = 'RequestedRenewMonths') THEN
+                    ALTER TABLE ""Contracts"" ADD COLUMN ""RequestedRenewMonths"" integer NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contracts' AND column_name = 'RenewNotes') THEN
+                    ALTER TABLE ""Contracts"" ADD COLUMN ""RenewNotes"" text NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contracts' AND column_name = 'RenewRequestedAt') THEN
+                    ALTER TABLE ""Contracts"" ADD COLUMN ""RenewRequestedAt"" timestamp with time zone NULL;
+                END IF;
             END $$;
         ");
+        await DataSeeder.SeedAsync(db);
     }
     catch (Exception ex)
     {

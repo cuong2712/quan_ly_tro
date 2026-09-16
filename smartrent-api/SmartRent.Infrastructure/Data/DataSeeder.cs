@@ -11,6 +11,17 @@ public static class DataSeeder
     {
         try { await context.Database.MigrateAsync(); } catch (Exception ex) { Console.WriteLine("Migrate warning: " + ex.Message); }
 
+        try 
+        { 
+            await context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""BankName"" character varying(100) NULL;
+                ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""BankAccountNumber"" character varying(50) NULL;
+                ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""BankAccountName"" character varying(256) NULL;
+                ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""CustomContractTemplate"" text NULL;
+            "); 
+        }
+        catch (Exception ex) { Console.WriteLine("Add Users cols error: " + ex.Message); }
+
         try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text; ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""ServiceFee"" numeric NOT NULL DEFAULT 0;"); }
         catch (Exception ex) { Console.WriteLine("Add Room cols error: " + ex.Message); }
 
