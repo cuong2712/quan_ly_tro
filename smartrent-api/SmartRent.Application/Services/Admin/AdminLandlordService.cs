@@ -156,4 +156,3 @@ public class AdminLandlordService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 }
-

@@ -15,6 +15,13 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Hỗ trợ dynamic PORT từ Render, Railway, Fly.io, Azure hoặc môi trường Container
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // ===== Security Services =====
 builder.Services.AddSecurityServices();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -245,6 +252,7 @@ app.MapHub<NotificationHub>("/hubs/notifications");
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();  
     try
     {
+        await DataSeeder.SeedAsync(db);
         await db.Database.ExecuteSqlRawAsync(@"
             DO $$
             BEGIN

@@ -361,6 +361,37 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     maxTenants: 2, status: 'Vacant', elecMeter: 0, waterMeter: 0, description: ''
   });
 
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingRoom, setBookingRoom] = useState(null);
+  const [savingBooking, setSavingBooking] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    tenantName: '',
+    tenantPhone: '',
+    depositAmount: 1000000,
+    expectedMoveInDate: '',
+    note: ''
+  });
+
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractRoom, setContractRoom] = useState(null);
+  const [availableTenants, setAvailableTenants] = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const [savingContract, setSavingContract] = useState(false);
+  const [isQuickCreateTenant, setIsQuickCreateTenant] = useState(false);
+  const [quickTenantForm, setQuickTenantForm] = useState({ fullName: '', phone: '', email: '', password: 'Tenant@123456', cccd: '', hometown: '' });
+  const [contractForm, setContractForm] = useState({
+    contractCode: '',
+    tenantProfileId: '',
+    startDate: '',
+    endDate: '',
+    rentAmount: 0,
+    deposit: 0,
+    paymentTermDay: 5,
+    terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
+    initialElecMeter: 0,
+    initialWaterMeter: 0
+  });
+
   const load = useCallback(async () => {
     if (!zone?.id) return;
     setLoading(true);
@@ -473,17 +504,6 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     finally { setSaving(false); }
   };
 
-  const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  const [bookingRoom, setBookingRoom] = useState(null);
-  const [savingBooking, setSavingBooking] = useState(false);
-  const [bookingForm, setBookingForm] = useState({
-    tenantName: '',
-    tenantPhone: '',
-    depositAmount: 1000000,
-    expectedMoveInDate: '',
-    note: ''
-  });
-
   const openBookDeposit = (r, e) => {
     e.stopPropagation();
     setBookingRoom(r);
@@ -527,26 +547,6 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
       setSavingBooking(false);
     }
   };
-
-  const [contractModalOpen, setContractModalOpen] = useState(false);
-  const [contractRoom, setContractRoom] = useState(null);
-  const [availableTenants, setAvailableTenants] = useState([]);
-  const [loadingTenants, setLoadingTenants] = useState(false);
-  const [savingContract, setSavingContract] = useState(false);
-  const [isQuickCreateTenant, setIsQuickCreateTenant] = useState(false);
-  const [quickTenantForm, setQuickTenantForm] = useState({ fullName: '', phone: '', email: '', password: 'Tenant@123456', cccd: '', hometown: '' });
-  const [contractForm, setContractForm] = useState({
-    contractCode: '',
-    tenantProfileId: '',
-    startDate: '',
-    endDate: '',
-    rentAmount: 0,
-    deposit: 0,
-    paymentTermDay: 5,
-    terms: 'Bên B giữ vệ sinh chung, không gây ồn sau 22h, thanh toán tiền nhà trước ngày 05 hàng tháng.',
-    initialElecMeter: 0,
-    initialWaterMeter: 0
-  });
 
   const openConvertToContract = async (r, e) => {
     if (e) e.stopPropagation();
