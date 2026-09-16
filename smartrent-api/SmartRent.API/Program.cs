@@ -29,8 +29,15 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 
 // ===== Database =====
+var rawConnection = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? Environment.GetEnvironmentVariable("DATABASE_URL")
+    ?? "";
+
+var connectionString = ConvertPostgresUrlToConnectionString(rawConnection);
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(connectionString)
            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // ===== JWT Authentication =====
@@ -287,3 +294,31 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 }
 
 app.Run();
+
+static string ConvertPostgresUrlToConnectionString(string rawUrl)
+{
+    if (string.IsNullOrWhiteSpace(rawUrl)) return rawUrl;
+
+    if (rawUrl.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+        rawUrl.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var uri = new Uri(rawUrl);
+            var userInfo = uri.UserInfo.Split(':', 2);
+            var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+            var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+            var host = uri.Host;
+            var port = uri.Port > 0 ? uri.Port : 5432;
+            var database = uri.AbsolutePath.TrimStart('/');
+
+            return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Prefer;Trust Server Certificate=true";
+        }
+        catch
+        {
+            return rawUrl;
+        }
+    }
+
+    return rawUrl;
+}
