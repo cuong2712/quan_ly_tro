@@ -140,5 +140,35 @@ public class AdminController(AdminService adminService, ITelegramBotService tele
         }
         return BadRequest(new { message = "Không thể gửi tin nhắn tới Telegram. Vui lòng kiểm tra lại cấu hình BotToken và AdminChatId." });
     }
+
+    // Gửi thử nghiệm thông báo Khiếu nại qua Telegram Bot
+    [HttpPost("telegram/test-complaint")]
+    public async Task<IActionResult> TestComplaintTelegram([FromBody] TestTelegramRequest? request = null)
+    {
+        var title = !string.IsNullOrWhiteSpace(request?.Title) ? request.Title : "Hỏng điều hòa phòng 302 cần sửa gấp";
+        var content = !string.IsNullOrWhiteSpace(request?.Content) ? request.Content : "Điều hòa phòng 302 không mát và chảy nước xuống sàn nhà từ tối qua.";
+        
+        var success = await telegramBotService.SendComplaintAlertAsync("Lê Thị Mai", "Tenant", "lethimai@gmail.com", title, content);
+        if (success)
+        {
+            return Ok(new { message = "Đã gửi thông báo khiếu nại thử nghiệm tới Telegram thành công!" });
+        }
+        return BadRequest(new { message = "Không thể gửi tin nhắn tới Telegram. Vui lòng kiểm tra lại cấu hình BotToken và AdminChatId." });
+    }
+
+    // Gửi thử nghiệm thông báo Phản hồi khiếu nại qua Telegram Bot
+    [HttpPost("telegram/test-reply")]
+    public async Task<IActionResult> TestReplyTelegram([FromBody] TestTelegramRequest? request = null)
+    {
+        var title = !string.IsNullOrWhiteSpace(request?.Title) ? request.Title : "Hỏng điều hòa phòng 302 cần sửa gấp";
+        var content = !string.IsNullOrWhiteSpace(request?.Content) ? request.Content : "Ban quản trị đã tiếp nhận và cử thợ điện lạnh qua kiểm tra sửa chữa vào lúc 14:00 chiều nay.";
+        
+        var success = await telegramBotService.SendReplyAlertAsync("Lê Thị Mai", title, content, "SuperAdmin");
+        if (success)
+        {
+            return Ok(new { message = "Đã gửi thông báo phản hồi khiếu nại thử nghiệm tới Telegram thành công!" });
+        }
+        return BadRequest(new { message = "Không thể gửi tin nhắn tới Telegram. Vui lòng kiểm tra lại cấu hình BotToken và AdminChatId." });
+    }
 }
 

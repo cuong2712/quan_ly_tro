@@ -2,12 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using SmartRent.Core.DTOs;
 using SmartRent.Core.Entities;
 using SmartRent.Core.Enums;
+using SmartRent.Core.Interfaces;
 using SmartRent.Infrastructure.Data;
 
 namespace SmartRent.Application.Services;
 
 // Dịch vụ quản lý Khiếu nại / Phản hồi của Người dùng gửi đến Ban quản trị hệ thống & thông báo realtime.
-public class ComplaintService(AppDbContext db, NotificationService notificationService)
+public class ComplaintService(AppDbContext db, NotificationService notificationService, ITelegramBotService telegramBot)
 {
     // Lấy danh sách tất cả góp ý/khiếu nại.
     public async Task<IEnumerable<ComplaintDto>> GetAllAsync()
@@ -25,13 +26,22 @@ public class ComplaintService(AppDbContext db, NotificationService notificationS
 
         var full = await db.Complaints.Include(x => x.Sender).FirstAsync(x => x.Id == c.Id);
 
-        // Gửi thông báo đến Ban quản trị / SuperAdmin
+        // Gửi thông báo đến Ban quản trị / SuperAdmin trong hệ thống
         await notificationService.SendNotificationAsync(
             userId,
             $"Khiếu nại / Góp ý mới: {title}",
             $"Người gửi: {full.Sender?.FullName} ({full.Sender?.Role})\nNội dung: {content}",
             NotificationTarget.SuperAdmin,
             null
+        );
+
+        // Gửi thông báo chuyên biệt Khiếu nại / Góp ý lên Telegram Bot của Admin
+        await telegramBot.SendComplaintAlertAsync(
+            full.Sender?.FullName ?? "Người dùng",
+            full.Sender?.Role.ToString(),
+            full.Sender?.Email,
+            title,
+            content
         );
 
         return MapComplaint(full);
@@ -47,13 +57,22 @@ public class ComplaintService(AppDbContext db, NotificationService notificationS
         c.RepliedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        // Gửi thông báo phản hồi lại cho người khiếu nại
+        // Gửi thông báo phản hồi lại cho người khiếu nại trong hệ thống
         await notificationService.SendNotificationAsync(
             adminId,
             $"Phản hồi khiếu nại / góp ý: {c.Title}",
             $"Ban quản trị đã phản hồi yêu cầu của bạn:\n\"{reply}\"",
             NotificationTarget.User,
             c.SenderId
+        );
+
+        // Gửi thông báo Phản hồi thành công lên Telegram Bot của Admin
+        var admin = await db.Users.FindAsync(adminId);
+        await telegramBot.SendReplyAlertAsync(
+            c.Sender?.FullName ?? "Người dùng",
+            c.Title,
+            reply,
+            admin?.FullName ?? "Ban Quản Trị"
         );
 
         return MapComplaint(c);

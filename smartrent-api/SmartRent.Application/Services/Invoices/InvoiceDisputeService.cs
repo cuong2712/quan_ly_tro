@@ -3,12 +3,13 @@ using SmartRent.Application.Common.Mappings;
 using SmartRent.Core.DTOs;
 using SmartRent.Core.Entities;
 using SmartRent.Core.Enums;
+using SmartRent.Core.Interfaces;
 using SmartRent.Infrastructure.Data;
 
 namespace SmartRent.Application.Services.Invoices;
 
 // Dịch vụ xử lý Khiếu nại / Báo cáo sai lệch số liệu hóa đơn
-public class InvoiceDisputeService(AppDbContext db, NotificationService notificationService)
+public class InvoiceDisputeService(AppDbContext db, NotificationService notificationService, ITelegramBotService telegramBot)
 {
     // Khách thuê gửi báo cáo / khiếu nại sai sót số liệu hóa đơn cho Chủ trọ.
     public async Task<InvoiceDto> ReportInvoiceAsync(Guid id, Guid currentUserId, ReportInvoiceRequest req)
@@ -68,6 +69,15 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
             details,
             NotificationTarget.User,
             landlordId
+        );
+
+        // 4. Gửi thông báo tranh chấp hóa đơn lên Telegram Bot của Admin
+        await telegramBot.SendInvoiceDisputeAlertAsync(
+            senderName,
+            roomNumber,
+            inv.InvoiceCode,
+            req.Reason,
+            req.Description
         );
 
         return inv.ToInvoiceDto();
