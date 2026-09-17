@@ -11,7 +11,6 @@ namespace SmartRent.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Roles = "SuperAdmin")]
-public class AdminController(AdminService adminService) : ControllerBase
 public class AdminController(AdminService adminService, ITelegramBotService telegramBotService) : ControllerBase
 {
     // Lấy tổng quan các chỉ số thống kê của hệ thống.

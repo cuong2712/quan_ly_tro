@@ -8,7 +8,6 @@ using SmartRent.Infrastructure.Data;
 namespace SmartRent.Application.Services;
 
 // Dịch vụ quản lý Thông báo hệ thống (phân tách rõ ràng giữa Admin toàn sàn, Chủ trọ và Khách thuê).
-public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
 public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, ITelegramBotService telegramBot)
 {
     // Lấy danh sách thông báo phù hợp chuẩn xác với tài khoản và vai trò của người dùng.
