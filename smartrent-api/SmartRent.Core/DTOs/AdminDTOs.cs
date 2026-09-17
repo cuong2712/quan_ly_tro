@@ -125,3 +125,5 @@ public record AdminTenantDetailDto(
     DateTime CreatedAt
 );
 
+public record TestTelegramRequest(string? Title, string? Content);
+

@@ -227,6 +227,12 @@ builder.Services.AddScoped<ReportService>();
 // Realtime Notifier
 builder.Services.AddScoped<IRealtimeNotifier, RealtimeNotifier>();
 
+// Telegram Bot Service (Dành riêng gửi thông báo cho Quản trị viên SuperAdmin)
+builder.Services.AddHttpClient<ITelegramBotService, TelegramBotService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+
 // Auth Interface
 builder.Services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
 

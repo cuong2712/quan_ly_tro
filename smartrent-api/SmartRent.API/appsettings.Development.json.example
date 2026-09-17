@@ -15,4 +15,11 @@
     }
   },
   "AllowedHosts": "*"
+  "AllowedHosts": "*",
+  "Telegram": {
+    "BotToken": "YOUR_TELEGRAM_BOT_TOKEN",
+    "AdminChatId": "YOUR_ADMIN_CHAT_ID",
+    "IsEnabled": true
+  }
 }
+

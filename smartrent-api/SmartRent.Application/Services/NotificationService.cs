@@ -9,6 +9,7 @@ namespace SmartRent.Application.Services;
 
 // Dịch vụ quản lý Thông báo hệ thống (phân tách rõ ràng giữa Admin toàn sàn, Chủ trọ và Khách thuê).
 public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
+public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, ITelegramBotService telegramBot)
 {
     // Lấy danh sách thông báo phù hợp chuẩn xác với tài khoản và vai trò của người dùng.
     public async Task<IEnumerable<NotificationDto>> GetForUserAsync(Guid userId, string role)
@@ -103,6 +104,12 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
         // Phát thông báo Realtime
         await notifier.SendNotificationAsync(dto);
 
+        // Gửi thông báo tới Telegram của SuperAdmin nếu đối tượng nhận là SuperAdmin
+        if (target == NotificationTarget.SuperAdmin)
+        {
+            await telegramBot.SendAdminNotificationAsync(dto.Title, dto.Content, dto.SenderName);
+        }
+
         return dto;
     }
 
@@ -127,6 +134,13 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier)
 
         var dto = new NotificationDto(n.Id, senderName, n.Title, n.Content, n.Target.ToString(), n.TargetId, false, DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc));
         await notifier.SendNotificationAsync(dto);
+
+        // Gửi thông báo tới Telegram của SuperAdmin nếu đối tượng nhận là SuperAdmin
+        if (target == NotificationTarget.SuperAdmin)
+        {
+            await telegramBot.SendAdminNotificationAsync(dto.Title, dto.Content, dto.SenderName);
+        }
+
         return dto;
     }
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartRent.Application.Services;
 using SmartRent.Core.DTOs;
+using SmartRent.Core.Interfaces;
 using System.Security.Claims;
 
 namespace SmartRent.API.Controllers;
@@ -11,6 +12,7 @@ namespace SmartRent.API.Controllers;
 [Route("api/[controller]")]
 [Authorize(Roles = "SuperAdmin")]
 public class AdminController(AdminService adminService) : ControllerBase
+public class AdminController(AdminService adminService, ITelegramBotService telegramBotService) : ControllerBase
 {
     // Lấy tổng quan các chỉ số thống kê của hệ thống.
     [HttpGet("stats")]
@@ -119,6 +121,25 @@ public class AdminController(AdminService adminService) : ControllerBase
             return Ok(new { message = $"Đặt lại mật khẩu thành công: {newPass}" });
         }
         catch (KeyNotFoundException) { return NotFound(new { message = "Không tìm thấy hồ sơ khách thuê" }); }
+    }
+
+    // ==========================================
+    // TELEGRAM BOT TEST (ADMIN ONLY)
+    // ==========================================
+
+    // Gửi thử nghiệm một thông báo qua Telegram Bot để kiểm tra kết nối
+    [HttpPost("telegram/test")]
+    public async Task<IActionResult> TestTelegramNotification([FromBody] TestTelegramRequest? request = null)
+    {
+        var title = !string.IsNullOrWhiteSpace(request?.Title) ? request.Title : "Kiểm tra kết nối Telegram Bot";
+        var content = !string.IsNullOrWhiteSpace(request?.Content) ? request.Content : "Hệ thống SmartRent đang hoạt động ổn định. Telegram Bot đã kết nối thành công!";
+        
+        var success = await telegramBotService.SendAdminNotificationAsync(title, content, "SuperAdmin");
+        if (success)
+        {
+            return Ok(new { message = "Đã gửi thông báo thử nghiệm tới Telegram của Admin thành công!" });
+        }
+        return BadRequest(new { message = "Không thể gửi tin nhắn tới Telegram. Vui lòng kiểm tra lại cấu hình BotToken và AdminChatId." });
     }
 }
 
