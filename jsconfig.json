@@ -6,7 +6,18 @@
     "jsx": "react-jsx",
     "allowJs": true,
     "checkJs": false,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["quan-ly-phong-tro/src/*"]
+    }
   },
-  "include": ["quan-ly-phong-tro/src/**/*"]
+  "include": [
+    "quan-ly-phong-tro/src/**/*"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "smartrent-api/**"
+  ]
 }
