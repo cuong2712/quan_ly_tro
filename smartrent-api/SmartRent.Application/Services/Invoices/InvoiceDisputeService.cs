@@ -71,7 +71,16 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
             landlordId
         );
 
-        // 4. Gửi thông báo tranh chấp hóa đơn lên Telegram Bot của Admin
+        // 4. Tạo Notification gửi cho SuperAdmin trên web
+        await notificationService.SendNotificationAsync(
+            currentUserId,
+            $"⚠️ Báo cáo sai tiền trọ: HĐ {inv.InvoiceCode} - Phòng {roomNumber}",
+            $"Khách thuê {senderName} (Phòng {roomNumber}) đã gửi báo cáo sai sót cho hóa đơn {inv.InvoiceCode}.\n• Lý do: {req.Reason}\n• Mô tả: {req.Description}",
+            NotificationTarget.SuperAdmin,
+            null
+        );
+
+        // 5. Gửi thông báo tranh chấp hóa đơn chi tiết lên Telegram Bot của Admin
         await telegramBot.SendInvoiceDisputeAlertAsync(
             senderName,
             roomNumber,
