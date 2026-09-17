@@ -18,6 +18,7 @@ import { TenantContract } from '../components/Tenant/TenantContract';
 import { TenantInvoice } from '../components/Tenant/TenantInvoice';
 import { TenantRepair } from '../components/Tenant/TenantRepair';
 import { TenantNotify } from '../components/Tenant/TenantNotify';
+import { TenantPayment } from '../components/Tenant/TenantPayment';
 
 export default function TenantPage() {
   const { user, logout, updateUser } = useAuth();
@@ -32,6 +33,7 @@ export default function TenantPage() {
       let target = e.detail?.tab;
       if (target === 'tn_contracts') target = 'tn_contract';
       if (target === 'tn_repair') target = 'tn_repairs';
+      if (target === 'tn_payments') target = 'tn_payment';
       if (target) {
         setActiveTab(target);
       }
@@ -149,6 +151,21 @@ export default function TenantPage() {
             maintenanceRequests={maintenanceRequests || []} 
             setMaintenanceRequests={setMaintenanceRequests} 
             onRefresh={refetchMaintenance} 
+          />
+        );
+      case 'tn_payment':
+        return (
+          <TenantPayment
+            activeTenant={activeTenant}
+            invoices={invoices || []}
+            payments={payments || []}
+            setPayments={_setPayments}
+            onRefresh={() => {
+              refetchInvoices();
+              refetchPayments();
+              refetchDashboard();
+            }}
+            setActiveTab={setActiveTab}
           />
         );
       case 'tn_notifications':

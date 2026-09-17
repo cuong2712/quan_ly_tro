@@ -4,7 +4,7 @@ import {
   Copy, Check, RefreshCw, Maximize2, ZoomIn, Receipt
 } from 'lucide-react';
 import { formatVND, formatDate, getVietQRUrl, VIETNAM_BANKS } from '../../utils/formatters';
-import { paymentService } from '../../services';
+import { paymentService, fileService } from '../../services';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5000';
 
@@ -42,11 +42,12 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
 
   const selectedInvoice = unpaidInvoices.find(i => i.id === selectedInvoiceId) || defaultInvoice;
 
-  const [proofImage, setProofImage] = useState('https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=400');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [proofImage, setProofImage] = useState('');
   const [note, setNote] = useState('');
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
 
-  const amountToPay = selectedInvoice ? selectedInvoice.totalAmount : 0;
+  const amountToPay = selectedInvoice ? (selectedInvoice.totalAmount || 0) : 0;
   const roomNum = selectedInvoice?.roomNumber || activeTenant?.roomNumber || '101';
   const transferContent = selectedInvoice ? `Phong ${roomNum} thanh toan ${selectedInvoice.invoiceCode}` : `Phong ${roomNum} thanh toan tien nha`;
 
@@ -54,22 +55,41 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
   const landlordAccNo = selectedInvoice?.landlordBankAccountNumber || invoices[0]?.landlordBankAccountNumber || '6531211114';
   const landlordAccName = selectedInvoice?.landlordBankAccountName || invoices[0]?.landlordBankAccountName || 'NGUYEN MANH CUONG';
 
-  const bankObj = VIETNAM_BANKS.find(b => b.code.toUpperCase() === landlordBank.toUpperCase() || b.shortName.toLowerCase() === landlordBank.toLowerCase()) || { shortName: landlordBank };
-  const bankDisplay = bankObj.shortName || landlordBank;
+  const bankObj = VIETNAM_BANKS.find(b => 
+    b.code.toUpperCase() === (landlordBank || '').toUpperCase() || 
+    b.shortName.toLowerCase() === (landlordBank || '').toLowerCase() ||
+    (b.name && b.name.toLowerCase().includes((landlordBank || '').toLowerCase()))
+  ) || { code: landlordBank || 'BIDV', shortName: landlordBank || 'BIDV' };
+  
+  const bankCode = bankObj.code || 'BIDV';
+  const bankDisplay = bankObj.shortName || landlordBank || 'BIDV';
 
   const qrUrl = getVietQRUrl({
-    bankId: landlordBank,
+    bankId: bankCode,
     accountNo: landlordAccNo,
     accountName: landlordAccName,
-    amount: amountToPay || 4000000,
+    amount: amountToPay,
     addInfo: transferContent,
   });
 
   const handleCopy = (text, fieldName) => {
     if (!text) return;
-    navigator.clipboard.writeText(String(text));
-    setCopiedField(fieldName);
-    setTimeout(() => setCopiedField(null), 2000);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(String(text));
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = String(text);
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.warn('Không thể sao chép tự động:', err);
+    }
   };
 
   const handleFileChange = (e) => {
@@ -79,6 +99,7 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
         alert('Dung lượng ảnh vượt quá 10MB. Vui lòng chọn ảnh nhỏ hơn.');
         return;
       }
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setProofImage(reader.result);
@@ -93,8 +114,22 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
       alert('Vui lòng chọn hóa đơn cần thanh toán.');
       return;
     }
+    if (!selectedFile && !proofImage) {
+      alert('Vui lòng tải lên ảnh chụp màn hình / biên lai chuyển khoản thành công.');
+      return;
+    }
     setSubmitting(true);
     try {
+      let finalProofUrl = proofImage;
+      if (selectedFile && fileService?.uploadPaymentProof) {
+        try {
+          const res = await fileService.uploadPaymentProof(selectedFile);
+          finalProofUrl = res.url || res.data?.url || proofImage;
+        } catch (uploadErr) {
+          console.warn('Upload ảnh qua multipart thất bại, sử dụng data URL dự phòng:', uploadErr);
+        }
+      }
+
       let newPayment = null;
       if (paymentService && (paymentService.submitPayment || paymentService.submit)) {
         const fn = paymentService.submitPayment || paymentService.submit;
@@ -102,7 +137,7 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
           invoiceId: selectedInvoice.id,
           amount: amountToPay,
           method: 'VietQR',
-          proofImageUrl: proofImage,
+          proofImageUrl: finalProofUrl,
           note: note || 'Đã chuyển khoản thành công qua mã VietQR'
         });
       }
@@ -112,6 +147,9 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
       }
 
       setIsPaidSuccess(true);
+      setSelectedFile(null);
+      setProofImage('');
+      setNote('');
       alert('✅ Đã gửi minh chứng thành công! Chủ trọ sẽ duyệt tiền sớm.');
       onRefresh?.();
     } catch (err) {
