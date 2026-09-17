@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Key, Car, Check, User, CreditCard, Building2, Home, Phone, Mail, MapPin, ShieldCheck, Bike, Sparkles } from 'lucide-react';
+import { UserCheck, Key, Car, Check, CreditCard, Building2, Home, Phone, Mail, MapPin, Bike } from 'lucide-react';
 import { profileService } from '../../services';
 import { AvatarUploader, CccdCardUploader } from '../Common/ImageUploader';
-import { formatDate, sanitizeCccd, isValidCccd, isValidFullName, sanitizePhone, isValidPhone } from '../../utils/formatters';
+import { sanitizeCccd, isValidCccd, isValidFullName, sanitizePhone, isValidPhone } from '../../utils/formatters';
 
 export const TenantProfile = ({ activeTenant, setActiveTenant }) => {
   const [profileData, setProfileData] = useState({

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import mammoth from 'mammoth';
-import { FileText, Plus, Search, Edit, Trash2, Download, CheckCircle, Clock, Upload, Shield, Building2, UserX, AlertTriangle, CreditCard, DollarSign, ArrowLeft, RefreshCw, ChevronRight, UserCheck, ShieldCheck, Info, FileCode, Sparkles, BookOpen, Settings, Users } from 'lucide-react';
+import { FileText, Plus, Search, Edit, Trash2, Download, CheckCircle, Clock, Upload, UserX, AlertTriangle, ArrowLeft, RefreshCw, ChevronRight, Info, Sparkles, BookOpen, Settings, Users } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { contractService, roomService } from '../../services';
 import { Pagination } from '../Common/Pagination';
@@ -27,7 +27,6 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateContent, setTemplateContent] = useState('');
   const [isCustomTemplate, setIsCustomTemplate] = useState(false);
-  const [availableVariables, setAvailableVariables] = useState([]);
   const [activeTemplateTab, setActiveTemplateTab] = useState('editor'); // 'editor' | 'preview'
   const [previewContent, setPreviewContent] = useState('');
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
@@ -380,22 +379,6 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
-  const handleLiquidate = async (id) => {
-    if (confirm('Xác nhận thanh lý hợp đồng này? Trạng thái sẽ chuyển thành Đã thanh lý và hủy liên kết phòng của khách thuê.')) {
-      try {
-        await contractService.terminate(id);
-        setContracts(contracts.map(c => c.id === id ? { ...c, status: 'Liquidated' } : c));
-        if (viewingContract?.id === id) {
-          setViewingContract(prev => prev ? { ...prev, status: 'Liquidated' } : null);
-        }
-        alert('✅ Đã thanh lý hợp đồng thành công! Phòng đã được giải phóng và hủy liên kết với người thuê.');
-        onRefresh?.();
-      } catch (err) {
-        alert('Lỗi thanh lý hợp đồng: ' + (err.response?.data?.message || err.message));
-      }
-    }
-  };
-
   const handleOpenRenew = (c, fromDetail = false) => {
     if (fromDetail) {
       setModalReturnToDetail(c);
@@ -507,6 +490,68 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
   };
 
+  // ─── CHUYỂN QUYỀN ĐẠI DIỆN HỢP ĐỒNG (TRANSFER REPRESENTATIVE HANDLERS) ───
+  const handleOpenTransfer = async (c, fromDetail = false) => {
+    if (fromDetail) {
+      setModalReturnToDetail(c);
+      setViewingContract(null);
+    } else {
+      setModalReturnToDetail(null);
+    }
+    setTransferringContract(c);
+    setTransferModalOpen(true);
+    setLoadingOccupants(true);
+    setTransferForm({
+      newTenantProfileId: '',
+      removeOldTenant: true,
+      note: ''
+    });
+    try {
+      if (c.roomId) {
+        const detail = await roomService.getRoomDetail(c.roomId);
+        const occs = detail?.occupants || [];
+        setTransferOccupants(occs);
+        if (occs.length > 0) {
+          setTransferForm(prev => ({ ...prev, newTenantProfileId: occs[0].id }));
+        }
+      } else {
+        setTransferOccupants([]);
+      }
+    } catch {
+      setTransferOccupants([]);
+    } finally {
+      setLoadingOccupants(false);
+    }
+  };
+
+  const handleCloseTransferModal = () => {
+    setTransferModalOpen(false);
+    setTransferringContract(null);
+    if (modalReturnToDetail) {
+      setViewingContract(modalReturnToDetail);
+      setModalReturnToDetail(null);
+    }
+  };
+
+  const handleConfirmTransfer = async () => {
+    if (!transferringContract || !transferForm.newTenantProfileId) return;
+    setIsTransferring(true);
+    try {
+      await contractService.transferRepresentative(transferringContract.id, {
+        newTenantProfileId: transferForm.newTenantProfileId,
+        removeOldTenantFromRoom: transferForm.removeOldTenant,
+        note: transferForm.note
+      });
+      alert('✅ Đã chuyển quyền đại diện hợp đồng thành công!');
+      handleCloseTransferModal();
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi chuyển quyền đại diện: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   // ─── QUẢN LÝ MẪU HỢP ĐỒNG TÙY BIẾN (CUSTOM TEMPLATE HANDLERS) ───
   const handleOpenTemplateModal = async () => {
     setIsLoadingTemplate(true);
@@ -517,7 +562,6 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       const data = res?.data || res;
       setTemplateContent(data.content || '');
       setIsCustomTemplate(data.isCustom || false);
-      setAvailableVariables(data.availableVariables || []);
     } catch (err) {
       alert('Lỗi tải mẫu hợp đồng: ' + (err.response?.data?.message || err.message));
     } finally {
@@ -551,8 +595,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     }
     setIsSavingTemplate(true);
     try {
-      const res = await contractService.saveTemplate(templateContent);
-      const data = res?.data || res;
+      await contractService.saveTemplate(templateContent);
       setIsCustomTemplate(true);
       alert('✅ Đã lưu mẫu hợp đồng tùy biến thành công! Mọi hợp đồng mới sẽ áp dụng mẫu này.');
     } catch (err) {
@@ -610,7 +653,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
     };
     let result = rawText;
     Object.keys(map).forEach(tag => {
-      const reg = new RegExp(tag.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, '\\$1'), 'gi');
+      const reg = new RegExp(tag.replace(/([.*+?^=!:${}()|[\]/\\])/g, '\\$1'), 'gi');
       result = result.replace(reg, map[tag]);
     });
     return result;
@@ -626,7 +669,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       if (data?.content) {
         setPreviewContent(data.content);
       }
-    } catch (err) {
+    } catch {
       // Giữ bản biên dịch localRender nếu API gặp độ trễ
     }
   };
@@ -746,8 +789,6 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       }
     }
 
-    const room = rooms.find(r => r.id === formData.roomId);
-    const roomNumber = room?.roomNumber || '101';
     const payload = {
       contractCode: formData.contractCode.trim(),
       tenantProfileId: formData.tenantId,
@@ -1711,7 +1752,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                         Hạn hợp đồng mới sau khi gia hạn: <strong>{formatDate(nextEndStr)}</strong>
                       </div>
                     );
-                  } catch (e) {
+                  } catch {
                     return null;
                   }
                 })()}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquare, CheckCircle, Clock, Send, Filter } from 'lucide-react';
+import { MessageSquare, Send } from 'lucide-react';
 import { adminService } from '../../services';
 
 export const SystemComplaints = ({ complaints, setComplaints, onRefresh }) => {

@@ -3,7 +3,7 @@ import {
   Wrench, Plus, Upload, Trash2, Clock, CheckCircle2, 
   AlertTriangle, Image as ImageIcon, Camera, Send, 
   Sparkles, Maximize2, Wind, Zap, Droplets, Lock, 
-  HelpCircle, X, Check, Flame, ChevronRight, RefreshCw, FileText
+  X, Check, Flame, FileText
 } from 'lucide-react';
 import { maintenanceService } from '../../services';
 import { formatDate, getContractStatusInfo } from '../../utils/formatters';

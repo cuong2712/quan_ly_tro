@@ -56,7 +56,7 @@ export default function AdminPage() {
     getTabData(activeTab, fetchers).then(data => {
       if (data) setTabData(prev => ({ ...prev, [activeTab]: data }));
     });
-  }, [activeTab]);
+  }, [activeTab, getTabData]);
 
   const currentData = tabData[activeTab] || {};
   const isLoading   = loadingTabs[activeTab];

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { FileText, Download, Clock, ShieldCheck, Printer, CheckCircle, AlertTriangle, Send, X } from 'lucide-react';
-import { formatVND, formatDate, exportToPDF, getContractStatusInfo, isContractExpired } from '../../utils/formatters';
+import { FileText, Clock, Printer, CheckCircle, AlertTriangle, Send } from 'lucide-react';
+import { formatVND, formatDate, exportToPDF, getContractStatusInfo } from '../../utils/formatters';
 import { contractService } from '../../services';
 
-export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setContracts, onRefresh }) => {
+export const TenantContract = ({ activeTenant, contracts = [], _rooms = [], setContracts, onRefresh }) => {
   const activeContract = contracts.find(c => {
     const info = getContractStatusInfo(c);
     return info.isActive;
@@ -37,7 +37,7 @@ export const TenantContract = ({ activeTenant, contracts = [], rooms = [], setCo
       if (m <= 0) return '';
       d.setMonth(d.getMonth() + m);
       return d.toISOString().split('T')[0];
-    } catch (e) {
+    } catch {
       return '';
     }
   };

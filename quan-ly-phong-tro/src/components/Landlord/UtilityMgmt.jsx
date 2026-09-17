@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, Droplet, Plus, Edit, Settings, History, Calculator, AlertTriangle, CheckCircle, FileText, Filter, Trash2, FileSpreadsheet } from 'lucide-react';
+import { Zap, Plus, Settings, History, AlertTriangle, CheckCircle, Trash2, FileSpreadsheet } from 'lucide-react';
 import { formatVND, formatDate, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { utilityService } from '../../services';
 import { Pagination } from '../Common/Pagination';

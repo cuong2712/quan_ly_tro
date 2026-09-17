@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Receipt, FileText, Bell, CreditCard, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Home, Receipt, FileText, Bell, CreditCard, Clock, AlertTriangle } from 'lucide-react';
 import { formatVND, formatDate, getContractStatusInfo } from '../../utils/formatters';
 
 export const TenantDashboard = ({ activeTenant, invoices = [], contracts = [], notifications = [], setActiveTab, dashboard }) => {

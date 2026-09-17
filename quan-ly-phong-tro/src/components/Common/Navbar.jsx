@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, Check, CheckCheck, X, Wrench, FileText } from 'lucide-react';
+import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, CheckCheck, X, Wrench, FileText } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { formatDateTime, formatRelativeTime, getImageUrl } from '../../utils/formatters';
 
@@ -18,7 +18,6 @@ export const Navbar = ({
   const {
     notifications: contextNotifications,
     unreadCount: contextUnreadCount,
-    markAsRead,
     markAllAsRead,
     recentAlert,
     dismissRecentAlert,

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import {
-  BellRing, Search, CheckCircle2, Trash2, CheckCheck,
-  ShieldCheck, Home, Calendar, Eye, X, Filter,
-  Wrench, Receipt, FileText, ArrowRight, Inbox, Clock
+  BellRing, Search, Trash2, CheckCheck,
+  ShieldCheck, Home, Calendar, Eye, X,
+  Wrench, Receipt, FileText, Inbox
 } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { formatDateTime, formatRelativeTime } from '../../utils/formatters';
 import { Pagination } from '../Common/Pagination';
 
-export const TenantNotify = ({ notifications: propNotifications, setNotifications }) => {
+export const TenantNotify = ({ notifications: propNotifications, _setNotifications }) => {
   const {
     notifications: contextNotifications,
     markAsRead,

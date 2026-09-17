@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import * as signalR from '@microsoft/signalr';
 import { useAuth } from './AuthContext';
 import { notificationService } from '../services';
-import { playNotificationSound } from '../components/Common/NotificationToast';
+import { playNotificationSound } from '../utils/audio';
 
 const NotificationContext = createContext(null);
 
@@ -159,7 +159,7 @@ export function NotificationProvider({ children }) {
       connection.stop().catch(() => {});
       connectionRef.current = null;
     };
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user]);
 
   // Đánh dấu đã đọc một thông báo
   const markAsRead = async (id) => {

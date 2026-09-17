@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Award, User, Phone, Mail, Key, Check, ShieldCheck,
-  CreditCard, MapPin, Building2, Calendar, Lock, Sparkles, AlertCircle, Save, QrCode, Landmark
+  CreditCard, MapPin, Building2, AlertCircle, Save, Landmark
 } from 'lucide-react';
 import { profileService } from '../../services';
 import { AvatarUploader, CccdCardUploader } from '../Common/ImageUploader';

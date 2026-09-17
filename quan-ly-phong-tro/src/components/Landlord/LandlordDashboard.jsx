@@ -1,7 +1,7 @@
 import React from 'react';
-import { Building2, Home, Users, Receipt, DollarSign, Wrench, AlertCircle, Activity, TrendingUp } from 'lucide-react';
+import { Building2, Home, Users, Receipt, DollarSign, AlertCircle, Activity, TrendingUp } from 'lucide-react';
 import { formatVND } from '../../utils/formatters';
-import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend, ArcElement
 } from 'chart.js';
@@ -35,7 +35,6 @@ export const LandlordDashboard = ({ data = {} }) => {
   const revenueDisplay = dbStats.revenue || currentMonthPaid || totalPaidAllTime;
 
   const occupancyRate = dbStats.occupancyRate ?? (totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
-  const pendingMaintenance = dbStats.pendingMaintenance ?? 0;
 
   // ── Tính toán động biểu đồ 6 tháng gần nhất ────────────────────
   const last6Months = [];

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
-  BellRing, Plus, Send, Trash2, Users, Home, Building2,
-  Search, Eye, Sparkles, Filter, CheckCircle2,
-  Calendar, Layers, DoorOpen, User, X, Wrench, Shield, ArrowRight, Inbox
+  BellRing, Plus, Send, Trash2, Home, Building2,
+  Search, Eye, Sparkles,
+  Calendar, DoorOpen, User, X, Wrench, Shield
 } from 'lucide-react';
 import { notificationService } from '../../services';
 import { formatDateTime, formatRelativeTime } from '../../utils/formatters';
@@ -80,7 +80,7 @@ export const LandlordNotify = ({
     setIsModalOpen(true);
   };
 
-  const handleNavigateToRepairs = (e, notif) => {
+  const handleNavigateToRepairs = (e) => {
     e?.stopPropagation();
     window.dispatchEvent(new CustomEvent('smartrent:switch-tab', { detail: { tab: 'll_maintenance' } }));
   };
@@ -255,7 +255,6 @@ export const LandlordNotify = ({
   const incomingNotifs = notifications.filter(isIncomingNotif);
   const repairNotifs = notifications.filter(isRepairNotif);
   const outgoingNotifs = notifications.filter(n => !isIncomingNotif(n));
-  const systemNotifs = notifications.filter(n => n.target === 'AllLandlords' || n.target === 'SystemAll' || n.target === 'All');
 
   // Lọc danh sách
   const filteredNotifications = notifications.filter(n => {

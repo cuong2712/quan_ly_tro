@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CreditCard, Upload, CheckCircle, Clock, Image as ImageIcon, Eye, 
-  Copy, Check, RefreshCw, Maximize2, ZoomIn, Download, X, Receipt
+  Copy, Check, RefreshCw, Maximize2, ZoomIn, Receipt
 } from 'lucide-react';
 import { formatVND, formatDate, getVietQRUrl, VIETNAM_BANKS } from '../../utils/formatters';
 import { paymentService } from '../../services';
@@ -27,10 +27,14 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
   const [copiedField, setCopiedField] = useState(null);
 
   useEffect(() => {
-    if (unpaidInvoices.length > 0) {
-      if (!selectedInvoiceId || !unpaidInvoices.some(i => i.id === selectedInvoiceId)) {
-        setSelectedInvoiceId(unpaidInvoices[0].id);
-      }
+    const unpaids = (Array.isArray(invoices) ? invoices : []).filter(i => (i.status || '').toLowerCase() !== 'paid');
+    if (unpaids.length > 0) {
+      setSelectedInvoiceId(prev => {
+        if (!prev || !unpaids.some(i => i.id === prev)) {
+          return unpaids[0].id;
+        }
+        return prev;
+      });
     } else {
       setSelectedInvoiceId('');
     }

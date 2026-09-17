@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Building2, Home, Users, Plus, Edit, Trash2, ChevronRight,
-  ArrowLeft, Zap, Droplets, FileText, CreditCard, Wrench,
-  Phone, Mail, Calendar, DollarSign, User, MapPin, Search,
-  AlertCircle, CheckCircle, Clock, RefreshCw, MoreVertical, Shield, Settings,
-  LayoutGrid, Gauge, Download, FilePlus, Edit3, Maximize, Activity, Sparkles, StickyNote, Box, Wind, Flame, Sun, Tv, Car, Camera,
-  UserX, UserCheck, Info, ShieldCheck, AlertTriangle, Eye
+  ArrowLeft, Zap, FileText, CreditCard, Wrench,
+  Phone, Calendar, DollarSign, User, MapPin, Search,
+  CheckCircle, RefreshCw, Settings,
+  LayoutGrid, Gauge, Download, FilePlus, Edit3, Maximize, Activity, Sparkles, StickyNote, Box,
+  UserX, Info, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import {
   zoneService, roomService, tenantService,
   invoiceService, utilityService, contractService, serviceMgmtService, maintenanceService
 } from '../../services';
 import { formatVND, formatDate, exportToPDF, formatNumberWithDots, parseNumberFromDots, getImageUrl } from '../../utils/formatters';
-import { validateFullName, validatePhone, validateCCCD, validateEmail, validatePositiveNumber, validateVehicles } from '../../utils/validators';
+import { validateFullName, validatePhone, validateCCCD, validateEmail, validatePositiveNumber } from '../../utils/validators';
 import { ServiceMgmt } from './ServiceMgmt';
 import { ErrorBoundary } from '../Common/ErrorBoundary';
 import { Pagination } from '../Common/Pagination';
@@ -26,7 +26,7 @@ const STATUS_CONFIG = {
 };
 
 // ─── LEVEL 1: Danh sách khu trọ (Giao diện sạch đẹp, tối giản) ────
-const ZoneList = ({ onSelectZone, onRefresh }) => {
+const ZoneList = ({ onSelectZone }) => {
   const [zones, setZones] = useState([]);
   const [services, setServices] = useState([]);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
@@ -1155,12 +1155,12 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                           value={form.status}
                           onChange={e => setForm({ ...form, status: e.target.value })}
                         >
-                          <option value="Vacant" disabled={!!(editingRoom?.currentTenantName || editingRoom?.tenantName)}>
-                            Còn trống {!!(editingRoom?.currentTenantName || editingRoom?.tenantName) ? '(Đang có người ở)' : ''}
+                          <option value="Vacant" disabled={Boolean(editingRoom?.currentTenantName || editingRoom?.tenantName)}>
+                            Còn trống {(editingRoom?.currentTenantName || editingRoom?.tenantName) ? '(Đang có người ở)' : ''}
                           </option>
                           <option value="Occupied">Đang thuê</option>
-                          <option value="Maintenance" disabled={!!(editingRoom?.currentTenantName || editingRoom?.tenantName)}>
-                            Bảo trì {!!(editingRoom?.currentTenantName || editingRoom?.tenantName) ? '(Đang có người ở)' : ''}
+                          <option value="Maintenance" disabled={Boolean(editingRoom?.currentTenantName || editingRoom?.tenantName)}>
+                            Bảo trì {(editingRoom?.currentTenantName || editingRoom?.tenantName) ? '(Đang có người ở)' : ''}
                           </option>
                         </select>
                         {!!(editingRoom?.currentTenantName || editingRoom?.tenantName) && (
@@ -1561,13 +1561,9 @@ const RoomDetail = ({ room, zone, onBack }) => {
   const [toastMessage, setToastMessage] = useState('');
 
   // Modals state
-  const [showMeterModal, setShowMeterModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  // Meter form state
-  const [meterForm, setMeterForm] = useState({ month: '08/2026', newElec: room.elecMeter || 0, newWater: room.waterMeter || 0 });
 
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState(() => {
@@ -1718,27 +1714,6 @@ const RoomDetail = ({ room, zone, onBack }) => {
     showToast('Đã lưu ghi chú chủ trọ thành công!');
   };
 
-  // Submit API record meter
-  const handleRecordMeter = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      await utilityService.record({
-        roomId: room.id,
-        month: meterForm.month,
-        newElec: Number(meterForm.newElec),
-        newWater: Number(meterForm.newWater)
-      });
-      showToast('Chốt chỉ số điện nước thành công!');
-      setShowMeterModal(false);
-      await loadDetail();
-    } catch (err) {
-      console.error('Lỗi chốt điện nước:', err);
-      showToast('⚠️ Lỗi chốt chỉ số điện nước. Vui lòng thử lại!');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   // Submit API create invoice
   const handleCreateInvoice = async (e) => {
@@ -1805,7 +1780,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
       await roomService.deleteEquipment(eqId);
       showToast('Đã xóa thiết bị thành công!');
       await loadDetail();
-    } catch (err) {
+    } catch {
       showToast('⚠️ Không thể xóa thiết bị!');
     }
   };
@@ -2387,8 +2362,8 @@ const RoomDetail = ({ room, zone, onBack }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(roomDetail?.equipments || room?.equipments) && (roomDetail?.equipments || room?.equipments).length > 0 ? (
-                      (roomDetail?.equipments || room?.equipments).map(eq => (
+                    {((roomDetail?.equipments || room?.equipments) || []).length > 0 ? (
+                      (roomDetail?.equipments || room?.equipments || []).map(eq => (
                         <tr key={eq.id}>
                           <td><strong>{eq.name}</strong></td>
                           <td>{eq.brand || '---'}</td>

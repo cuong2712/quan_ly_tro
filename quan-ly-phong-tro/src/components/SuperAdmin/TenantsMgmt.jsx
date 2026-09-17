@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Users, Search, Lock, Unlock, KeyRound, Eye,
+  Users, Search, Lock, Unlock, KeyRound,
   CreditCard, ShieldCheck, AlertCircle, X, MapPin, Mail, Phone,
-  Building2, Home, CheckCircle2, UserCheck, ShieldAlert, Bike,
-  FileText, Receipt, Calendar, AlertTriangle
+  Building2, Home, CheckCircle2, UserCheck, Bike,
+  FileText, Receipt, AlertTriangle
 } from 'lucide-react';
 import { adminService } from '../../services';
 import { formatVND, formatDate, getImageUrl } from '../../utils/formatters';
@@ -33,7 +33,7 @@ export const TenantsMgmt = ({ landlords = [], onRefresh }) => {
 
   // Modals state
   const [viewingDetail, setViewingDetail] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [_detailLoading, setDetailLoading] = useState(false);
   const [viewingCccdTenant, setViewingCccdTenant] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [resetModalTenant, setResetModalTenant] = useState(null);

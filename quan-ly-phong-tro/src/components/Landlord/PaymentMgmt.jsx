@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { CreditCard, QrCode, CheckCircle, Clock, Eye, Search, Image as ImageIcon, X, Check, ShieldAlert } from 'lucide-react';
-import { formatVND, formatDate } from '../../utils/formatters';
+import { CreditCard, Eye, Search, Image as ImageIcon } from 'lucide-react';
+import { formatVND } from '../../utils/formatters';
 import { paymentService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
-export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvoices, onRefresh }) => {
+export const PaymentMgmt = ({ payments = [], setPayments, _invoices = [], _setInvoices, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'completed' | 'rejected'
   const [processing, setProcessing] = useState(false);
@@ -220,7 +220,6 @@ export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvo
                 const statusLower = (p.status || '').toLowerCase();
                 const isPending = statusLower === 'pendingapproval' || statusLower === 'pending_approval' || statusLower === 'pending';
                 const isCompleted = statusLower === 'completed';
-                const isRejected = statusLower === 'rejected';
 
                 const proofUrl = p.proofImageUrl || p.proofUrl || p.ProofImageUrl;
 

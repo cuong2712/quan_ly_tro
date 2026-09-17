@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import {
   invoiceService, paymentService, maintenanceService,
-  notificationService, dashboardService, contractService
+  dashboardService, contractService
 } from '../services';
 
 // Tenant Components
@@ -16,7 +16,6 @@ import { TenantDashboard } from '../components/Tenant/TenantDashboard';
 import { TenantProfile } from '../components/Tenant/TenantProfile';
 import { TenantContract } from '../components/Tenant/TenantContract';
 import { TenantInvoice } from '../components/Tenant/TenantInvoice';
-import { TenantPayment } from '../components/Tenant/TenantPayment';
 import { TenantRepair } from '../components/Tenant/TenantRepair';
 import { TenantNotify } from '../components/Tenant/TenantNotify';
 
@@ -45,7 +44,7 @@ export default function TenantPage() {
   const { data: dashboard, refetch: refetchDashboard } = useApi(() => dashboardService.getTenantDashboard(), []);
   const { data: invoices, setData: setInvoices, refetch: refetchInvoices } = useApi(() => invoiceService.getInvoices(), []);
   const { data: contracts, setData: setContracts, refetch: refetchContracts } = useApi(() => contractService.getContracts(), []);
-  const { data: payments, setData: setPayments, refetch: refetchPayments } = useApi(() => paymentService.getPayments?.() || Promise.resolve([]), []);
+  const { data: payments, setData: _setPayments, refetch: refetchPayments } = useApi(() => paymentService.getPayments?.() || Promise.resolve([]), []);
   const { data: maintenanceRequests, setData: setMaintenanceRequests, refetch: refetchMaintenance } = useApi(() => maintenanceService.getRequests(), []);
 
   // Lắng nghe sự kiện Realtime SignalR để cập nhật dữ liệu tức thì không cần F5

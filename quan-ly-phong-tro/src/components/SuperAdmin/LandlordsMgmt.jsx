@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
   Users, Plus, Search, Lock, Unlock, KeyRound,
-  Edit, Eye, CreditCard, ShieldCheck, AlertCircle, X, MapPin, Mail, Phone, Building2
+  Edit, Eye, CreditCard, X
 } from 'lucide-react';
 import { adminService } from '../../services';
-import { getImageUrl, sanitizeCccd, isValidCccd } from '../../utils/formatters';
+import { getImageUrl, isValidCccd } from '../../utils/formatters';
 import { validateFullName, validatePhone, validateCCCD, validateEmail } from '../../utils/validators';
 import { AvatarUploader, CccdCardUploader, ImageLightboxModal } from '../Common/ImageUploader';
 

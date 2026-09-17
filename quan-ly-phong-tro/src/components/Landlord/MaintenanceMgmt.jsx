@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Wrench, CheckCircle, Clock, XCircle, UserCheck, AlertTriangle, Eye, Trash2 } from 'lucide-react';
+import { Wrench, Trash2 } from 'lucide-react';
 import { maintenanceService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
-export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceRequests, rooms = [], onRefresh }) => {
+export const MaintenanceMgmt = ({ maintenanceRequests = [], setMaintenanceRequests, _rooms = [], onRefresh }) => {
   const [selectedReq, setSelectedReq] = useState(null);
   const [assignedName, setAssignedName] = useState('');
   const [statusVal, setStatusVal] = useState('In_Progress');

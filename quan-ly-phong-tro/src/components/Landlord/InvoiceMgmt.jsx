@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { 
-  Receipt, Plus, Search, Edit, Trash2, Printer, Mail, 
-  CheckCircle, Clock, Zap, AlertCircle, AlertTriangle, 
-  MessageSquare, Check, X, Eye, ArrowRight, DollarSign,
-  Home, BarChart3, FileSpreadsheet, Download, Building2, Filter
+  Receipt, Plus, Search, Edit, Trash2, Printer, 
+  CheckCircle, AlertTriangle, 
+  MessageSquare, Check, X, Eye, 
+  FileSpreadsheet, Download
 } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF, exportToExcel, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
 import { invoiceService, utilityService } from '../../services';
@@ -19,7 +19,7 @@ const getImageFullUrl = (url) => {
   return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = [], tenants = [], utilityLogs = [], services = [], onRefresh }) => {
+export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = [], tenants = [], utilityLogs = [], _services = [], onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'disputed' | 'Unpaid' | 'Paid' | 'Overdue'
   const [monthFilter, setMonthFilter] = useState(''); // '' or 'YYYY-MM'
@@ -63,7 +63,6 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
   const zonesList = Array.isArray(zones) ? zones : (zones?.items || []);
   const tenantsList = Array.isArray(tenants) ? tenants : (tenants?.items || []);
   const utilityLogsList = Array.isArray(utilityLogs) ? utilityLogs : (utilityLogs?.items || []);
-  const servicesList = Array.isArray(services) ? services : (services?.items || []);
 
   const pendingDisputesCount = invoicesList.filter(i => i.isReported && i.disputeStatus === 'Pending').length;
 
@@ -339,10 +338,6 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
       serviceFee: inv.serviceFee || 0,
       dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     });
-  };
-
-  const handleSendEmail = (inv) => {
-    alert(`Đã gửi hóa đơn ${inv.invoiceCode} tới email khách thuê thành công!`);
   };
 
   const handleDeleteInvoice = async (inv, e) => {

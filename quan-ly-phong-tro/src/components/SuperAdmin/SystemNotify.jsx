@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  BellRing, Plus, Edit, Trash2, Send, Users, Home, User,
+  BellRing, Plus, Trash2, Send, Users, Home, User,
   Search, Filter, Sparkles, Calendar, Eye, ShieldCheck, X
 } from 'lucide-react';
 import { notificationService } from '../../services';
@@ -76,16 +76,6 @@ export const SystemNotify = ({ notifications = [], setNotifications, onRefresh }
   const handleOpenAdd = () => {
     setEditingNotify(null);
     setFormData({ title: '', content: '', target: 'SystemAll' });
-    setIsModalOpen(true);
-  };
-
-  const handleOpenEdit = (n) => {
-    setEditingNotify(n);
-    setFormData({
-      title: n.title,
-      content: n.content,
-      target: (n.target === 'All' ? 'SystemAll' : n.target) || 'SystemAll',
-    });
     setIsModalOpen(true);
   };
 

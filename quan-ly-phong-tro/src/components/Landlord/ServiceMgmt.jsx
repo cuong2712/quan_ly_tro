@@ -266,6 +266,15 @@ export const ServiceMgmt = ({ services = [], setServices, zones = [], targetZone
             )}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div style={{ padding: '12px 16px' }}>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modal Add / Edit (Hiển thị ngay chính giữa màn hình) */}

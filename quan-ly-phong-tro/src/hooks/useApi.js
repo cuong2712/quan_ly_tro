@@ -2,25 +2,27 @@
  * useApi - Custom hook để fetch data từ backend API
  * Thay thế hoàn toàn initialMockData
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-export function useApi(fetchFn, deps = []) {
+export function useApi(fetchFn, _deps = []) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const fetchFnRef = useRef(fetchFn);
+  fetchFnRef.current = fetchFn;
 
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await fetchFn();
+      const result = await fetchFnRef.current();
       setData(result);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Lỗi kết nối server');
     } finally {
       setLoading(false);
     }
-  }, deps);
+  }, []);
 
   useEffect(() => { fetch(); }, [fetch]);
 

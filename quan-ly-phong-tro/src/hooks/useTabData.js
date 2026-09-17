@@ -4,18 +4,18 @@
  */
 import { useState, useCallback, useRef } from 'react';
 
+const CACHE_TTL = 60 * 1000; // 1 phút
+
 export function useTabData() {
   const cache = useRef({}); // { tabKey: { data, timestamp } }
   const [loadingTabs, setLoadingTabs] = useState({});
   const [errorTabs, setErrorTabs] = useState({});
 
-  const CACHE_TTL = 60 * 1000; // 1 phút
-
-  const isCacheValid = (key) => {
+  const isCacheValid = useCallback((key) => {
     const entry = cache.current[key];
     if (!entry) return false;
     return Date.now() - entry.timestamp < CACHE_TTL;
-  };
+  }, []);
 
   const getTabData = useCallback(async (tabKey, fetchFns) => {
     // Nếu cache còn hợp lệ, trả về ngay
@@ -43,7 +43,7 @@ export function useTabData() {
     } finally {
       setLoadingTabs(prev => ({ ...prev, [tabKey]: false }));
     }
-  }, []);
+  }, [isCacheValid]);
 
   const invalidate = useCallback((tabKey) => {
     if (tabKey) {
