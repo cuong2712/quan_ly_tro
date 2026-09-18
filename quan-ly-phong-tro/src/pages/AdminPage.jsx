@@ -26,7 +26,6 @@ const TAB_FETCHERS = {
 
 export default function AdminPage() {
   const { user, logout } = useAuth();
-  const { notifications, setNotifications } = useNotification();
   const { notifications, setNotifications, refetchNotifications } = useNotification();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('sa_analytics');

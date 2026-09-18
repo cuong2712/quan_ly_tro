@@ -115,7 +115,6 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
     }
 
     // Tiện ích gửi thông báo và push Realtime dùng nội bộ cho các Service khác
-    public async Task<NotificationDto> SendNotificationAsync(Guid senderId, string title, string content, NotificationTarget target, Guid? targetId = null)
     public async Task<NotificationDto> SendNotificationAsync(Guid senderId, string title, string content, NotificationTarget target, Guid? targetId = null, bool notifyTelegram = true)
     {
         var n = new Notification

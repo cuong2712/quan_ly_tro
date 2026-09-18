@@ -26,14 +26,12 @@ public class ComplaintService(AppDbContext db, NotificationService notificationS
 
         var full = await db.Complaints.Include(x => x.Sender).FirstAsync(x => x.Id == c.Id);
 
-        // Gửi thông báo đến Ban quản trị / SuperAdmin trong hệ thống
         // Gửi thông báo đến Ban quản trị / SuperAdmin trong hệ thống (notifyTelegram: false vì sẽ gửi alert chuyên biệt bên dưới)
         await notificationService.SendNotificationAsync(
             userId,
             $"Khiếu nại / Góp ý mới: {title}",
             $"Người gửi: {full.Sender?.FullName} ({full.Sender?.Role})\nNội dung: {content}",
             NotificationTarget.SuperAdmin,
-            null
             null,
             notifyTelegram: false
         );

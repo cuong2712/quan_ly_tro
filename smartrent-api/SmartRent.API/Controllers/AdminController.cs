@@ -62,7 +62,6 @@ public class AdminController(AdminService adminService, ITelegramBotService tele
     [HttpPost("complaints/{id:guid}/reply")]
     public async Task<IActionResult> ReplyComplaint(Guid id, [FromBody] ReplyComplaintRequest request)
     {
-        try { return Ok(await adminService.ReplyComplaintAsync(id, request)); }
         var adminIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         var adminId = Guid.TryParse(adminIdStr, out var parsedAdminId) ? parsedAdminId : (Guid?)null;
         try { return Ok(await adminService.ReplyComplaintAsync(id, request, adminId)); }
