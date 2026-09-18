@@ -155,7 +155,7 @@ public class TelegramBotService(HttpClient httpClient, IConfiguration config, IL
     }
 
     // Gửi thông báo Tranh chấp / Báo cáo sai sót hóa đơn tới Telegram của Quản trị viên
-    public async Task<bool> SendInvoiceDisputeAlertAsync(string tenantName, string roomNumber, string invoiceCode, string reason, string description, CancellationToken cancellationToken = default)
+    public async Task<bool> SendInvoiceDisputeAlertAsync(string tenantName, string roomNumber, string invoiceCode, string reason, string description, string? landlordName = null, string? zoneName = null, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -163,7 +163,18 @@ public class TelegramBotService(HttpClient httpClient, IConfiguration config, IL
             var sb = new StringBuilder();
             sb.AppendLine("⚠️ <b>[SmartRent] BÁO CÁO SAI SÓT HÓA ĐƠN</b>");
             sb.AppendLine($"⏰ <i>Thời gian: {timeVn} (GMT+7)</i>");
-            sb.AppendLine($"🏠 <b>Phòng:</b> {WebUtility.HtmlEncode(roomNumber)} | <b>Khách thuê:</b> {WebUtility.HtmlEncode(tenantName)}");
+            
+            var location = !string.IsNullOrWhiteSpace(zoneName) 
+                ? $"Phòng {WebUtility.HtmlEncode(roomNumber)} ({WebUtility.HtmlEncode(zoneName)})"
+                : $"Phòng {WebUtility.HtmlEncode(roomNumber)}";
+            sb.AppendLine($"🏠 <b>Vị trí:</b> {location}");
+            sb.AppendLine($"👤 <b>Khách thuê:</b> {WebUtility.HtmlEncode(tenantName)}");
+
+            if (!string.IsNullOrWhiteSpace(landlordName))
+            {
+                sb.AppendLine($"🏢 <b>Chủ trọ quản lý:</b> {WebUtility.HtmlEncode(landlordName)}");
+            }
+
             sb.AppendLine($"🧾 <b>Mã Hóa đơn:</b> {WebUtility.HtmlEncode(invoiceCode)}");
             sb.AppendLine($"📌 <b>Lý do báo cáo:</b> {WebUtility.HtmlEncode(reason)}");
             sb.AppendLine();

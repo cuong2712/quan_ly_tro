@@ -16,5 +16,5 @@ public interface ITelegramBotService
     Task<bool> SendReplyAlertAsync(string originalSenderName, string title, string replyContent, string? adminName = "Ban Quản Trị", CancellationToken cancellationToken = default);
 
     // Gửi thông báo Tranh chấp / Báo cáo sai sót hóa đơn tới Telegram của Quản trị viên
-    Task<bool> SendInvoiceDisputeAlertAsync(string tenantName, string roomNumber, string invoiceCode, string reason, string description, CancellationToken cancellationToken = default);
+    Task<bool> SendInvoiceDisputeAlertAsync(string tenantName, string roomNumber, string invoiceCode, string reason, string description, string? landlordName = null, string? zoneName = null, CancellationToken cancellationToken = default);
 }

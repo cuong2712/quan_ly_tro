@@ -37,7 +37,8 @@ public record UpdateLandlordRequest(
 public record ComplaintDto(
     Guid Id, string SenderName, string SenderEmail, string Role,
     string Title, string Content, string Status,
-    string? Reply, DateTime CreatedAt, DateTime? RepliedAt
+    string? Reply, DateTime CreatedAt, DateTime? RepliedAt,
+    string? LandlordInfo = null
 );
 
 public record ReplyComplaintRequest(string Reply);

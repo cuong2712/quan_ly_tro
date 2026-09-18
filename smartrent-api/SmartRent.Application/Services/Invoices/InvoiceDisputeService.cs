@@ -15,7 +15,7 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
     public async Task<InvoiceDto> ReportInvoiceAsync(Guid id, Guid currentUserId, ReportInvoiceRequest req)
     {
         var inv = await db.Invoices
-            .Include(i => i.Room).ThenInclude(r => r.Zone)
+            .Include(i => i.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(i => i.TenantProfile).ThenInclude(t => t.User)
             .Include(i => i.Items)
             .FirstOrDefaultAsync(i => i.Id == id)
@@ -30,6 +30,12 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
         var landlordId = inv.Room?.Zone?.LandlordId 
             ?? throw new InvalidOperationException("Không tìm thấy chủ trọ quản lý phòng này.");
 
+        var landlord = inv.Room?.Zone?.Landlord;
+        var landlordName = landlord?.FullName ?? "Chủ trọ";
+        var landlordContact = !string.IsNullOrEmpty(landlord?.Phone) 
+            ? $"{landlordName} (SĐT: {landlord.Phone})" 
+            : (!string.IsNullOrEmpty(landlord?.Email) ? $"{landlordName} ({landlord.Email})" : landlordName);
+        var zoneName = inv.Room?.Zone?.Name ?? "Khu trọ";
         var senderName = inv.TenantProfile?.User?.FullName ?? "Khách thuê";
         var roomNumber = inv.Room?.RoomNumber ?? "";
 
@@ -45,12 +51,12 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
         inv.SuggestedElecNumber = req.SuggestedElecNumber;
         inv.SuggestedWaterNumber = req.SuggestedWaterNumber;
 
-        // 2. Ghi nhận vào bảng Complaints để lưu vết lịch sử khiếu nại
+        // 2. Ghi nhận vào bảng Complaints để lưu vết lịch sử khiếu nại (kèm thông tin Chủ trọ phụ trách)
         var complaint = new Complaint
         {
             SenderId = currentUserId,
             Title = $"[Báo cáo HĐ {inv.InvoiceCode}] {req.Reason} - Phòng {roomNumber}",
-            Content = $"Mã hóa đơn: {inv.InvoiceCode} (Kỳ {inv.Month})\nPhòng: {roomNumber}\nTổng tiền: {inv.TotalAmount:N0} VNĐ\nLý do: {req.Reason}\nChi tiết: {req.Description}" + (!string.IsNullOrEmpty(req.ImageUrl) ? $"\nẢnh minh chứng: {req.ImageUrl}" : ""),
+            Content = $"Mã hóa đơn: {inv.InvoiceCode} (Kỳ {inv.Month})\nPhòng: {roomNumber} ({zoneName})\nChủ trọ quản lý: {landlordContact}\nTổng tiền: {inv.TotalAmount:N0} VNĐ\nLý do: {req.Reason}\nChi tiết: {req.Description}" + (!string.IsNullOrEmpty(req.ImageUrl) ? $"\nẢnh minh chứng: {req.ImageUrl}" : ""),
             Status = ComplaintStatus.Pending,
             CreatedAt = DateTime.UtcNow
         };
@@ -71,23 +77,25 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
             landlordId
         );
 
-        // 4. Tạo Notification gửi cho SuperAdmin trên web (notifyTelegram: false vì có alert chuyên biệt bên dưới)
+        // 4. Tạo Notification gửi cho SuperAdmin trên web (kèm tên Chủ trọ quản lý)
         await notificationService.SendNotificationAsync(
             currentUserId,
-            $"⚠️ Báo cáo sai tiền trọ: HĐ {inv.InvoiceCode} - Phòng {roomNumber}",
-            $"Khách thuê {senderName} (Phòng {roomNumber}) đã gửi báo cáo sai sót cho hóa đơn {inv.InvoiceCode}.\n• Lý do: {req.Reason}\n• Mô tả: {req.Description}",
+            $"⚠️ Báo cáo sai tiền trọ: HĐ {inv.InvoiceCode} - P.{roomNumber} (Chủ trọ: {landlordName})",
+            $"Khách thuê {senderName} (Phòng {roomNumber} - {zoneName}) thuộc Chủ trọ {landlordContact} đã gửi báo cáo sai sót cho hóa đơn {inv.InvoiceCode}.\n• Lý do: {req.Reason}\n• Mô tả: {req.Description}",
             NotificationTarget.SuperAdmin,
             null,
             notifyTelegram: false
         );
 
-        // 5. Gửi thông báo tranh chấp hóa đơn chi tiết lên Telegram Bot của Admin
+        // 5. Gửi thông báo tranh chấp hóa đơn chi tiết lên Telegram Bot của Admin (kèm Chủ trọ & Khu trọ)
         await telegramBot.SendInvoiceDisputeAlertAsync(
             senderName,
             roomNumber,
             inv.InvoiceCode,
             req.Reason,
-            req.Description
+            req.Description,
+            landlordContact,
+            zoneName
         );
 
         return inv.ToInvoiceDto();

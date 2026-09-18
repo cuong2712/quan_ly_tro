@@ -9,12 +9,34 @@ namespace SmartRent.Application.Services.Admin;
 // Phân hệ Tiếp nhận và Xử lý Khiếu nại toàn hệ thống dành cho Super Admin.
 public class AdminComplaintService(AppDbContext db, NotificationService notificationService, ITelegramBotService telegramBot)
 {
-    // Lấy danh sách tất cả các góp ý/khiếu nại gửi tới Admin.
+    // Lấy danh sách tất cả các góp ý/khiếu nại gửi tới Admin kèm thông tin Chủ trọ quản lý của khách thuê.
     public async Task<IEnumerable<ComplaintDto>> GetComplaintsAsync()
     {
         var complaints = await db.Complaints.AsNoTracking().Include(c => c.Sender).OrderByDescending(c => c.CreatedAt).ToListAsync();
-        return complaints.Select(c => new ComplaintDto(c.Id, c.Sender.FullName, c.Sender.Email, c.Sender.Role.ToString(),
-            c.Title, c.Content, c.Status.ToString(), c.Reply, c.CreatedAt, c.RepliedAt));
+
+        var tenantUserIds = complaints.Where(c => c.Sender?.Role == UserRole.Tenant).Select(c => c.SenderId).Distinct().ToList();
+        var tenantProfiles = await db.TenantProfiles.AsNoTracking()
+            .Include(t => t.Room).ThenInclude(r => r!.Zone).ThenInclude(z => z.Landlord)
+            .Where(t => tenantUserIds.Contains(t.UserId))
+            .ToDictionaryAsync(t => t.UserId);
+
+        return complaints.Select(c =>
+        {
+            string? landlordInfo = null;
+            if (c.Sender?.Role == UserRole.Tenant && tenantProfiles.TryGetValue(c.SenderId, out var tp) && tp.Room?.Zone?.Landlord != null)
+            {
+                var ll = tp.Room.Zone.Landlord;
+                var phoneText = !string.IsNullOrEmpty(ll.Phone) ? $" ({ll.Phone})" : "";
+                landlordInfo = $"{ll.FullName}{phoneText} - {tp.Room.Zone.Name} (P.{tp.Room.RoomNumber})";
+            }
+            else if (c.Sender?.Role == UserRole.Landlord)
+            {
+                landlordInfo = "Chính chủ trọ gửi phản ánh";
+            }
+
+            return new ComplaintDto(c.Id, c.Sender?.FullName ?? "Người dùng", c.Sender?.Email ?? "", c.Sender?.Role.ToString() ?? "",
+                c.Title, c.Content, c.Status.ToString(), c.Reply, c.CreatedAt, c.RepliedAt, landlordInfo);
+        });
     }
 
     // Phản hồi thông tin góp ý/khiếu nại của người dùng.
@@ -48,8 +70,26 @@ public class AdminComplaintService(AppDbContext db, NotificationService notifica
             adminName
         );
 
+        string? landlordInfo = null;
+        if (complaint.Sender?.Role == UserRole.Tenant)
+        {
+            var tp = await db.TenantProfiles.AsNoTracking()
+                .Include(t => t.Room).ThenInclude(r => r!.Zone).ThenInclude(z => z.Landlord)
+                .FirstOrDefaultAsync(t => t.UserId == complaint.SenderId);
+            if (tp?.Room?.Zone?.Landlord != null)
+            {
+                var ll = tp.Room.Zone.Landlord;
+                var phoneText = !string.IsNullOrEmpty(ll.Phone) ? $" ({ll.Phone})" : "";
+                landlordInfo = $"{ll.FullName}{phoneText} - {tp.Room.Zone.Name} (P.{tp.Room.RoomNumber})";
+            }
+        }
+        else if (complaint.Sender?.Role == UserRole.Landlord)
+        {
+            landlordInfo = "Chính chủ trọ gửi phản ánh";
+        }
+
         return new ComplaintDto(complaint.Id, complaint.Sender?.FullName ?? "Người dùng", complaint.Sender?.Email ?? "", complaint.Sender?.Role.ToString() ?? "",
-            complaint.Title, complaint.Content, complaint.Status.ToString(), complaint.Reply, complaint.CreatedAt, complaint.RepliedAt);
+            complaint.Title, complaint.Content, complaint.Status.ToString(), complaint.Reply, complaint.CreatedAt, complaint.RepliedAt, landlordInfo);
     }
 
     // Cập nhật trạng thái xử lý của góp ý/khiếu nại.

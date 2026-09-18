@@ -75,6 +75,7 @@ export const SystemComplaints = ({ complaints, setComplaints, onRefresh }) => {
               <tr>
                 <th>Người Gửi</th>
                 <th>Vai Trò</th>
+                <th>Chủ Trọ Quản Lý</th>
                 <th>Tiêu Đề Khiếu Nại</th>
                 <th>Ngày Gửi</th>
                 <th>Trạng Thái</th>
@@ -92,6 +93,25 @@ export const SystemComplaints = ({ complaints, setComplaints, onRefresh }) => {
                     <span className={`role-badge ${c.role === 'Landlord' ? 'landlord' : 'tenant'}`}>
                       {c.role === 'Landlord' ? 'Chủ trọ' : 'Người thuê'}
                     </span>
+                  </td>
+                  <td>
+                    {c.landlordInfo ? (
+                      <span style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        background: 'rgba(99, 102, 241, 0.1)', 
+                        color: '#6366f1', 
+                        padding: '4px 8px', 
+                        borderRadius: '6px', 
+                        fontSize: '12px',
+                        fontWeight: '500'
+                      }}>
+                        🏢 {c.landlordInfo}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>
+                    )}
                   </td>
                   <td style={{ maxWidth: '300px' }}>
                     <div style={{ fontWeight: '600' }}>{c.title}</div>
@@ -132,8 +152,22 @@ export const SystemComplaints = ({ complaints, setComplaints, onRefresh }) => {
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: 6 }}>
                     Từ: <strong>{selectedComplaint.senderName}</strong> ({selectedComplaint.role === 'Landlord' ? 'Chủ trọ' : 'Người thuê'}) — {new Date(selectedComplaint.createdAt).toLocaleDateString('vi-VN')}
                   </div>
+                  {selectedComplaint.landlordInfo && (
+                    <div style={{ 
+                      display: 'inline-block',
+                      background: 'rgba(99, 102, 241, 0.15)', 
+                      color: '#4f46e5', 
+                      padding: '4px 10px', 
+                      borderRadius: '6px', 
+                      fontSize: '12px', 
+                      fontWeight: '600',
+                      marginBottom: '10px'
+                    }}>
+                      🏢 Chủ trọ quản lý: {selectedComplaint.landlordInfo}
+                    </div>
+                  )}
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '15px', color: 'var(--text-primary)' }}>{selectedComplaint.title}</h4>
-                  <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>{selectedComplaint.content}</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, whiteSpace: 'pre-line' }}>{selectedComplaint.content}</p>
                 </div>
 
                 {/* Phản hồi trước (nếu có) */}
