@@ -231,6 +231,16 @@ export function NotificationProvider({ children }) {
       } else {
         targetTab = 'tn_notifications';
       }
+    } else if (role === 'SuperAdmin' || role?.toLowerCase() === 'superadmin') {
+      if (fullText.includes('khiếu nại') || fullText.includes('góp ý') || fullText.includes('báo cáo') || fullText.includes('sai tiền') || fullText.includes('tranh chấp') || fullText.includes('dispute')) {
+        targetTab = 'sa_complaints';
+      } else if (fullText.includes('chủ trọ') || fullText.includes('landlord')) {
+        targetTab = 'sa_landlords';
+      } else if (fullText.includes('khách thuê') || fullText.includes('tenant')) {
+        targetTab = 'sa_tenants';
+      } else {
+        targetTab = 'sa_notifications';
+      }
     }
 
     if (targetTab) {

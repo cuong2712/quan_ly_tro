@@ -49,6 +49,8 @@ public class AdminService(
 
     public Task<ComplaintDto> ReplyComplaintAsync(Guid id, ReplyComplaintRequest request) =>
         complaintService.ReplyComplaintAsync(id, request);
+    public Task<ComplaintDto> ReplyComplaintAsync(Guid id, ReplyComplaintRequest request, Guid? adminId = null) =>
+        complaintService.ReplyComplaintAsync(id, request, adminId);
 
     public Task UpdateComplaintStatusAsync(Guid id, string status) =>
         complaintService.UpdateComplaintStatusAsync(id, status);

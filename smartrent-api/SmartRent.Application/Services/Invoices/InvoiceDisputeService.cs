@@ -71,13 +71,14 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
             landlordId
         );
 
-        // 4. Tạo Notification gửi cho SuperAdmin trên web
+        // 4. Tạo Notification gửi cho SuperAdmin trên web (notifyTelegram: false vì có alert chuyên biệt bên dưới)
         await notificationService.SendNotificationAsync(
             currentUserId,
             $"⚠️ Báo cáo sai tiền trọ: HĐ {inv.InvoiceCode} - Phòng {roomNumber}",
             $"Khách thuê {senderName} (Phòng {roomNumber}) đã gửi báo cáo sai sót cho hóa đơn {inv.InvoiceCode}.\n• Lý do: {req.Reason}\n• Mô tả: {req.Description}",
             NotificationTarget.SuperAdmin,
-            null
+            null,
+            notifyTelegram: false
         );
 
         // 5. Gửi thông báo tranh chấp hóa đơn chi tiết lên Telegram Bot của Admin
@@ -115,6 +116,16 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
         inv.DisputeImageUrl = null;
         inv.SuggestedElecNumber = null;
         inv.SuggestedWaterNumber = null;
+
+        // Đồng bộ cập nhật khiếu nại trong bảng Complaints (nếu có) để Admin không bị treo ở Pending
+        var relatedComplaint = await db.Complaints
+            .FirstOrDefaultAsync(c => c.SenderId == currentUserId && c.Title.Contains($"[Báo cáo HĐ {inv.InvoiceCode}]") && c.Status == ComplaintStatus.Pending);
+        if (relatedComplaint != null)
+        {
+            relatedComplaint.Status = ComplaintStatus.Resolved;
+            relatedComplaint.Reply = "Khách thuê đã hủy yêu cầu kiểm tra lại hóa đơn này.";
+            relatedComplaint.RepliedAt = DateTime.UtcNow;
+        }
 
         await db.SaveChangesAsync();
 
@@ -172,6 +183,20 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
             inv.DisputeReply = req.Reply;
             inv.IsReported = false;
 
+            // Đồng bộ cập nhật khiếu nại trong bảng Complaints để Admin thấy Đã xử lý
+            if (inv.TenantProfile != null)
+            {
+                var relatedComplaint = await db.Complaints
+                    .FirstOrDefaultAsync(c => c.SenderId == inv.TenantProfile.UserId && c.Title.Contains($"[Báo cáo HĐ {inv.InvoiceCode}]") && c.Status == ComplaintStatus.Pending);
+                if (relatedComplaint != null)
+                {
+                    relatedComplaint.Status = ComplaintStatus.Resolved;
+                    relatedComplaint.Reply = $"[Chấp nhận điều chỉnh] {req.Reply}";
+                    relatedComplaint.RepliedAt = DateTime.UtcNow;
+                    relatedComplaint.RepliedBy = landlordId;
+                }
+            }
+
             await db.SaveChangesAsync();
 
             if (inv.TenantProfile != null)
@@ -184,6 +209,15 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
                     inv.TenantProfile.UserId
                 );
             }
+
+            // Gửi thông báo cho SuperAdmin trên web để cập nhật kết quả xử lý
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"✅ Đã giải quyết tranh chấp HĐ {inv.InvoiceCode} - Phòng {inv.Room?.RoomNumber}",
+                $"Chủ trọ đã chấp nhận điều chỉnh hóa đơn {inv.InvoiceCode} (Phòng {inv.Room?.RoomNumber}). Tổng tiền mới: {inv.TotalAmount:N0} VNĐ. Phản hồi: {req.Reply}",
+                NotificationTarget.SuperAdmin,
+                null
+            );
         }
         else
         {
@@ -193,6 +227,20 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
                 ? "Chủ trọ đã kiểm tra lại các chỉ số điện/nước/dịch vụ và xác nhận hóa đơn chính xác."
                 : req.Reply;
             inv.IsReported = false;
+
+            // Đồng bộ cập nhật khiếu nại trong bảng Complaints để Admin thấy Đã xử lý
+            if (inv.TenantProfile != null)
+            {
+                var relatedComplaint = await db.Complaints
+                    .FirstOrDefaultAsync(c => c.SenderId == inv.TenantProfile.UserId && c.Title.Contains($"[Báo cáo HĐ {inv.InvoiceCode}]") && c.Status == ComplaintStatus.Pending);
+                if (relatedComplaint != null)
+                {
+                    relatedComplaint.Status = ComplaintStatus.Resolved;
+                    relatedComplaint.Reply = $"[Từ chối điều chỉnh] {inv.DisputeReply}";
+                    relatedComplaint.RepliedAt = DateTime.UtcNow;
+                    relatedComplaint.RepliedBy = landlordId;
+                }
+            }
 
             await db.SaveChangesAsync();
 
@@ -206,6 +254,15 @@ public class InvoiceDisputeService(AppDbContext db, NotificationService notifica
                     inv.TenantProfile.UserId
                 );
             }
+
+            // Gửi thông báo cho SuperAdmin trên web để cập nhật kết quả xử lý
+            await notificationService.SendNotificationAsync(
+                landlordId,
+                $"ℹ️ Đã từ chối điều chỉnh HĐ {inv.InvoiceCode} - Phòng {inv.Room?.RoomNumber}",
+                $"Chủ trọ đã xác nhận giữ nguyên hóa đơn {inv.InvoiceCode} (Phòng {inv.Room?.RoomNumber}). Phản hồi: {inv.DisputeReply}",
+                NotificationTarget.SuperAdmin,
+                null
+            );
         }
 
         return inv.ToInvoiceDto();

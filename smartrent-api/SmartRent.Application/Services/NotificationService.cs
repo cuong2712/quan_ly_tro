@@ -102,6 +102,8 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
 
         // Phát thông báo Realtime
         await notifier.SendNotificationAsync(dto);
+        // Phát thông báo Realtime chuẩn xác đối tượng
+        await DispatchRealtimeNotificationAsync(dto, target, req.TargetId, senderId);
 
         // Gửi thông báo tới Telegram của SuperAdmin nếu đối tượng nhận là SuperAdmin
         if (target == NotificationTarget.SuperAdmin)
@@ -114,6 +116,7 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
 
     // Tiện ích gửi thông báo và push Realtime dùng nội bộ cho các Service khác
     public async Task<NotificationDto> SendNotificationAsync(Guid senderId, string title, string content, NotificationTarget target, Guid? targetId = null)
+    public async Task<NotificationDto> SendNotificationAsync(Guid senderId, string title, string content, NotificationTarget target, Guid? targetId = null, bool notifyTelegram = true)
     {
         var n = new Notification
         {
@@ -133,14 +136,77 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
 
         var dto = new NotificationDto(n.Id, senderName, n.Title, n.Content, n.Target.ToString(), n.TargetId, false, DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc));
         await notifier.SendNotificationAsync(dto);
+        
+        // Phát thông báo Realtime chuẩn xác đối tượng
+        await DispatchRealtimeNotificationAsync(dto, target, targetId, senderId);
 
         // Gửi thông báo tới Telegram của SuperAdmin nếu đối tượng nhận là SuperAdmin
         if (target == NotificationTarget.SuperAdmin)
+        // Gửi thông báo tới Telegram của SuperAdmin nếu đối tượng nhận là SuperAdmin và notifyTelegram = true
+        if (target == NotificationTarget.SuperAdmin && notifyTelegram)
         {
             await telegramBot.SendAdminNotificationAsync(dto.Title, dto.Content, dto.SenderName);
         }
 
         return dto;
+    }
+
+    // Phân luồng phát Realtime chính xác tới đúng người nhận (tránh broadcast nhầm sang người thuê khác)
+    private async Task DispatchRealtimeNotificationAsync(NotificationDto dto, NotificationTarget target, Guid? targetId, Guid senderId)
+    {
+        try
+        {
+            if (target == NotificationTarget.Room && targetId.HasValue && targetId.Value != Guid.Empty)
+            {
+                var userIds = await db.TenantProfiles
+                    .Where(tp => tp.RoomId == targetId.Value)
+                    .Select(tp => tp.UserId)
+                    .ToListAsync();
+                foreach (var uid in userIds)
+                {
+                    await notifier.SendToUserAsync(uid, dto);
+                }
+            }
+            else if (target == NotificationTarget.Zone && targetId.HasValue && targetId.Value != Guid.Empty)
+            {
+                var userIds = await db.TenantProfiles
+                    .Where(tp => tp.Room != null && tp.Room.ZoneId == targetId.Value)
+                    .Select(tp => tp.UserId)
+                    .ToListAsync();
+                foreach (var uid in userIds)
+                {
+                    await notifier.SendToUserAsync(uid, dto);
+                }
+            }
+            else if (target == NotificationTarget.AllTenants)
+            {
+                var sender = await db.Users.FindAsync(senderId);
+                if (sender != null && sender.Role == UserRole.Landlord)
+                {
+                    var userIds = await db.TenantProfiles
+                        .Where(tp => tp.Room != null && tp.Room.Zone.LandlordId == senderId)
+                        .Select(tp => tp.UserId)
+                        .ToListAsync();
+                    foreach (var uid in userIds)
+                    {
+                        await notifier.SendToUserAsync(uid, dto);
+                    }
+                }
+                else
+                {
+                    await notifier.SendToRoleAsync("Tenant", dto);
+                }
+            }
+            else
+            {
+                await notifier.SendNotificationAsync(dto);
+            }
+        }
+        catch
+        {
+            // Dự phòng nếu có sự cố tra cứu thì phát qua kênh mặc định
+            await notifier.SendNotificationAsync(dto);
+        }
     }
 
     // Đánh dấu thông báo là đã đọc bởi một người dùng.

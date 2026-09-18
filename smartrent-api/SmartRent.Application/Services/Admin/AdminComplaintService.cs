@@ -18,18 +18,22 @@ public class AdminComplaintService(AppDbContext db, NotificationService notifica
     }
 
     // Phản hồi thông tin góp ý/khiếu nại của người dùng.
-    public async Task<ComplaintDto> ReplyComplaintAsync(Guid id, ReplyComplaintRequest request)
+    public async Task<ComplaintDto> ReplyComplaintAsync(Guid id, ReplyComplaintRequest request, Guid? adminId = null)
     {
         var complaint = await db.Complaints.Include(c => c.Sender).FirstOrDefaultAsync(c => c.Id == id)
             ?? throw new KeyNotFoundException("Không tìm thấy phản hồi");
         complaint.Reply = request.Reply;
         complaint.Status = ComplaintStatus.Resolved;
         complaint.RepliedAt = DateTime.UtcNow;
+        if (adminId.HasValue) complaint.RepliedBy = adminId.Value;
         await db.SaveChangesAsync();
 
-        // Gửi thông báo trong hệ thống cho người gửi
+        var admin = adminId.HasValue ? await db.Users.FindAsync(adminId.Value) : null;
+        var adminName = admin?.FullName ?? "Ban Quản Trị";
+
+        // Gửi thông báo trong hệ thống cho người gửi (senderId là admin để người nhận thấy đúng tên Ban Quản Trị)
         await notificationService.SendNotificationAsync(
-            complaint.SenderId,
+            adminId ?? complaint.SenderId,
             $"Phản hồi khiếu nại / góp ý: {complaint.Title}",
             $"Ban quản trị đã phản hồi yêu cầu của bạn:\n\"{request.Reply}\"",
             NotificationTarget.User,
@@ -41,7 +45,7 @@ public class AdminComplaintService(AppDbContext db, NotificationService notifica
             complaint.Sender?.FullName ?? "Người dùng",
             complaint.Title,
             request.Reply,
-            "SuperAdmin"
+            adminName
         );
 
         return new ComplaintDto(complaint.Id, complaint.Sender?.FullName ?? "Người dùng", complaint.Sender?.Email ?? "", complaint.Sender?.Role.ToString() ?? "",

@@ -76,5 +76,38 @@ public class TelegramBotServiceTests
         // Assert
         Assert.False(result);
     }
+
+    [Fact]
+    public async Task SendComplaintAlertAsync_WhenDisabled_DoesNotThrowAndReturnsFalse()
+    {
+        var inMemorySettings = new Dictionary<string, string?> { { "Telegram:IsEnabled", "false" } };
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(inMemorySettings).Build();
+        var service = new TelegramBotService(new HttpClient(), configuration, NullLogger<TelegramBotService>.Instance);
+
+        var result = await service.SendComplaintAlertAsync("Khach A", "Tenant", "a@gmail.com", "Tiêu đề", "Nội dung");
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task SendReplyAlertAsync_WhenDisabled_DoesNotThrowAndReturnsFalse()
+    {
+        var inMemorySettings = new Dictionary<string, string?> { { "Telegram:IsEnabled", "false" } };
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(inMemorySettings).Build();
+        var service = new TelegramBotService(new HttpClient(), configuration, NullLogger<TelegramBotService>.Instance);
+
+        var result = await service.SendReplyAlertAsync("Khach A", "Tiêu đề", "Phản hồi", "Ban Quản Trị");
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task SendInvoiceDisputeAlertAsync_WhenDisabled_DoesNotThrowAndReturnsFalse()
+    {
+        var inMemorySettings = new Dictionary<string, string?> { { "Telegram:IsEnabled", "false" } };
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(inMemorySettings).Build();
+        var service = new TelegramBotService(new HttpClient(), configuration, NullLogger<TelegramBotService>.Instance);
+
+        var result = await service.SendInvoiceDisputeAlertAsync("Khach A", "P101", "HD001", "Sai tiền điện", "Mô tả");
+        Assert.False(result);
+    }
 }
 

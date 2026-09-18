@@ -27,12 +27,23 @@ const TAB_FETCHERS = {
 export default function AdminPage() {
   const { user, logout } = useAuth();
   const { notifications, setNotifications } = useNotification();
+  const { notifications, setNotifications, refetchNotifications } = useNotification();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('sa_analytics');
   const [theme, setTheme] = useState('dark');
   const [tabData, setTabData] = useState({});
 
   const { getTabData, loadingTabs, errorTabs, invalidate } = useTabData();
+
+  // Lắng nghe sự kiện smartrent:switch-tab để tự động chuyển tab khi click thông báo
+  useEffect(() => {
+    const handleSwitchTab = (e) => {
+      const tab = e.detail?.tab;
+      if (tab) setActiveTab(tab);
+    };
+    window.addEventListener('smartrent:switch-tab', handleSwitchTab);
+    return () => window.removeEventListener('smartrent:switch-tab', handleSwitchTab);
+  }, []);
 
   // Lắng nghe sự kiện Realtime SignalR để cập nhật dữ liệu tức thì không cần F5
   useEffect(() => {
@@ -83,6 +94,9 @@ export default function AdminPage() {
       getTabData(activeTab, fetchers).then(data => {
         if (data) setTabData(prev => ({ ...prev, [activeTab]: data }));
       });
+    }
+    if (activeTab === 'sa_notifications') {
+      refetchNotifications?.();
     }
   };
 
