@@ -264,7 +264,6 @@ app.MapHub<NotificationHub>("/hubs/notifications");
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();  
     try
     {
-        await DataSeeder.SeedAsync(db);
         await db.Database.ExecuteSqlRawAsync(@"
             DO $$
             BEGIN
@@ -318,6 +317,9 @@ app.MapHub<NotificationHub>("/hubs/notifications");
                 END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contracts' AND column_name = 'RenewRequestedAt') THEN
                     ALTER TABLE ""Contracts"" ADD COLUMN ""RenewRequestedAt"" timestamp with time zone NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'TenantProfiles' AND column_name = 'LandlordId') THEN
+                    ALTER TABLE ""TenantProfiles"" ADD COLUMN ""LandlordId"" uuid NULL;
                 END IF;
             END $$;
         ");
