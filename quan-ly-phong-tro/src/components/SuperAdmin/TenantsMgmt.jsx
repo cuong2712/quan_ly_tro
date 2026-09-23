@@ -462,7 +462,8 @@ export const TenantsMgmt = ({ landlords = [], onRefresh }) => {
             <tr style={{ background: 'var(--table-header-bg, rgba(255,255,255,0.03))', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
               <th style={{ padding: '16px 18px', fontWeight: 650, fontSize: 15 }}>Khách thuê</th>
               <th style={{ padding: '16px 18px', fontWeight: 650, fontSize: 15 }}>Liên hệ</th>
-              <th style={{ padding: '16px 18px', fontWeight: 650, fontSize: 15 }}>Nơi ở & Chủ trọ</th>
+              <th style={{ padding: '16px 18px', fontWeight: 650, fontSize: 15 }}>Phòng & Khu trọ</th>
+              <th style={{ padding: '16px 18px', fontWeight: 650, fontSize: 15 }}>Chủ trọ quản lý</th>
               <th style={{ padding: '16px 18px', fontWeight: 650, fontSize: 15 }}>Công nợ</th>
               <th style={{ padding: '16px 18px', fontWeight: 650, fontSize: 15 }}>Trạng thái</th>
               <th style={{ padding: '16px 18px', fontWeight: 650, fontSize: 15, textAlign: 'center' }}>Thao tác</th>
@@ -471,14 +472,14 @@ export const TenantsMgmt = ({ landlords = [], onRefresh }) => {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', fontSize: 15 }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)', fontSize: 15 }}>
                   <div className="spinner" style={{ margin: '0 auto 14px' }} />
                   Đang tải danh sách khách thuê...
                 </td>
               </tr>
             ) : paginatedTenants.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)', fontSize: 15 }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)', fontSize: 15 }}>
                   <div style={{ marginBottom: 8, fontSize: 28 }}>🔍</div>
                   <div style={{ fontWeight: 600, color: 'var(--text-color)', marginBottom: 6, fontSize: 15 }}>
                     Không tìm thấy khách thuê nào phù hợp với bộ lọc hiện tại
@@ -542,21 +543,37 @@ export const TenantsMgmt = ({ landlords = [], onRefresh }) => {
                       </div>
                     </td>
 
-                    {/* Room & Landlord */}
+                    {/* Room */}
                     <td style={{ padding: '14px 18px' }}>
                       {hasRoom ? (
-                        <div>
-                          <div style={{ fontWeight: 650, color: '#3b82f6', fontSize: 14.5, display: 'flex', alignItems: 'center', gap: 7 }}>
-                            <Home size={15} /> Phòng {t.roomNumber} ({t.zoneName})
-                          </div>
-                          <div className="text-muted" style={{ fontSize: 13.5, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <Building2 size={13} /> Chủ trọ: {t.landlordName || 'N/A'}
-                          </div>
+                        <div style={{ fontWeight: 650, color: '#3b82f6', fontSize: 14.5, display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <Home size={15} /> Phòng {t.roomNumber} ({t.zoneName})
                         </div>
                       ) : (
                         <span className="badge badge-secondary" style={{ padding: '5px 10px', borderRadius: 6, fontSize: 13 }}>
                           Chưa có phòng
                         </span>
+                      )}
+                    </td>
+
+                    {/* Landlord */}
+                    <td style={{ padding: '14px 18px' }}>
+                      {t.landlordName ? (
+                        <span style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: 6, 
+                          background: 'rgba(99, 102, 241, 0.1)', 
+                          color: '#6366f1', 
+                          padding: '5px 10px', 
+                          borderRadius: '8px', 
+                          fontWeight: 600, 
+                          fontSize: 13.5 
+                        }}>
+                          <Building2 size={14} /> {t.landlordName}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Chưa có</span>
                       )}
                     </td>
 

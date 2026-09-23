@@ -17,17 +17,42 @@ public class AdminComplaintService(AppDbContext db, NotificationService notifica
         var tenantUserIds = complaints.Where(c => c.Sender?.Role == UserRole.Tenant).Select(c => c.SenderId).Distinct().ToList();
         var tenantProfiles = await db.TenantProfiles.AsNoTracking()
             .Include(t => t.Room).ThenInclude(r => r!.Zone).ThenInclude(z => z.Landlord)
+            .Include(t => t.Landlord)
             .Where(t => tenantUserIds.Contains(t.UserId))
             .ToDictionaryAsync(t => t.UserId);
 
         return complaints.Select(c =>
         {
             string? landlordInfo = null;
-            if (c.Sender?.Role == UserRole.Tenant && tenantProfiles.TryGetValue(c.SenderId, out var tp) && tp.Room?.Zone?.Landlord != null)
+            if (c.Sender?.Role == UserRole.Tenant)
             {
-                var ll = tp.Room.Zone.Landlord;
-                var phoneText = !string.IsNullOrEmpty(ll.Phone) ? $" ({ll.Phone})" : "";
-                landlordInfo = $"{ll.FullName}{phoneText} - {tp.Room.Zone.Name} (P.{tp.Room.RoomNumber})";
+                if (tenantProfiles.TryGetValue(c.SenderId, out var tp))
+                {
+                    if (tp.Room?.Zone?.Landlord != null)
+                    {
+                        var ll = tp.Room.Zone.Landlord;
+                        var phoneText = !string.IsNullOrEmpty(ll.Phone) ? $" ({ll.Phone})" : "";
+                        var roomDisplay = tp.Room.RoomNumber.StartsWith("P.", StringComparison.OrdinalIgnoreCase)
+                            ? tp.Room.RoomNumber
+                            : $"P.{tp.Room.RoomNumber}";
+                        landlordInfo = $"{ll.FullName}{phoneText} - {tp.Room.Zone.Name} ({roomDisplay})";
+                    }
+                    else if (tp.Landlord != null)
+                    {
+                        var ll = tp.Landlord;
+                        var phoneText = !string.IsNullOrEmpty(ll.Phone) ? $" ({ll.Phone})" : "";
+                        landlordInfo = $"{ll.FullName}{phoneText}";
+                    }
+                }
+
+                if (string.IsNullOrEmpty(landlordInfo) && !string.IsNullOrEmpty(c.Content) && c.Content.Contains("Chủ trọ quản lý:"))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(c.Content, @"Chủ trọ quản lý:\s*([^\r\n]+)");
+                    if (match.Success)
+                    {
+                        landlordInfo = match.Groups[1].Value.Trim();
+                    }
+                }
             }
             else if (c.Sender?.Role == UserRole.Landlord)
             {
@@ -75,12 +100,31 @@ public class AdminComplaintService(AppDbContext db, NotificationService notifica
         {
             var tp = await db.TenantProfiles.AsNoTracking()
                 .Include(t => t.Room).ThenInclude(r => r!.Zone).ThenInclude(z => z.Landlord)
+                .Include(t => t.Landlord)
                 .FirstOrDefaultAsync(t => t.UserId == complaint.SenderId);
             if (tp?.Room?.Zone?.Landlord != null)
             {
                 var ll = tp.Room.Zone.Landlord;
                 var phoneText = !string.IsNullOrEmpty(ll.Phone) ? $" ({ll.Phone})" : "";
-                landlordInfo = $"{ll.FullName}{phoneText} - {tp.Room.Zone.Name} (P.{tp.Room.RoomNumber})";
+                var roomDisplay = tp.Room.RoomNumber.StartsWith("P.", StringComparison.OrdinalIgnoreCase)
+                    ? tp.Room.RoomNumber
+                    : $"P.{tp.Room.RoomNumber}";
+                landlordInfo = $"{ll.FullName}{phoneText} - {tp.Room.Zone.Name} ({roomDisplay})";
+            }
+            else if (tp?.Landlord != null)
+            {
+                var ll = tp.Landlord;
+                var phoneText = !string.IsNullOrEmpty(ll.Phone) ? $" ({ll.Phone})" : "";
+                landlordInfo = $"{ll.FullName}{phoneText}";
+            }
+
+            if (string.IsNullOrEmpty(landlordInfo) && !string.IsNullOrEmpty(complaint.Content) && complaint.Content.Contains("Chủ trọ quản lý:"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(complaint.Content, @"Chủ trọ quản lý:\s*([^\r\n]+)");
+                if (match.Success)
+                {
+                    landlordInfo = match.Groups[1].Value.Trim();
+                }
             }
         }
         else if (complaint.Sender?.Role == UserRole.Landlord)
