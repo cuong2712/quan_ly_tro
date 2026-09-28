@@ -36,21 +36,32 @@
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Scrollbar styling */
+/* Modern Thin Scrollbar Styling (Hiển thị thanh cuộn thanh mảnh, mượt mà, cuộn dễ dàng) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.03);
+  background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
-  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.8);
+  background: rgba(148, 163, 184, 0.7);
 }
+
 
 /* Light Mode Overrides */
 body.light-mode {
@@ -246,6 +257,7 @@ body.light-mode .brand-title {
   flex-direction: column;
   height: 100vh;
   max-height: 100vh;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -337,7 +349,10 @@ body.light-mode .role-switcher-bar {
 .page-body {
   padding: 16px 28px;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Page Header */
