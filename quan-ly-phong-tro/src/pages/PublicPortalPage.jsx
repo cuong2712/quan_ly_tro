@@ -212,39 +212,18 @@ export const PublicPortalPage = () => {
         style={{
           background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 60%, #31104b 100%)',
           color: '#fff',
-          padding: '60px 24px 70px',
+          padding: '24px 20px 28px',
           position: 'relative',
           overflow: 'hidden',
         }}
       >
         <div style={{ maxWidth: 1000, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 2 }}>
-          
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 16px',
-              borderRadius: '30px',
-              background: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              fontSize: '13px',
-              fontWeight: 600,
-              color: '#38bdf8',
-              marginBottom: 20,
-            }}
-          >
-            <Sparkles size={15} />
-            <span>Công nghệ Virtual Tour 360° Đột Phá Cho Thuê Phòng</span>
-          </div>
-
           <h1
             style={{
-              fontSize: 'clamp(28px, 4vw, 44px)',
-              fontWeight: 850,
-              lineHeight: 1.25,
-              marginBottom: 16,
+              fontSize: 'clamp(20px, 2.8vw, 28px)',
+              fontWeight: 800,
+              lineHeight: 1.3,
+              marginBottom: 18,
               letterSpacing: '-0.5px',
             }}
           >
@@ -254,19 +233,6 @@ export const PublicPortalPage = () => {
             </span>{' '}
             Không Cần Đến Tận Nơi
           </h1>
-
-          <p
-            style={{
-              fontSize: 'clamp(15px, 2vw, 17px)',
-              color: '#cbd5e1',
-              maxWidth: 720,
-              margin: '0 auto 36px',
-              lineHeight: 1.6,
-            }}
-          >
-            Đứng giữa phòng, kéo chuột hoặc nghiêng điện thoại để ngắm trần, sàn, góc bếp, toilet chân thực 100%. 
-            Minh bạch giá cả, xem cọc giữ chỗ an toàn qua VietQR.
-          </p>
 
           {/* Search Box Container */}
           <form

@@ -36,21 +36,21 @@
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Global Scrollbar Hiding (loại bỏ hoàn toàn thanh cuộn lên xuống bên phải) */
-html, body, .main-content, .page-body {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
-
-html::-webkit-scrollbar, 
-body::-webkit-scrollbar, 
-.main-content::-webkit-scrollbar, 
-.page-body::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-  width: 0;
-  height: 0;
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
 }
-
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8);
+}
 
 /* Light Mode Overrides */
 body.light-mode {
@@ -80,9 +80,9 @@ body {
     radial-gradient(circle at 85% 70%, rgba(99, 102, 241, 0.08) 0%, transparent 45%);
   background-attachment: fixed;
   color: var(--text-primary);
-  height: 100vh;
-  max-height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
   line-height: 1.6;
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
