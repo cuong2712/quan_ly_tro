@@ -264,6 +264,7 @@ app.MapHub<NotificationHub>("/hubs/notifications");
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();  
     try
     {
+        await DataSeeder.SeedAsync(db);
         await db.Database.ExecuteSqlRawAsync(@"
             DO $$
             BEGIN

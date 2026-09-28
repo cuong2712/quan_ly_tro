@@ -22,7 +22,10 @@ public record RoomDto(
     string? DepositTenantName = null,
     string? DepositTenantPhone = null,
     DateTime? ExpectedMoveInDate = null,
-    string? DepositNote = null
+    string? DepositNote = null,
+    string? Panorama360Url = null,
+    string? Images = null,
+    bool IsPublic = true
 );
 
 public record CreateRoomRequest(
@@ -30,7 +33,10 @@ public record CreateRoomRequest(
     decimal Area, int MaxTenants, string Status, decimal ElecMeter,
     decimal WaterMeter, string? Description, string? Amenities = null,
     List<CreateEquipmentRequest>? Equipments = null,
-    decimal ServiceFee = 0
+    decimal ServiceFee = 0,
+    string? Panorama360Url = null,
+    string? Images = null,
+    bool IsPublic = true
 );
 
 public record UpdateRoomRequest(
@@ -38,7 +44,10 @@ public record UpdateRoomRequest(
     int MaxTenants, string Status, decimal ElecMeter,
     decimal WaterMeter, string? Description, string? Amenities = null,
     List<CreateEquipmentRequest>? Equipments = null,
-    decimal ServiceFee = 0
+    decimal ServiceFee = 0,
+    string? Panorama360Url = null,
+    string? Images = null,
+    bool IsPublic = true
 );
 
 public record RoomDetailDto(
@@ -58,8 +67,47 @@ public record RoomDetailDto(
     string? DepositTenantName = null,
     string? DepositTenantPhone = null,
     DateTime? ExpectedMoveInDate = null,
-    string? DepositNote = null
+    string? DepositNote = null,
+    string? Panorama360Url = null,
+    string? Images = null,
+    bool IsPublic = true
 );
+
+public record PublicRoomDto(
+    Guid Id,
+    Guid ZoneId,
+    string ZoneName,
+    string ZoneAddress,
+    string RoomNumber,
+    int Floor,
+    decimal Price,
+    decimal Area,
+    int MaxTenants,
+    string Status,
+    string? Description,
+    string? Amenities,
+    string? Panorama360Url,
+    List<string> Images,
+    decimal ServiceFee,
+    string LandlordName,
+    string LandlordPhone,
+    string? LandlordAvatar,
+    string? BankName,
+    string? BankAccountNumber,
+    string? BankAccountName,
+    List<RoomEquipmentDto> Equipments,
+    DateTime CreatedAt
+);
+
+public class PublicDepositBookingRequest
+{
+    public string TenantName { get; set; } = string.Empty;
+    public string TenantPhone { get; set; } = string.Empty;
+    public decimal DepositAmount { get; set; }
+    public DateTime? ExpectedMoveInDate { get; set; }
+    public string? Note { get; set; }
+    public string? TransactionCode { get; set; }
+}
 
 // Yêu cầu đặt cọc giữ phòng
 public class BookRoomDepositRequest

@@ -38,7 +38,10 @@ public static class RoomMappingExtensions
             r.DepositTenantName,
             r.DepositTenantPhone,
             r.ExpectedMoveInDate,
-            r.DepositNote
+            r.DepositNote,
+            r.Panorama360Url,
+            r.Images,
+            r.IsPublic
         );
     }
 }

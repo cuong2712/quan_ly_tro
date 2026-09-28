@@ -22,7 +22,7 @@ public static class DataSeeder
         }
         catch (Exception ex) { Console.WriteLine("Add Users cols error: " + ex.Message); }
 
-        try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text; ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""ServiceFee"" numeric NOT NULL DEFAULT 0;"); }
+        try { await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Amenities"" text; ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""ServiceFee"" numeric NOT NULL DEFAULT 0; ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Panorama360Url"" text; ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""Images"" text; ALTER TABLE ""Rooms"" ADD COLUMN IF NOT EXISTS ""IsPublic"" boolean DEFAULT true;"); }
         catch (Exception ex) { Console.WriteLine("Add Room cols error: " + ex.Message); }
 
         try 

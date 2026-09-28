@@ -138,7 +138,10 @@ public class RoomQueryService(AppDbContext db)
             r.DepositTenantName,
             r.DepositTenantPhone,
             r.ExpectedMoveInDate,
-            r.DepositNote
+            r.DepositNote,
+            r.Panorama360Url,
+            r.Images,
+            r.IsPublic
         );
     }
 }

@@ -5,6 +5,8 @@ import { NotificationProvider, useNotification } from './contexts/NotificationCo
 import { NotificationToastContainer } from './components/Common/NotificationToast';
 import { PrivateRoute, RoleRedirect } from './components/Common/PrivateRoute';
 import LoginPage from './pages/LoginPage';
+import PublicPortalPage from './pages/PublicPortalPage';
+import PublicRoomDetailPage from './pages/PublicRoomDetailPage';
 import './styles/main.css';
 
 // ─── Dashboards theo role ───────────────────────────
@@ -24,7 +26,9 @@ export function App() {
         <NotificationProvider>
           <ToastHost />
           <Routes>
-            {/* Public */}
+            {/* Cổng Khám Phá & Tìm Phòng Trọ Công Khai (Public) */}
+            <Route path="/" element={<PublicPortalPage />} />
+            <Route path="/phong/:id" element={<PublicRoomDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
 
             {/* Role-based dashboards */}
@@ -53,8 +57,7 @@ export function App() {
               }
             />
 
-            {/* Root redirect theo role */}
-            <Route path="/" element={<RoleRedirect />} />
+            {/* Catch-all fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </NotificationProvider>

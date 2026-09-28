@@ -29,7 +29,10 @@ public class RoomLifecycleService(AppDbContext db)
             WaterMeter = req.WaterMeter, 
             ServiceFee = req.ServiceFee,
             Description = req.Description, 
-            Amenities = req.Amenities 
+            Amenities = req.Amenities,
+            Panorama360Url = req.Panorama360Url,
+            Images = req.Images,
+            IsPublic = req.IsPublic
         };
         
         if (req.Equipments != null && req.Equipments.Any())
@@ -85,6 +88,9 @@ public class RoomLifecycleService(AppDbContext db)
         room.ServiceFee = req.ServiceFee;
         room.Description = req.Description;
         room.Amenities = req.Amenities;
+        room.Panorama360Url = req.Panorama360Url;
+        room.Images = req.Images;
+        room.IsPublic = req.IsPublic;
         await db.SaveChangesAsync();
         return room.ToRoomDto();
     }

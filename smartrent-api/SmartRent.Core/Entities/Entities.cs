@@ -64,6 +64,9 @@ public class Room
     public string? DepositTenantPhone { get; set; }
     public DateTime? ExpectedMoveInDate { get; set; }
     public string? DepositNote { get; set; }
+    public string? Panorama360Url { get; set; }
+    public string? Images { get; set; }
+    public bool IsPublic { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

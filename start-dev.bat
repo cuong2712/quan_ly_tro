@@ -25,4 +25,3 @@ echo 🌐 Frontend: http://localhost:3000
 echo 📡 Backend API: http://localhost:5000
 echo 📑 Swagger UI: http://localhost:5000/swagger
 echo ==========================================
-

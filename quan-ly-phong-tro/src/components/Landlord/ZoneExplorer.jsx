@@ -452,13 +452,13 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
 
   const openAdd = () => {
     setEditingRoom(null);
-    setForm({ roomNumber: '', floor: 1, price: 3000000, area: 25, maxTenants: 2, status: 'Vacant', elecMeter: 0, waterMeter: 0, description: '' });
+    setForm({ roomNumber: '', floor: 1, price: 3000000, area: 25, maxTenants: 2, status: 'Vacant', elecMeter: 0, waterMeter: 0, description: '', panorama360Url: '', isPublic: true });
     setIsModalOpen(true);
   };
   const openEdit = (r, e) => {
     e.stopPropagation();
     setEditingRoom(r);
-    setForm({ roomNumber: r.roomNumber, floor: r.floor, price: r.price, area: r.area, maxTenants: r.maxTenants, status: r.status, elecMeter: r.elecMeter, waterMeter: r.waterMeter, description: r.description || '' });
+    setForm({ roomNumber: r.roomNumber, floor: r.floor, price: r.price, area: r.area, maxTenants: r.maxTenants, status: r.status, elecMeter: r.elecMeter, waterMeter: r.waterMeter, description: r.description || '', panorama360Url: r.panorama360Url || '', isPublic: r.isPublic ?? true });
     setIsModalOpen(true);
   };
   const handleDelete = async (r, e) => {
@@ -495,7 +495,9 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
         zoneId: zone.id, roomNumber: form.roomNumber.trim(), floor: Number(form.floor),
         price: Number(form.price), area: Number(form.area), maxTenants: Number(form.maxTenants),
         status: form.status, elecMeter: Number(form.elecMeter), waterMeter: Number(form.waterMeter),
-        description: form.description?.trim()
+        description: form.description?.trim(),
+        panorama360Url: form.panorama360Url?.trim() || null,
+        isPublic: form.isPublic ?? true
       };
       if (editingRoom) await roomService.updateRoom(editingRoom.id, payload);
       else await roomService.createRoom(payload);
@@ -1181,6 +1183,34 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                     <div className="form-group">
                       <label className="form-label">Mô tả</label>
                       <textarea className="form-control" rows="2" placeholder="Ghi chú về phòng..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                    </div>
+
+                    <div className="form-group" style={{ marginTop: 10 }}>
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>🌐 Link Ảnh Cam 360° (Panorama Equirectangular)</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="https://... hoặc /sample_room_360.jpg"
+                        value={form.panorama360Url || ''}
+                        onChange={e => setForm({ ...form, panorama360Url: e.target.value })}
+                      />
+                      <small className="text-muted" style={{ fontSize: '11px', marginTop: 3, display: 'block' }}>
+                        Dán URL ảnh toàn cảnh 360 độ hoặc nhập <code>/sample_room_360.jpg</code> để sinh viên có thể xem phòng 360°.
+                      </small>
+                    </div>
+
+                    <div className="form-group" style={{ marginTop: 10 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#16a34a' }}>
+                        <input
+                          type="checkbox"
+                          checked={form.isPublic ?? true}
+                          onChange={e => setForm({ ...form, isPublic: e.target.checked })}
+                          style={{ width: 16, height: 16, accentColor: '#16a34a' }}
+                        />
+                        <span>Đăng công khai phòng này lên Cổng Tìm Phòng SmartRent</span>
+                      </label>
                     </div>
                   </div>
                   <div className="modal-footer">

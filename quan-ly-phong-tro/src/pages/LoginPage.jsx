@@ -100,6 +100,25 @@ export default function LoginPage() {
         {/* Right Panel */}
         <div className="login-right">
           <div className="login-card">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: 'none',
+                border: 'none',
+                color: '#2563eb',
+                fontSize: '13.5px',
+                fontWeight: 650,
+                cursor: 'pointer',
+                marginBottom: 16,
+                padding: 0,
+              }}
+            >
+              ← Quay lại Cổng tìm phòng SmartRent
+            </button>
             <h2>Đăng nhập</h2>
             <p className="login-subtitle">Chào mừng trở lại SmartRent!</p>
 
