@@ -28,7 +28,11 @@ export function App() {
           <Routes>
             {/* Cổng Khám Phá & Tìm Phòng Trọ Công Khai (Public) */}
             <Route path="/" element={<PublicPortalPage />} />
+            <Route path="/portal" element={<PublicPortalPage />} />
+            <Route path="/kham-pha" element={<PublicPortalPage />} />
             <Route path="/phong/:id" element={<PublicRoomDetailPage />} />
+            <Route path="/phong-tro/:id" element={<PublicRoomDetailPage />} />
+            <Route path="/room/:id" element={<PublicRoomDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
 
             {/* Role-based dashboards */}

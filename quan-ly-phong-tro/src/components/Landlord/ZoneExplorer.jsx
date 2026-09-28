@@ -550,6 +550,24 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     }
   };
 
+  const handleCancelDeposit = async (r, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Bạn có chắc muốn hủy cọc giữ chỗ phòng ${r.roomNumber}? Trạng thái phòng sẽ chuyển về "Còn trống".`)) return;
+    try {
+      await roomService.updateRoom(r.id, {
+        ...r,
+        status: 'Vacant',
+        depositTenantName: null,
+        depositTenantPhone: null,
+        depositAmount: 0
+      });
+      alert(`Đã hủy cọc giữ chỗ phòng ${r.roomNumber}.`);
+      await load();
+    } catch (err) {
+      alert('Không thể hủy cọc: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const openConvertToContract = async (r, e) => {
     if (e) e.stopPropagation();
     setContractRoom(r);
@@ -1085,6 +1103,27 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                               </button>
                             </>
                           )}
+                          <a
+                            href={`/phong/${r.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="btn btn-sm btn-secondary"
+                            title="Mở xem trang giới thiệu phòng (Cam 360° & Đặt cọc)"
+                            style={{
+                              width: 34,
+                              height: 34,
+                              padding: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              borderRadius: 8,
+                              color: '#38bdf8',
+                              textDecoration: 'none'
+                            }}
+                          >
+                            <Sparkles size={15} />
+                          </a>
                           <button className="btn btn-sm btn-secondary" onClick={e => openEdit(r, e)} title="Sửa thông tin phòng" style={{ width: 34, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}>
                             <Edit size={15} />
                           </button>
@@ -1620,7 +1659,9 @@ const RoomDetail = ({ room, zone, onBack }) => {
     status: room.status || 'Occupied',
     elecMeter: room.elecMeter || 0,
     waterMeter: room.waterMeter || 0,
-    description: room.description || ''
+    description: room.description || '',
+    panorama360Url: room.panorama360Url || '',
+    isPublic: room.isPublic ?? true
   });
 
   const [maintenanceLogs, setMaintenanceLogs] = useState([]);
@@ -1689,7 +1730,6 @@ const RoomDetail = ({ room, zone, onBack }) => {
       const detail = await roomService.getRoomDetail(room.id);
       setRoomDetail(detail);
       if (detail) {
-        setMeterForm(prev => ({ ...prev, newElec: detail.elecMeter || room.elecMeter, newWater: detail.waterMeter || room.waterMeter }));
         setEditForm({
           roomNumber: detail.roomNumber || room.roomNumber,
           floor: detail.floor || room.floor,
@@ -1699,7 +1739,9 @@ const RoomDetail = ({ room, zone, onBack }) => {
           status: detail.status || room.status,
           elecMeter: detail.elecMeter || room.elecMeter,
           waterMeter: detail.waterMeter || room.waterMeter,
-          description: detail.description || room.description || ''
+          description: detail.description || room.description || '',
+          panorama360Url: detail.panorama360Url || room.panorama360Url || '',
+          isPublic: detail.isPublic ?? room.isPublic ?? true,
         });
       }
     } catch (e) {
@@ -1922,7 +1964,9 @@ const RoomDetail = ({ room, zone, onBack }) => {
         status: editForm.status,
         elecMeter: Number(editForm.elecMeter),
         waterMeter: Number(editForm.waterMeter),
-        description: editForm.description?.trim()
+        description: editForm.description?.trim(),
+        panorama360Url: editForm.panorama360Url?.trim() || null,
+        isPublic: editForm.isPublic ?? true
       });
       showToast('Cập nhật thông tin phòng thành công!');
       setShowEditModal(false);
@@ -2146,7 +2190,29 @@ const RoomDetail = ({ room, zone, onBack }) => {
           <span style={{ fontSize: 14, fontWeight: 800, color: '#10b981' }}>Phòng {roomDetail?.roomNumber || room.roomNumber}</span>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <a
+            href={`/phong/${room.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-sm"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'linear-gradient(135deg, #7c3aed, #2563eb)',
+              color: '#fff',
+              border: 'none',
+              fontWeight: 700,
+              textDecoration: 'none',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 8px rgba(124, 58, 237, 0.3)',
+            }}
+          >
+            <Sparkles size={14} color="#38bdf8" />
+            <span>Xem Trang Giới Thiệu (Cam 360°) ↗</span>
+          </a>
           <button className="btn btn-primary btn-sm" onClick={() => setShowEditModal(true)}>
             <Edit3 size={15} /> Sửa thông tin
           </button>
@@ -3902,6 +3968,32 @@ const RoomDetail = ({ room, zone, onBack }) => {
                       ⚠️ Phòng đang có {tenants.length} người ở / hợp đồng hiệu lực. Chỉ có thể ở trạng thái "Đang thuê".
                     </small>
                   )}
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="form-label">🌐 Link Ảnh Cam 360° (Panorama Equirectangular)</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="https://... hoặc /sample_room_360.jpg"
+                    value={editForm.panorama360Url || ''}
+                    onChange={e => setEditForm({ ...editForm, panorama360Url: e.target.value })}
+                  />
+                  <small style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: 3, display: 'block' }}>
+                    Nhập URL ảnh toàn cảnh hoặc <code>/sample_room_360.jpg</code> để hiển thị ảnh 360° trên trang giới thiệu phòng.
+                  </small>
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#10b981' }}>
+                    <input
+                      type="checkbox"
+                      checked={editForm.isPublic ?? true}
+                      onChange={e => setEditForm({ ...editForm, isPublic: e.target.checked })}
+                      style={{ width: 16, height: 16, accentColor: '#10b981' }}
+                    />
+                    <span>Đăng công khai phòng này lên Cổng Tìm Phòng SmartRent</span>
+                  </label>
                 </div>
               </div>
               <div className="modal-footer" style={{ marginTop: 20 }}>
