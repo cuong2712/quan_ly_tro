@@ -39,9 +39,6 @@ export const PublicRoomDetailPage = () => {
       if (res.data?.success) {
         const r = res.data.data;
         setRoom(r);
-        if (r.depositAmount && Number(r.depositAmount) > 0) {
-          setDepositAmount(Number(r.depositAmount));
-        }
         // Nếu không có ảnh 360, chuyển sang tab gallery
         if (!r.panorama360Url && r.images?.length > 0) {
           setActiveTab('gallery');

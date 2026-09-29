@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Building2, Users, LayoutDashboard, FileText, Zap, Wrench, CreditCard,
-  Receipt, BarChart3, BellRing, MessageSquare, UserCheck, Settings, ChevronDown, Compass
+  Receipt, BarChart3, BellRing, MessageSquare, UserCheck, Settings, ChevronDown
 } from 'lucide-react';
 
 const NAV_ITEMS = {
@@ -16,7 +16,6 @@ const NAV_ITEMS = {
     { id: 'll_dashboard', label: 'Tổng quan', icon: LayoutDashboard },
     { id: 'll_profile', label: 'Hồ sơ cá nhân', icon: UserCheck },
     { id: 'll_zones', label: 'Khu trọ & phòng', icon: Building2 },
-    { id: 'll_showcase', label: 'Quảng bá & Tour 360°', icon: Compass },
     { id: 'll_tenants', label: 'Người thuê', icon: Users },
     { id: 'll_contracts', label: 'Hợp đồng', icon: FileText },
     { id: 'll_invoices', label: 'Hóa đơn', icon: Receipt },

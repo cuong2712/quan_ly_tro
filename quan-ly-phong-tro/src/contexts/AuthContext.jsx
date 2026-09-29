@@ -16,7 +16,16 @@ export function AuthProvider({ children }) {
       setUser({ id: data.userId, role: data.role, fullName: data.fullName, email: data.email, avatarUrl: data.avatarUrl });
       return data;
     } catch (err) {
-      const msg = err.response?.data?.message || 'Đăng nhập thất bại';
+      let msg = err.response?.data?.message;
+      if (!msg) {
+        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+          msg = 'Máy chủ phản hồi quá lâu (Render có thể đang khởi động lại). Vui lòng thử lại sau 10 giây!';
+        } else if (err.message === 'Network Error' || !err.response) {
+          msg = 'Không thể kết nối đến máy chủ API. Máy chủ có thể đang thức dậy sau chế độ ngủ, vui lòng thử lại sau giây lát!';
+        } else {
+          msg = err.message || 'Đăng nhập thất bại';
+        }
+      }
       setError(msg);
       throw new Error(msg);
     } finally {

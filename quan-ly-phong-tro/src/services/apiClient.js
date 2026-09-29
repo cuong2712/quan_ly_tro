@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 15000,
+  timeout: 90000, // 90 giây để hỗ trợ Render Free Tier Cold Start
 });
 
 // Request interceptor - thêm JWT token

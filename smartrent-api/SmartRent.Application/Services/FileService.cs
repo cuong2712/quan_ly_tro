@@ -16,10 +16,8 @@ public class FileService(IWebHostEnvironment env)
         ".pdf", ".doc", ".docx"
     };
 
-    private const long MaxImageSizeBytes = 5 * 1024 * 1024;       // 5 MB
-    private const long MaxRoomImageSizeBytes = 10 * 1024 * 1024;  // 10 MB
-    private const long MaxPanoramaSizeBytes = 25 * 1024 * 1024;   // 25 MB
-    private const long MaxDocumentSizeBytes = 10 * 1024 * 1024;   // 10 MB
+    private const long MaxImageSizeBytes = 5 * 1024 * 1024;   // 5 MB
+    private const long MaxDocumentSizeBytes = 10 * 1024 * 1024; // 10 MB
 
     // Upload file hình ảnh (Avatar, CCCD, Ảnh chuyển khoản)
     public async Task<string> UploadImageAsync(IFormFile file, string category)
@@ -35,56 +33,6 @@ public class FileService(IWebHostEnvironment env)
             throw new ArgumentException("Định dạng hình ảnh không hợp lệ (chấp nhận: .jpg, .jpeg, .png, .webp)");
 
         return await SaveFileInternalAsync(file, category, ext);
-    }
-
-    // Upload ảnh 360 độ Panorama chất lượng cao (hỗ trợ tối đa 25MB)
-    public async Task<string> UploadPanoramaAsync(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-            throw new ArgumentException("Vui lòng chọn file hình ảnh 360° hợp lệ");
-
-        if (file.Length > MaxPanoramaSizeBytes)
-            throw new ArgumentException("Dung lượng ảnh 360° vượt quá giới hạn cho phép (tối đa 25MB)");
-
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!AllowedImageExtensions.Contains(ext))
-            throw new ArgumentException("Định dạng ảnh không hợp lệ (chấp nhận: .jpg, .jpeg, .png, .webp)");
-
-        return await SaveFileInternalAsync(file, "panoramas", ext);
-    }
-
-    // Upload ảnh chụp thực tế phòng trọ (hỗ trợ tối đa 10MB)
-    public async Task<string> UploadRoomImageAsync(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-            throw new ArgumentException("Vui lòng chọn file hình ảnh hợp lệ");
-
-        if (file.Length > MaxRoomImageSizeBytes)
-            throw new ArgumentException("Dung lượng ảnh phòng vượt quá giới hạn cho phép (tối đa 10MB)");
-
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!AllowedImageExtensions.Contains(ext))
-            throw new ArgumentException("Định dạng hình ảnh không hợp lệ (chấp nhận: .jpg, .jpeg, .png, .webp)");
-
-        return await SaveFileInternalAsync(file, "rooms", ext);
-    }
-
-    // Upload nhiều ảnh chụp phòng trọ cùng lúc
-    public async Task<List<string>> UploadRoomImagesAsync(IList<IFormFile> files)
-    {
-        if (files == null || files.Count == 0)
-            throw new ArgumentException("Vui lòng chọn ít nhất một hình ảnh");
-
-        var urls = new List<string>();
-        foreach (var file in files)
-        {
-            if (file != null && file.Length > 0)
-            {
-                var url = await UploadRoomImageAsync(file);
-                urls.Add(url);
-            }
-        }
-        return urls;
     }
 
     // Upload file tài liệu (Hợp đồng, Chứng từ)

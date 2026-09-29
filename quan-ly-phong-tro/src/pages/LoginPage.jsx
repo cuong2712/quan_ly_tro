@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, EyeOff, LogIn, Home, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Home, Lock, Mail, Loader2 } from 'lucide-react';
 
 const DEMO_ACCOUNTS = [
   { label: 'Super Admin', email: 'admin@smartrent.vn', password: 'Admin@123456', role: 'SuperAdmin', color: '#7c3aed', badge: '👑' },
@@ -16,10 +16,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [warmupNotice, setWarmupNotice] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    let timer;
+    if (isLoading) {
+      timer = setTimeout(() => {
+        setWarmupNotice(true);
+      }, 3500);
+    } else {
+      setWarmupNotice(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const from = location.state?.from?.pathname || null;
 
@@ -169,6 +182,18 @@ export default function LoginPage() {
                   <><LogIn size={18} /> Đăng nhập</>
                 )}
               </button>
+
+              {warmupNotice && (
+                <div className="login-warmup-notice">
+                  <Loader2 size={20} className="login-spin-icon" />
+                  <div>
+                    <div style={{ fontWeight: 650, color: '#bae6fd', fontSize: '13px' }}>Đang đánh thức máy chủ đám mây...</div>
+                    <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: 2, lineHeight: 1.4 }}>
+                      Dịch vụ Render đang khởi động từ chế độ ngủ (Cold Start). Có thể mất 30–50 giây, vui lòng giữ nguyên màn hình!
+                    </div>
+                  </div>
+                </div>
+              )}
             </form>
 
             <div className="login-divider"><span>Tài khoản demo</span></div>
@@ -321,7 +346,24 @@ export default function LoginPage() {
           border-top-color: #fff; border-radius: 50%;
           animation: spin 0.7s linear infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .login-warmup-notice {
+          margin-top: 12px;
+          padding: 12px 14px;
+          background: rgba(14, 165, 233, 0.12);
+          border: 1px solid rgba(14, 165, 233, 0.3);
+          border-radius: 12px;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          animation: fadeIn 0.3s ease;
+        }
+        .login-spin-icon {
+          color: #38bdf8;
+          flex-shrink: 0;
+          animation: spin 1s linear infinite;
+          margin-top: 2px;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
         .login-divider {
           display: flex; align-items: center; gap: 12px;

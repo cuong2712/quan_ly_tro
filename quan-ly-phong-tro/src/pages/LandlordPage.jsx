@@ -18,7 +18,6 @@ import { ErrorBoundary } from '../components/Common/ErrorBoundary';
 // Lazy load — chỉ load khi cần
 const LandlordDashboard = lazy(() => import('../components/Landlord/LandlordDashboard').then(m => ({ default: m.LandlordDashboard })));
 const ZoneExplorer      = lazy(() => import('../components/Landlord/ZoneExplorer').then(m => ({ default: m.ZoneExplorer })));
-const RoomShowcaseMgmt  = lazy(() => import('../components/Landlord/RoomShowcaseMgmt').then(m => ({ default: m.RoomShowcaseMgmt })));
 const TenantMgmt        = lazy(() => import('../components/Landlord/TenantMgmt').then(m => ({ default: m.TenantMgmt })));
 const ContractMgmt      = lazy(() => import('../components/Landlord/ContractMgmt').then(m => ({ default: m.ContractMgmt })));
 const UtilityMgmt       = lazy(() => import('../components/Landlord/UtilityMgmt').then(m => ({ default: m.UtilityMgmt })));
@@ -82,15 +81,14 @@ const TAB_FETCHERS = {
     rooms: roomService.getRooms,
     tenants: tenantService.getTenants,
   },
-  ll_zones: {},    // ZoneExplorer quản lý fetch nội bộ
-  ll_showcase: {}, // RoomShowcaseMgmt quản lý fetch nội bộ
-  ll_profile: {},  // Không cần fetch
+  ll_zones: {},   // ZoneExplorer quản lý fetch nội bộ
+  ll_profile: {}, // Không cần fetch
 };
 
 // Session storage key để persist tab khi reload
 const TAB_KEY = 'landlord_active_tab';
 const ACTIVE_TABS = new Set([
-  'll_dashboard', 'll_zones', 'll_showcase', 'll_tenants', 'll_contracts',
+  'll_dashboard', 'll_zones', 'll_tenants', 'll_contracts',
   'll_invoices', 'll_payments', 'll_maintenance', 'll_utilities', 
   'll_services', 'll_notifications', 'll_profile'
 ]);
@@ -228,12 +226,6 @@ export default function LandlordPage() {
         return (
           <Suspense fallback={<TabLoader />}>
             <ZoneExplorer />
-          </Suspense>
-        );
-      case 'll_showcase':
-        return (
-          <Suspense fallback={<TabLoader />}>
-            <RoomShowcaseMgmt />
           </Suspense>
         );
       case 'll_tenants':

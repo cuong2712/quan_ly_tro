@@ -5,7 +5,7 @@ import {
   Phone, Calendar, DollarSign, User, MapPin, Search,
   CheckCircle, RefreshCw, Settings,
   LayoutGrid, Gauge, Download, FilePlus, Edit3, Maximize, Activity, Sparkles, StickyNote, Box,
-  UserX, Info, ShieldCheck, AlertTriangle, Camera
+  UserX, Info, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import {
   zoneService, roomService, tenantService,
@@ -14,7 +14,6 @@ import {
 import { formatVND, formatDate, exportToPDF, formatNumberWithDots, parseNumberFromDots, getImageUrl } from '../../utils/formatters';
 import { validateFullName, validatePhone, validateCCCD, validateEmail, validatePositiveNumber } from '../../utils/validators';
 import { ServiceMgmt } from './ServiceMgmt';
-import { RoomMediaStudioModal } from './RoomMediaStudioModal';
 import { ErrorBoundary } from '../Common/ErrorBoundary';
 import { Pagination } from '../Common/Pagination';
 
@@ -372,15 +371,6 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     expectedMoveInDate: '',
     note: ''
   });
-
-  const [studioRoom, setStudioRoom] = useState(null);
-  const [isStudioOpen, setIsStudioOpen] = useState(false);
-
-  const openStudio = (r, e) => {
-    if (e) e.stopPropagation();
-    setStudioRoom(r);
-    setIsStudioOpen(true);
-  };
 
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractRoom, setContractRoom] = useState(null);
@@ -1113,25 +1103,6 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                               </button>
                             </>
                           )}
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={e => openStudio(r, e)}
-                            title="Studio Ảnh & Tour 360°"
-                            style={{
-                              height: 34,
-                              padding: '0 8px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              borderRadius: 8,
-                              color: '#8b5cf6',
-                              borderColor: 'rgba(139, 92, 246, 0.4)',
-                              fontSize: 12,
-                              fontWeight: 600
-                            }}
-                          >
-                            <Camera size={14} /> 360°
-                          </button>
                           <a
                             href={`/phong/${r.id}`}
                             target="_blank"
@@ -1643,19 +1614,6 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                 </form>
               </div>
             </div>
-          )}
-
-          {/* 📷 Studio Ảnh & Tour 360° Modal */}
-          {isStudioOpen && studioRoom && (
-            <RoomMediaStudioModal
-              isOpen={isStudioOpen}
-              room={studioRoom}
-              onClose={() => setIsStudioOpen(false)}
-              onSaved={(updated) => {
-                setRooms(prev => prev.map(r => r.id === updated.id ? { ...r, ...updated } : r));
-                load();
-              }}
-            />
           )}
         </>
       )}
