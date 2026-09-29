@@ -32,7 +32,8 @@ public class RoomLifecycleService(AppDbContext db)
             Amenities = req.Amenities,
             Panorama360Url = req.Panorama360Url,
             Images = req.Images,
-            IsPublic = req.IsPublic
+            IsPublic = req.IsPublic,
+            DepositAmount = req.DepositAmount
         };
         
         if (req.Equipments != null && req.Equipments.Any())
@@ -91,6 +92,7 @@ public class RoomLifecycleService(AppDbContext db)
         room.Panorama360Url = req.Panorama360Url;
         room.Images = req.Images;
         room.IsPublic = req.IsPublic;
+        if (req.DepositAmount.HasValue) room.DepositAmount = req.DepositAmount.Value;
         await db.SaveChangesAsync();
         return room.ToRoomDto();
     }

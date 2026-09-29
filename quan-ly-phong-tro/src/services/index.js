@@ -141,6 +141,21 @@ export const fileService = {
     formData.append('file', file);
     return apiClient.post('/files/upload-document', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
   },
+  uploadPanorama: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-panorama', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+  uploadRoomImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-room-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+  uploadRoomImages: (files) => {
+    const formData = new FormData();
+    Array.from(files).forEach(f => formData.append('files', f));
+    return apiClient.post('/files/upload-room-images', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
 };
 
 export const invoiceService = {

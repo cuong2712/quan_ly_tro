@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, CheckCheck, X, Wrench, FileText, Sparkles } from 'lucide-react';
+import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, CheckCheck, X, Wrench, FileText } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { formatDateTime, formatRelativeTime, getImageUrl } from '../../utils/formatters';
 
@@ -93,32 +93,7 @@ export const Navbar = ({
       </div>
 
       {/* RIGHT: Actions — luôn luôn nằm bên phải */}
-      <div className="top-navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-
-        {/* 0. Cổng Tìm Phòng Công Khai */}
-        <a
-          href="/"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Mở Cổng Tìm Phòng & Trải Nghiệm Cam 360°"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(168, 85, 247, 0.15))',
-            border: '1px solid rgba(56, 189, 248, 0.35)',
-            borderRadius: '20px',
-            padding: '6px 14px',
-            color: '#38bdf8',
-            fontSize: '12.5px',
-            fontWeight: 700,
-            textDecoration: 'none',
-            transition: 'all 0.2s',
-          }}
-        >
-          <Sparkles size={14} color="#38bdf8" />
-          <span>Cổng Tìm Phòng</span>
-        </a>
+      <div className="top-navbar-actions">
 
         {/* 1. Toggle Light/Dark */}
         <button

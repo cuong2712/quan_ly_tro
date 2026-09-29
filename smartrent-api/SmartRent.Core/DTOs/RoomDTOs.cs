@@ -36,7 +36,8 @@ public record CreateRoomRequest(
     decimal ServiceFee = 0,
     string? Panorama360Url = null,
     string? Images = null,
-    bool IsPublic = true
+    bool IsPublic = true,
+    decimal? DepositAmount = null
 );
 
 public record UpdateRoomRequest(
@@ -47,7 +48,8 @@ public record UpdateRoomRequest(
     decimal ServiceFee = 0,
     string? Panorama360Url = null,
     string? Images = null,
-    bool IsPublic = true
+    bool IsPublic = true,
+    decimal? DepositAmount = null
 );
 
 public record RoomDetailDto(
@@ -96,7 +98,8 @@ public record PublicRoomDto(
     string? BankAccountNumber,
     string? BankAccountName,
     List<RoomEquipmentDto> Equipments,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    decimal? DepositAmount = null
 );
 
 public class PublicDepositBookingRequest

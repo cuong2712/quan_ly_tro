@@ -10,6 +10,11 @@ public class FileUploadDto
     public IFormFile File { get; set; } = null!;
 }
 
+public class MultipleFilesUploadDto
+{
+    public IList<IFormFile> Files { get; set; } = new List<IFormFile>();
+}
+
 // Controller xử lý tải lên (Upload) hình ảnh và tài liệu cho hệ thống SmartRent
 [ApiController]
 [Route("api/[controller]")]
@@ -84,6 +89,51 @@ public class FilesController(FileService fileService) : ControllerBase
         {
             var url = await fileService.UploadDocumentAsync(dto.File, "documents");
             return Ok(new { url, message = "Upload tài liệu hợp đồng thành công" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Upload ảnh 360 độ Panorama cho phòng trọ (hỗ trợ tối đa 25MB)
+    [HttpPost("upload-panorama")]
+    public async Task<IActionResult> UploadPanorama([FromForm] FileUploadDto dto)
+    {
+        try
+        {
+            var url = await fileService.UploadPanoramaAsync(dto.File);
+            return Ok(new { url, message = "Tải lên ảnh 360° thành công" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Upload ảnh thực tế phòng trọ (1 ảnh)
+    [HttpPost("upload-room-image")]
+    public async Task<IActionResult> UploadRoomImage([FromForm] FileUploadDto dto)
+    {
+        try
+        {
+            var url = await fileService.UploadRoomImageAsync(dto.File);
+            return Ok(new { url, message = "Tải lên ảnh phòng thành công" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Upload nhiều ảnh thực tế phòng trọ cùng lúc
+    [HttpPost("upload-room-images")]
+    public async Task<IActionResult> UploadRoomImages([FromForm] MultipleFilesUploadDto dto)
+    {
+        try
+        {
+            var urls = await fileService.UploadRoomImagesAsync(dto.Files);
+            return Ok(new { urls, message = "Tải lên các ảnh phòng thành công" });
         }
         catch (ArgumentException ex)
         {

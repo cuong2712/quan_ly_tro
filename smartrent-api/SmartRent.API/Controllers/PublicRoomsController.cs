@@ -275,7 +275,8 @@ public class PublicRoomsController(AppDbContext db, NotificationService notifica
             r.Zone?.Landlord?.BankAccountNumber,
             r.Zone?.Landlord?.BankAccountName,
             r.Equipments?.Select(e => new RoomEquipmentDto(e.Id, e.RoomId, e.Name, e.Brand, e.Quantity, e.Condition)).ToList() ?? [],
-            r.CreatedAt
+            r.CreatedAt,
+            r.DepositAmount
         );
     }
 }
