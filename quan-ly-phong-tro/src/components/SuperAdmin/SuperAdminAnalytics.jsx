@@ -22,26 +22,67 @@ export const SuperAdminAnalytics = ({ data = {} }) => {
   const totalRooms = stats.totalRooms ?? rooms.length;
   const occupiedRooms = stats.occupiedRooms ?? rooms.filter(r => r?.status === 'occupied').length;
   const vacantRooms = stats.vacantRooms ?? rooms.filter(r => r?.status === 'vacant').length;
+  const maintenanceRooms = stats.maintenanceRooms ?? rooms.filter(r => r?.status === 'maintenance').length;
+  const depositRooms = stats.depositRooms ?? rooms.filter(r => r?.status === 'deposit').length;
   const occupancyRate = stats.occupancyRate ?? (totalRooms ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
   const vacantRate = stats.vacancyRate ?? (totalRooms ? Math.round((vacantRooms / totalRooms) * 100) : 0);
 
   const totalRevenue = stats.totalRevenue ?? invoices.reduce((sum, inv) => sum + (inv?.status === 'paid' ? (inv.totalAmount || 0) : 0), 0);
   const totalInvoices = stats.totalInvoices ?? invoices.length;
 
-  // Revenue Chart Data
+  // Revenue Chart Data: Lấy trực tiếp từ số liệu hóa đơn & giao dịch thanh toán thực tế của hệ thống
+  const monthlyRevenueList = Array.isArray(stats.monthlyRevenue) && stats.monthlyRevenue.length > 0
+    ? stats.monthlyRevenue
+    : null;
+
+  const revenueChartLabels = monthlyRevenueList
+    ? monthlyRevenueList.map(item => item.label || item.month)
+    : (() => {
+        const labels = [];
+        const now = new Date();
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          labels.push(`T${d.getMonth() + 1}/${d.getFullYear()}${i === 0 ? ' (Hiện tại)' : ''}`);
+        }
+        return labels;
+      })();
+
+  const revenueChartValues = monthlyRevenueList
+    ? monthlyRevenueList.map(item => Number(item.revenue) || 0)
+    : Array(revenueChartLabels.length).fill(0);
+
   const revenueChartData = {
-    labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7 (Hiện tại)'],
+    labels: revenueChartLabels,
     datasets: [
       {
         label: 'Doanh Thu Hệ Thống (VND)',
-        data: [120000000, 145000000, 160000000, 178000000, 190000000, 210000000, Number(totalRevenue) || 225000000],
+        data: revenueChartValues,
         backgroundColor: 'rgba(99, 102, 241, 0.75)',
         borderRadius: 8,
       }
     ]
   };
 
-  // Occupancy Chart Data
+  const revenueChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: (context) => `Doanh thu: ${formatVND(context.parsed.y || 0)}`
+        }
+      }
+    },
+    scales: {
+      y: {
+        ticks: {
+          callback: (value) => value >= 1000000 ? `${(value / 1000000).toLocaleString('vi-VN')} Tr` : value.toLocaleString('vi-VN')
+        }
+      }
+    }
+  };
+
+  // Occupancy Chart Data: Thống kê trạng thái phòng thực tế từ backend
   const occupancyChartData = {
     labels: ['Đang Thuê', 'Phòng Trống', 'Đang Sửa Chữa', 'Đã Cọc'],
     datasets: [
@@ -49,13 +90,31 @@ export const SuperAdminAnalytics = ({ data = {} }) => {
         data: [
           occupiedRooms,
           vacantRooms,
-          rooms.filter(r => r?.status === 'maintenance').length,
-          rooms.filter(r => r?.status === 'deposit').length
+          maintenanceRooms,
+          depositRooms
         ],
         backgroundColor: ['#10b981', '#06b6d4', '#f43f5e', '#f59e0b'],
         borderWidth: 0,
       }
     ]
+  };
+
+  const occupancyChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const label = context.label || '';
+            const value = context.parsed || 0;
+            const total = totalRooms || (occupiedRooms + vacantRooms + maintenanceRooms + depositRooms) || 1;
+            const percentage = Math.round((value / total) * 100);
+            return `${label}: ${value} phòng (${percentage}%)`;
+          }
+        }
+      }
+    }
   };
 
   return (
@@ -141,7 +200,7 @@ export const SuperAdminAnalytics = ({ data = {} }) => {
             <h3 className="chart-title">Tăng Trưởng Doanh Thu Hệ Thống (Tháng)</h3>
           </div>
           <div style={{ height: '300px' }}>
-            <Bar data={revenueChartData} options={{ responsive: true, maintainAspectRatio: false }} />
+            <Bar data={revenueChartData} options={revenueChartOptions} />
           </div>
         </div>
 
@@ -150,7 +209,7 @@ export const SuperAdminAnalytics = ({ data = {} }) => {
             <h3 className="chart-title">Tỷ Lệ Trạng Thái Phòng Toàn Hệ Thống</h3>
           </div>
           <div style={{ height: '300px', display: 'flex', justifyContent: 'center' }}>
-            <Doughnut data={occupancyChartData} options={{ responsive: true, maintainAspectRatio: false }} />
+            <Doughnut data={occupancyChartData} options={occupancyChartOptions} />
           </div>
         </div>
       </div>

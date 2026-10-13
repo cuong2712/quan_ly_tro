@@ -35,6 +35,21 @@ public static class DataSeeder
         }
         catch (Exception ex) { Console.WriteLine("Add Contracts cols error: " + ex.Message); }
 
+        // Migration: Hệ thống Hợp đồng Ở Ghép (Co-Tenant Contract System)
+        try 
+        { 
+            await context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""Type"" integer NOT NULL DEFAULT 1;
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""ParentContractId"" uuid NULL;
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""IndividualDeposit"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""SharedRentAmount"" numeric NOT NULL DEFAULT 0;
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""IsSignedByTenant"" boolean NOT NULL DEFAULT false;
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""SignedAt"" timestamp with time zone NULL;
+                ALTER TABLE ""Contracts"" ADD COLUMN IF NOT EXISTS ""SignatureNote"" text NULL;
+            "); 
+        }
+        catch (Exception ex) { Console.WriteLine("Add CoTenant contract cols error: " + ex.Message); }
+
         try 
         { 
             await context.Database.ExecuteSqlRawAsync(@"

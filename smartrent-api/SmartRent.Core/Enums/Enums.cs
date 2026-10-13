@@ -24,6 +24,13 @@ public enum ContractStatus
     Liquidated = 4
 }
 
+public enum ContractType
+{
+    Master = 1,     // Hợp đồng chính thuê nguyên phòng (Trưởng phòng)
+    CoTenant = 2,   // Hợp đồng / Phụ lục thành viên ở ghép
+    Individual = 3  // Hợp đồng thuê cá nhân (KTX, Sleepbox)
+}
+
 public enum InvoiceStatus
 {
     Unpaid = 1,

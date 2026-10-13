@@ -13,7 +13,16 @@ public record ContractDto(
     int? RequestedRenewMonths = null,
     string? RenewNotes = null,
     DateTime? RenewRequestedAt = null,
-    string? CustomContent = null
+    string? CustomContent = null,
+    // Co-Tenant fields
+    string ContractType = "Master",
+    Guid? ParentContractId = null,
+    string? ParentContractCode = null,
+    decimal IndividualDeposit = 0,
+    decimal SharedRentAmount = 0,
+    bool IsSignedByTenant = false,
+    DateTime? SignedAt = null,
+    string? SignatureNote = null
 );
 
 public class CreateContractRequest
@@ -93,3 +102,20 @@ public record TransferRepresentativeRequest(
     bool RemoveOldTenantFromRoom = true,
     string? Note = null
 );
+
+// Yêu cầu tạo Hợp đồng Ở Ghép (CoTenant) khi thêm thành viên ở ghép vào phòng
+public class CreateCoTenantContractRequest
+{
+    public Guid TenantProfileId { get; set; }
+    public Guid RoomId { get; set; }
+    public Guid ParentContractId { get; set; }       // ID Hợp đồng Master của phòng
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }            // Null = kế thừa ngày kết thúc từ HĐ Master
+    public decimal IndividualDeposit { get; set; } = 0;   // Tiền cọc riêng (nếu có)
+    public decimal SharedRentAmount { get; set; } = 0;    // Phần đóng góp tiền phòng (nếu chia)
+    public string? Terms { get; set; }                // Nội quy, cam kết bổ sung
+    public string? CustomContent { get; set; }        // Nội dung HĐ tuỳ biến
+}
+
+// Yêu cầu khách thuê ký xác nhận hợp đồng online
+public record SignContractRequest(string? Note = null);

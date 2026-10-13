@@ -7,6 +7,7 @@ import {
   Flame, Calendar, User, Info, RefreshCw, X, Heart
 } from 'lucide-react';
 import { Panorama360Viewer } from '../components/Common/Panorama360Viewer';
+import { getMediaUrl } from '../utils/media';
 
 export const PublicRoomDetailPage = () => {
   const { id } = useParams();
@@ -39,6 +40,9 @@ export const PublicRoomDetailPage = () => {
       if (res.data?.success) {
         const r = res.data.data;
         setRoom(r);
+        if (r.depositAmount && Number(r.depositAmount) > 0) {
+          setDepositAmount(Number(r.depositAmount));
+        }
         // Nếu không có ảnh 360, chuyển sang tab gallery
         if (!r.panorama360Url && r.images?.length > 0) {
           setActiveTab('gallery');
@@ -151,9 +155,10 @@ export const PublicRoomDetailPage = () => {
   const isVacant = room.status === 'Vacant';
   const isDeposit = room.status === 'Deposit';
   const has360 = Boolean(room.panorama360Url);
-  const galleryImages = room.images && room.images.length > 0
+  const rawImages = room.images && room.images.length > 0
     ? room.images
     : ['https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=1000&auto=format&fit=crop'];
+  const galleryImages = rawImages.map(img => getMediaUrl(img));
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', color: '#1e293b', paddingBottom: 80 }}>

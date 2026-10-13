@@ -30,6 +30,14 @@ public class ContractService(
     public Task<ContractDto> CreateAsync(Guid landlordId, CreateContractRequest req)
         => lifecycleService.CreateAsync(landlordId, req);
 
+    // Tạo mới hợp đồng ở ghép (Co-Tenant)
+    public Task<ContractDto> CreateCoTenantAsync(Guid landlordId, CreateCoTenantContractRequest req)
+        => lifecycleService.CreateCoTenantContractAsync(landlordId, req);
+
+    // Khách thuê ký xác nhận hợp đồng online
+    public Task<ContractDto> SignContractAsync(Guid contractId, Guid tenantUserId, SignContractRequest req)
+        => lifecycleService.SignContractAsync(contractId, tenantUserId, req);
+
     // Cập nhật hợp đồng
     public Task<ContractDto> UpdateAsync(Guid id, Guid landlordId, UpdateContractRequest req)
         => lifecycleService.UpdateAsync(id, landlordId, req);
@@ -83,3 +91,4 @@ public class ContractService(
     public Task<string> PreviewTemplateAsync(Guid landlordId, PreviewContractTemplateRequest req)
         => lifecycleService.PreviewTemplateAsync(landlordId, req);
 }
+

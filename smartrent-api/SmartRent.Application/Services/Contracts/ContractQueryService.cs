@@ -44,6 +44,7 @@ public class ContractQueryService(AppDbContext db)
             .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .Include(c => c.ParentContract)
             .Where(c => c.Room.Zone.LandlordId == landlordId);
 
         var totalItems = await query.CountAsync();
@@ -70,6 +71,7 @@ public class ContractQueryService(AppDbContext db)
             .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .Include(c => c.ParentContract)
             .Where(c => c.TenantProfileId == tenantProfileId)
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
@@ -98,6 +100,7 @@ public class ContractQueryService(AppDbContext db)
                     .AsNoTracking()
                     .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
                     .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+                    .Include(c => c.ParentContract)
                     .Where(c => c.TenantProfile.UserId == tenantUserId || (c.TenantProfile.User != null && c.TenantProfile.User.Email == user.Email))
                     .OrderByDescending(c => c.CreatedAt)
                     .ToListAsync();
@@ -110,6 +113,7 @@ public class ContractQueryService(AppDbContext db)
             .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .Include(c => c.ParentContract)
             .Where(c => c.TenantProfileId == profile.Id || (c.TenantProfile != null && c.TenantProfile.UserId == tenantUserId))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
@@ -124,6 +128,7 @@ public class ContractQueryService(AppDbContext db)
             .AsNoTracking()
             .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .Include(c => c.ParentContract)
             .AsQueryable();
 
         if (role == "Landlord")

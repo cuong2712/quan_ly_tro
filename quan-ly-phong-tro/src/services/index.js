@@ -59,8 +59,8 @@ export const roomService = {
   addEquipment: (roomId, data) => apiClient.post(`/rooms/${roomId}/equipments`, data).then(r => r.data),
   updateEquipment: (equipmentId, data) => apiClient.put(`/rooms/equipments/${equipmentId}`, data).then(r => r.data),
   deleteEquipment: (equipmentId) => apiClient.delete(`/rooms/equipments/${equipmentId}`).then(r => r.data),
-  // Quản lý thành viên ở ghép (Occupants) - không tạo Hợp đồng mới
-  addOccupant: (roomId, tenantProfileId) => apiClient.post(`/rooms/${roomId}/occupants`, { tenantProfileId }).then(r => r.data),
+  // Quản lý thành viên ở ghép (Occupants)
+  addOccupant: (roomId, tenantProfileId, extra = {}) => apiClient.post(`/rooms/${roomId}/occupants`, { tenantProfileId, ...extra }).then(r => r.data),
   removeOccupant: (roomId, tenantId) => apiClient.delete(`/rooms/${roomId}/occupants/${tenantId}`).then(r => r.data),
   // Đặt cọc giữ chỗ phòng (Booking Deposit)
   bookDeposit: (roomId, data) => apiClient.post(`/rooms/${roomId}/deposit`, data).then(r => r.data),
@@ -97,6 +97,9 @@ export const contractService = {
   saveTemplate: (content) => apiClient.put('/contracts/template', { content }).then(r => r.data),
   resetTemplate: () => apiClient.post('/contracts/template/reset').then(r => r.data),
   previewTemplate: (data) => apiClient.post('/contracts/template/preview', data || {}).then(r => r.data),
+  // Hợp đồng ở ghép & ký hợp đồng online
+  createCoTenantContract: (data) => apiClient.post('/contracts/co-tenant', data).then(r => r.data),
+  signContract: (id, data) => apiClient.post(`/contracts/${id}/sign`, data || {}).then(r => r.data),
 };
 
 export const utilityService = {

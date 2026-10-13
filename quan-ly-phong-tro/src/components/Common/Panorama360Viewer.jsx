@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { RotateCw, Maximize2, Compass, Eye, Sparkles } from 'lucide-react';
+import { getMediaUrl } from '../../utils/media';
 
 /**
  * Panorama360Viewer - Component hiển thị ảnh toàn cảnh 360 độ (Cam 360 / Virtual Tour)
@@ -18,6 +19,8 @@ export const Panorama360Viewer = ({
   const [isRotating, setIsRotating] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const viewerId = useRef(`panorama-viewer-${Math.random().toString(36).substring(2, 9)}`);
+  
+  const resolvedImageUrl = useMemo(() => getMediaUrl(imageUrl), [imageUrl]);
 
   useEffect(() => {
     let scriptEl = document.getElementById('pannellum-script');
@@ -47,7 +50,7 @@ export const Panorama360Viewer = ({
 
         viewerInstanceRef.current = window.pannellum.viewer(viewerId.current, {
           type: 'equirectangular',
-          panorama: imageUrl,
+          panorama: resolvedImageUrl,
           autoLoad: true,
           autoRotate: autoRotateSpeed,
           autoRotateInactivityDelay: 3000,

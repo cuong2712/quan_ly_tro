@@ -26,7 +26,9 @@ public class DashboardController(AppDbContext db) : ControllerBase
         var vacant = await db.Rooms.CountAsync(r => r.Zone.LandlordId == CurrentUserId && r.Status == RoomStatus.Vacant);
         var tenants = await db.TenantProfiles.CountAsync(t => t.Room != null && t.Room.Zone.LandlordId == CurrentUserId);
         var unpaidInvoices = await db.Invoices.CountAsync(i => i.Room.Zone.LandlordId == CurrentUserId && i.Status == InvoiceStatus.Unpaid);
-        var revenue = await db.Payments.Where(p => p.Invoice.Room.Zone.LandlordId == CurrentUserId && p.Status == PaymentStatus.Completed).SumAsync(p => p.Amount);
+        var paymentRevenue = await db.Payments.Where(p => p.Invoice.Room.Zone.LandlordId == CurrentUserId && p.Status == PaymentStatus.Completed).SumAsync(p => (decimal?)p.Amount) ?? 0;
+        var invoiceRevenue = await db.Invoices.Where(i => i.Room.Zone.LandlordId == CurrentUserId && i.Status == InvoiceStatus.Paid).SumAsync(i => (decimal?)i.TotalAmount) ?? 0;
+        var revenue = Math.Max(paymentRevenue, invoiceRevenue);
         var pendingMaintenance = await db.MaintenanceRequests.CountAsync(m => m.Room.Zone.LandlordId == CurrentUserId && m.Status == MaintenanceStatus.Pending);
 
         return Ok(new { totalZones, totalRooms, occupied, vacant, tenants, unpaidInvoices, revenue, pendingMaintenance, occupancyRate = totalRooms > 0 ? Math.Round((double)occupied / totalRooms * 100, 1) : 0 });

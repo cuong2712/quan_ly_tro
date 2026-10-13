@@ -233,4 +233,33 @@ public class ContractsController(ContractService contractService) : ControllerBa
         }
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    // Tạo mới Phụ lục / Hợp đồng Ở Ghép (Co-Tenant) cho phòng (chỉ dành cho Chủ trọ)
+    [HttpPost("co-tenant")]
+    [Authorize(Roles = "Landlord")]
+    public async Task<IActionResult> CreateCoTenantContract([FromBody] CreateCoTenantContractRequest request)
+    {
+        try
+        {
+            return Ok(await contractService.CreateCoTenantAsync(CurrentUserId, request));
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // Khách thuê ký xác nhận hợp đồng online qua app (Master hoặc CoTenant)
+    [HttpPost("{id:guid}/sign")]
+    [Authorize(Roles = "Tenant")]
+    public async Task<IActionResult> SignContract(Guid id, [FromBody] SignContractRequest request)
+    {
+        try
+        {
+            return Ok(await contractService.SignContractAsync(id, CurrentUserId, request));
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }
+

@@ -128,5 +128,13 @@ public class CancelRoomDepositRequest
     public string? Reason { get; set; }
 }
 
-// Yêu cầu thêm thành viên ở ghép vào phòng (không tạo hợp đồng mới)
-public record AddOccupantRequest(Guid TenantProfileId);
+// Yêu cầu thêm thành viên ở ghép vào phòng (có thể tùy chọn tự động lập Hợp đồng Ở Ghép)
+public record AddOccupantRequest(
+    Guid TenantProfileId,
+    bool CreateCoTenantContract = false,
+    decimal IndividualDeposit = 0,
+    decimal SharedRentAmount = 0,
+    DateTime? StartDate = null,
+    DateTime? EndDate = null,
+    string? Terms = null
+);

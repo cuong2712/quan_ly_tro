@@ -5,7 +5,7 @@ import {
   Phone, Calendar, DollarSign, User, MapPin, Search,
   CheckCircle, RefreshCw, Settings,
   LayoutGrid, Gauge, Download, FilePlus, Edit3, Maximize, Activity, Sparkles, StickyNote, Box,
-  UserX, Info, ShieldCheck, AlertTriangle
+  UserX, Info, ShieldCheck, AlertTriangle, Camera
 } from 'lucide-react';
 import {
   zoneService, roomService, tenantService,
@@ -14,6 +14,8 @@ import {
 import { formatVND, formatDate, exportToPDF, formatNumberWithDots, parseNumberFromDots, getImageUrl } from '../../utils/formatters';
 import { validateFullName, validatePhone, validateCCCD, validateEmail, validatePositiveNumber } from '../../utils/validators';
 import { ServiceMgmt } from './ServiceMgmt';
+import { RoomMediaStudioModal } from './RoomMediaStudioModal';
+import { Panorama360Uploader } from '../Common/Panorama360Uploader';
 import { ErrorBoundary } from '../Common/ErrorBoundary';
 import { Pagination } from '../Common/Pagination';
 
@@ -371,6 +373,15 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
     expectedMoveInDate: '',
     note: ''
   });
+
+  const [studioRoom, setStudioRoom] = useState(null);
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+
+  const openStudio = (r, e) => {
+    if (e) e.stopPropagation();
+    setStudioRoom(r);
+    setIsStudioOpen(true);
+  };
 
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractRoom, setContractRoom] = useState(null);
@@ -1103,6 +1114,25 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                               </button>
                             </>
                           )}
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={e => openStudio(r, e)}
+                            title="Studio Ảnh & Tour 360°"
+                            style={{
+                              height: 34,
+                              padding: '0 8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              borderRadius: 8,
+                              color: '#8b5cf6',
+                              borderColor: 'rgba(139, 92, 246, 0.4)',
+                              fontSize: 12,
+                              fontWeight: 600
+                            }}
+                          >
+                            <Camera size={14} /> 360°
+                          </button>
                           <a
                             href={`/phong/${r.id}`}
                             target="_blank"
@@ -1224,20 +1254,13 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
                       <textarea className="form-control" rows="2" placeholder="Ghi chú về phòng..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
                     </div>
 
-                    <div className="form-group" style={{ marginTop: 10 }}>
-                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>🌐 Link Ảnh Cam 360° (Panorama Equirectangular)</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="https://... hoặc /sample_room_360.jpg"
+                    <div className="form-group" style={{ marginTop: 12 }}>
+                      <Panorama360Uploader
                         value={form.panorama360Url || ''}
-                        onChange={e => setForm({ ...form, panorama360Url: e.target.value })}
+                        onChange={url => setForm({ ...form, panorama360Url: url })}
+                        roomNumber={form.roomNumber}
+                        label="Không gian toàn cảnh 360° (Virtual Tour)"
                       />
-                      <small className="text-muted" style={{ fontSize: '11px', marginTop: 3, display: 'block' }}>
-                        Dán URL ảnh toàn cảnh 360 độ hoặc nhập <code>/sample_room_360.jpg</code> để sinh viên có thể xem phòng 360°.
-                      </small>
                     </div>
 
                     <div className="form-group" style={{ marginTop: 10 }}>
@@ -1615,6 +1638,19 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
               </div>
             </div>
           )}
+
+          {/* 📷 Studio Ảnh & Tour 360° Modal */}
+          {isStudioOpen && studioRoom && (
+            <RoomMediaStudioModal
+              isOpen={isStudioOpen}
+              room={studioRoom}
+              onClose={() => setIsStudioOpen(false)}
+              onSaved={(updated) => {
+                setRooms(prev => prev.map(r => r.id === updated.id ? { ...r, ...updated } : r));
+                load();
+              }}
+            />
+          )}
         </>
       )}
     </div>
@@ -1682,6 +1718,10 @@ const RoomDetail = ({ room, zone, onBack }) => {
   const [allTenants, setAllTenants] = useState([]);
   const [occupantSearchText, setOccupantSearchText] = useState('');
   const [addingOccupant, setAddingOccupant] = useState(false);
+  const [createCoTenantContract, setCreateCoTenantContract] = useState(true);
+  const [coTenantDeposit, setCoTenantDeposit] = useState(0);
+  const [coTenantSharedRent, setCoTenantSharedRent] = useState(0);
+  const [coTenantTerms, setCoTenantTerms] = useState('');
 
   // Modal Xem & Xuất Hợp Đồng PDF trực tiếp
   const [showViewContractModal, setShowViewContractModal] = useState(false);
@@ -1692,6 +1732,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
   const [transferring, setTransferring] = useState(false);
 
   const [removingOccupant, setRemovingOccupant] = useState(null); // id đang xử lý
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
 
   const handleOpenInvoiceModal = () => {
     const now = new Date();
@@ -2213,6 +2254,23 @@ const RoomDetail = ({ room, zone, onBack }) => {
             <Sparkles size={14} color="#38bdf8" />
             <span>Xem Trang Giới Thiệu (Cam 360°) ↗</span>
           </a>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setIsStudioOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(99, 102, 241, 0.12)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              color: '#818cf8',
+              fontWeight: 650
+            }}
+          >
+            <Camera size={15} />
+            <span>Studio Ảnh 360°</span>
+          </button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowEditModal(true)}>
             <Edit3 size={15} /> Sửa thông tin
           </button>
@@ -2572,7 +2630,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 )}
                 <button
                   className="btn btn-primary btn-sm"
-                  title="Thêm thành viên ở ghép (không tạo hợp đồng mới)"
+                  title="Thêm thành viên ở ghép (có thể tạo phụ lục HĐ)"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: 12.5 }}
                   onClick={async () => {
                     try {
@@ -2580,6 +2638,10 @@ const RoomDetail = ({ room, zone, onBack }) => {
                       setAllTenants(Array.isArray(all) ? all : (all?.data || []));
                     } catch { setAllTenants([]); }
                     setOccupantSearchText('');
+                    setCreateCoTenantContract(true);
+                    setCoTenantDeposit(0);
+                    setCoTenantSharedRent(0);
+                    setCoTenantTerms('');
                     setShowAddOccupantModal(true);
                   }}
                 >
@@ -2821,204 +2883,6 @@ const RoomDetail = ({ room, zone, onBack }) => {
         </div>
       )}
 
-      {/* ── MODAL: THÊM THÀNH VIÊN Ở GHÉP ── */}
-      {showAddOccupantModal && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setShowAddOccupantModal(false)}
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 9999, padding: '20px'
-          }}
-        >
-          <div
-            className="modal-content"
-            onClick={e => e.stopPropagation()}
-            style={{
-              maxWidth: 580, width: '100%', background: 'var(--bg-card)',
-              borderRadius: '16px', border: '1px solid var(--border-color)',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', margin: 'auto'
-            }}
-          >
-            <div className="modal-header" style={{ padding: '18px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '18px', fontWeight: 800, margin: 0 }}>
-                <Users size={20} color="#6366f1" /> Thêm Thành Viên Ở Ghép - Phòng P.{roomDetail?.roomNumber || room.roomNumber}
-              </h3>
-              <button className="btn-close" onClick={() => setShowAddOccupantModal(false)}>✕</button>
-            </div>
-
-            <div className="modal-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              
-              {/* Banner Thông Tin */}
-              <div style={{
-                background: 'rgba(99, 102, 241, 0.08)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                borderRadius: '12px', padding: '12px 16px',
-                display: 'flex', gap: 12, alignItems: 'flex-start',
-                fontSize: '13px', lineHeight: '1.5'
-              }}>
-                <Info size={18} color="#6366f1" style={{ flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Nghiệp vụ thành viên ở ghép (Occupant):</strong>
-                  <div style={{ color: 'var(--text-secondary)', marginTop: 3 }}>
-                    Thành viên ở ghép được liên kết vào phòng mà <strong>không tạo hợp đồng mới</strong>. Người đứng tên hợp đồng ({primaryTenant?.fullName || 'Đại diện'}) tiếp tục quản lý nghĩa vụ tiền phòng & hóa đơn.
-                  </div>
-                </div>
-              </div>
-
-              {/* Sức Chứa Phòng Hiện Tại */}
-              <div style={{
-                background: 'var(--bg-dark)', padding: '12px 16px',
-                borderRadius: '10px', border: '1px solid var(--border-color)',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px'
-              }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Sức chứa hiện tại: </span>
-                  <strong style={{ color: 'var(--text-primary)' }}>
-                    {tenants.length} / {roomDetail?.maxTenants || room.maxTenants} người
-                  </strong>
-                </div>
-                <span
-                  className={`status-pill ${tenants.length >= (roomDetail?.maxTenants || room.maxTenants) ? 'danger' : 'active'}`}
-                  style={{ fontSize: '12px' }}
-                >
-                  {tenants.length >= (roomDetail?.maxTenants || room.maxTenants)
-                    ? '⚠️ Phòng đã đạt sức chứa tối đa'
-                    : `Còn trống ${Math.max(0, (roomDetail?.maxTenants || room.maxTenants) - tenants.length)} chỗ`}
-                </span>
-              </div>
-
-              {/* Ô Tìm Kiếm Hồ Sơ */}
-              <div>
-                <label className="form-label" style={{ fontSize: '13px', marginBottom: 6 }}>
-                  Tìm kiếm hồ sơ khách thuê đã đăng ký
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Nhập tên khách, số điện thoại, CCCD hoặc email..."
-                    value={occupantSearchText}
-                    onChange={e => setOccupantSearchText(e.target.value)}
-                    style={{ paddingLeft: 38, height: 40, fontSize: '14px' }}
-                  />
-                </div>
-              </div>
-
-              {/* Danh Sách Khách Thuê Khả Dụng — bao gồm khách đang ở phòng khác (có thể chuyển phòng) */}
-              <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 2 }}>
-                {(() => {
-                  const q = occupantSearchText.toLowerCase();
-                  const available = allTenants.filter(t => {
-                    const alreadyInThisRoom = tenants.some(rt => rt.id === t.id);
-                    if (alreadyInThisRoom) return false; // đã ở phòng này rồi
-                    return (
-                      !q ||
-                      t.fullName?.toLowerCase().includes(q) ||
-                      t.phone?.includes(q) ||
-                      t.email?.toLowerCase().includes(q) ||
-                      (t.cccd && t.cccd.includes(q))
-                    );
-                  });
-
-                  if (available.length === 0) {
-                    return (
-                      <div style={{ textAlign: 'center', padding: 28, color: 'var(--text-muted)', fontSize: 13 }}>
-                        <Users size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
-                        <p style={{ margin: 0 }}>{q ? 'Không tìm thấy khách thuê phù hợp.' : 'Không có hồ sơ khách thuê nào khả dụng.'}</p>
-                      </div>
-                    );
-                  }
-
-                  return available.map(t => {
-                    const isMoving = !!(t.roomId); // đang ở phòng khác
-                    const isFull = tenants.length >= (roomDetail?.maxTenants || room.maxTenants);
-                    return (
-                      <div
-                        key={t.id}
-                        style={{
-                          padding: '12px 16px', background: 'var(--bg-dark)',
-                          borderRadius: '12px',
-                          border: `1px solid ${isMoving ? 'rgba(245,158,11,0.3)' : 'var(--border-color)'}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                          <div style={{
-                            width: 40, height: 40, borderRadius: '50%',
-                            background: isMoving
-                              ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                              : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0
-                          }}>
-                            {t.fullName?.charAt(0) || 'T'}
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              {t.fullName}
-                              {isMoving ? (
-                                <span style={{ fontSize: '10.5px', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '1px 7px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                                  📦 Đang ở P.{t.roomNumber || 'khác'} → chuyển
-                                </span>
-                              ) : (
-                                <span style={{ fontSize: '10.5px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '1px 7px', borderRadius: 4, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-                                  ✅ Chưa có phòng
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2, flexWrap: 'wrap' }}>
-                              <span><Phone size={11} style={{ display: 'inline', marginRight: 3 }} />{t.phone}</span>
-                              {t.cccd && <span><ShieldCheck size={11} style={{ display: 'inline', marginRight: 3 }} />{t.cccd}</span>}
-                              {t.hometown && <span><MapPin size={11} style={{ display: 'inline', marginRight: 3 }} />{t.hometown}</span>}
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          className={`btn btn-sm ${isMoving ? 'btn-secondary' : 'btn-primary'}`}
-                          disabled={addingOccupant || isFull}
-                          title={isFull ? 'Phòng đã đầy sức chứa tối đa' : (isMoving ? `Chuyển từ P.${t.roomNumber || '?'} sang phòng này` : 'Thêm vào phòng')}
-                          style={{ flexShrink: 0, padding: '6px 14px', fontSize: '12.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          onClick={async () => {
-                            const msg = isMoving
-                              ? `⚠️ "${t.fullName}" đang ở phòng P.${t.roomNumber || 'khác'}.\nChuyển sang phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`
-                              : `Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`;
-                            if (!confirm(msg)) return;
-                            setAddingOccupant(true);
-                            try {
-                              await roomService.addOccupant(room.id, t.id);
-                              showToast(isMoving
-                                ? `✅ Đã chuyển ${t.fullName} sang phòng ${roomDetail?.roomNumber || room.roomNumber} thành công.`
-                                : `✅ Đã thêm ${t.fullName} vào phòng thành công.`);
-                              setShowAddOccupantModal(false);
-                              await loadDetail();
-                            } catch (err) {
-                              alert(err.response?.data?.message || err.message);
-                            } finally { setAddingOccupant(false); }
-                          }}
-                        >
-                          {isMoving ? <><RefreshCw size={13} /> Chuyển</> : <><Plus size={14} /> Thêm</>}
-                        </button>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-
-            <div className="modal-footer" style={{ padding: '14px 24px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setShowAddOccupantModal(false)}>
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── MODAL: THÊM THÀNH VIÊN Ở GHÉP (LAYOUT CỐ ĐỊNH) ── */}
       {showAddOccupantModal && (
@@ -3064,9 +2928,10 @@ const RoomDetail = ({ room, zone, onBack }) => {
               }}>
                 <Info size={18} color="#6366f1" style={{ flexShrink: 0, marginTop: 2 }} />
                 <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Nghiệp vụ thành viên ở ghép (Occupant):</strong>
+                  <strong style={{ color: 'var(--text-primary)' }}>Nghiệp vụ thành viên ở ghép & Hợp đồng cư trú riêng:</strong>
                   <div style={{ color: 'var(--text-secondary)', marginTop: 3 }}>
-                    Thành viên ở ghép được liên kết vào phòng mà <strong>không tạo hợp đồng mới</strong>. Người đứng tên hợp đồng ({primaryTenant?.fullName || 'Đại diện'}) tiếp tục quản lý nghĩa vụ tiền phòng & hóa đơn.
+                    Đại diện hợp đồng chính: <strong style={{ color: '#818cf8' }}>{primaryTenant?.fullName || 'Đang cập nhật'}</strong>. 
+                    Bạn có thể tạo thêm <strong style={{ color: '#10b981' }}>Phụ lục Hợp đồng ở ghép (Co-Tenant)</strong> riêng cho người mới để bảo đảm quyền lợi đôi bên, quản lý cọc riêng, nội quy PCCC và cho phép khách ký số online qua app.
                   </div>
                 </div>
               </div>
@@ -3091,6 +2956,83 @@ const RoomDetail = ({ room, zone, onBack }) => {
                     ? '⚠️ Phòng đã đạt sức chứa tối đa'
                     : `Còn trống ${Math.max(0, (roomDetail?.maxTenants || room.maxTenants) - tenants.length)} chỗ`}
                 </span>
+              </div>
+
+              {/* Cấu Hình Hợp Đồng Ở Ghép (Co-Tenant Contract Options) */}
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.05)',
+                border: '1px solid rgba(99, 102, 241, 0.22)',
+                borderRadius: '12px', padding: '14px 16px',
+                display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={createCoTenantContract}
+                      onChange={e => setCreateCoTenantContract(e.target.checked)}
+                      style={{ width: 17, height: 17, accentColor: '#6366f1', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>
+                      Tạo Phụ Lục Hợp Đồng Ở Ghép Cho Thành Viên Này
+                    </span>
+                  </label>
+                  <span style={{ fontSize: '11px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                    ⚖️ Pháp lý chuẩn
+                  </span>
+                </div>
+
+                {createCoTenantContract && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 6, borderTop: '1px dashed rgba(99, 102, 241, 0.2)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', marginBottom: 4 }}>
+                          Tiền cọc riêng của thành viên (VNĐ)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="100000"
+                          className="form-control"
+                          placeholder="Ví dụ: 1,000,000"
+                          value={coTenantDeposit}
+                          onChange={e => setCoTenantDeposit(e.target.value)}
+                          style={{ height: 36, fontSize: '13px' }}
+                        />
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Cọc bảo đảm hoàn trả riêng khi chuyển đi</span>
+                      </div>
+                      <div>
+                        <label className="form-label" style={{ fontSize: '12px', marginBottom: 4 }}>
+                          Phần chia sẻ tiền phòng / tháng (VNĐ)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="100000"
+                          className="form-control"
+                          placeholder="Ví dụ: 1,500,000"
+                          value={coTenantSharedRent}
+                          onChange={e => setCoTenantSharedRent(e.target.value)}
+                          style={{ height: 36, fontSize: '13px' }}
+                        />
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Mức đóng góp dự kiến với người đại diện</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '12px', marginBottom: 4 }}>
+                        Điều khoản / Cam kết riêng (nếu có)
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Ví dụ: Chấp hành giờ giấc ra vào, PCCC, không nuôi thú cưng..."
+                        value={coTenantTerms}
+                        onChange={e => setCoTenantTerms(e.target.value)}
+                        style={{ height: 36, fontSize: '13px' }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Ô Tìm Kiếm Hồ Sơ */}
@@ -3188,16 +3130,26 @@ const RoomDetail = ({ room, zone, onBack }) => {
                           title={isFull ? 'Phòng đã đầy sức chứa tối đa' : (isMoving ? `Chuyển từ P.${t.roomNumber || '?'} sang phòng này` : 'Thêm vào phòng')}
                           style={{ flexShrink: 0, padding: '6px 14px', fontSize: '12.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                           onClick={async () => {
+                            const contractNotice = createCoTenantContract
+                              ? '\n📄 Đồng thời KHỞI TẠO HỢP ĐỒNG Ở GHÉP cho thành viên này.'
+                              : '';
                             const msg = isMoving
-                              ? `⚠️ "${t.fullName}" đang ở phòng P.${t.roomNumber || 'khác'}.\nChuyển sang phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`
-                              : `Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?`;
+                              ? `⚠️ "${t.fullName}" đang ở phòng P.${t.roomNumber || 'khác'}.\nChuyển sang phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?${contractNotice}`
+                              : `Thêm "${t.fullName}" vào phòng ${roomDetail?.roomNumber || room.roomNumber} với tư cách thành viên ở ghép?${contractNotice}`;
                             if (!confirm(msg)) return;
                             setAddingOccupant(true);
                             try {
-                              await roomService.addOccupant(room.id, t.id);
-                              showToast(isMoving
-                                ? `✅ Đã chuyển ${t.fullName} sang phòng ${roomDetail?.roomNumber || room.roomNumber} thành công.`
-                                : `✅ Đã thêm ${t.fullName} vào phòng thành công.`);
+                              await roomService.addOccupant(room.id, t.id, {
+                                createCoTenantContract,
+                                individualDeposit: Number(coTenantDeposit) || 0,
+                                sharedRentAmount: Number(coTenantSharedRent) || 0,
+                                terms: coTenantTerms
+                              });
+                              showToast(createCoTenantContract
+                                ? `✅ Đã thêm ${t.fullName} & khởi tạo Hợp đồng ở ghép thành công!`
+                                : (isMoving
+                                  ? `✅ Đã chuyển ${t.fullName} sang phòng ${roomDetail?.roomNumber || room.roomNumber} thành công.`
+                                  : `✅ Đã thêm ${t.fullName} vào phòng thành công.`));
                               setShowAddOccupantModal(false);
                               await loadDetail();
                             } catch (err) {
@@ -3971,17 +3923,12 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 </div>
 
                 <div style={{ gridColumn: 'span 2' }}>
-                  <label className="form-label">🌐 Link Ảnh Cam 360° (Panorama Equirectangular)</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="https://... hoặc /sample_room_360.jpg"
+                  <Panorama360Uploader
                     value={editForm.panorama360Url || ''}
-                    onChange={e => setEditForm({ ...editForm, panorama360Url: e.target.value })}
+                    onChange={url => setEditForm({ ...editForm, panorama360Url: url })}
+                    roomNumber={editForm.roomNumber || room?.roomNumber}
+                    label="Không gian toàn cảnh 360° (Virtual Tour)"
                   />
-                  <small style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: 3, display: 'block' }}>
-                    Nhập URL ảnh toàn cảnh hoặc <code>/sample_room_360.jpg</code> để hiển thị ảnh 360° trên trang giới thiệu phòng.
-                  </small>
                 </div>
 
                 <div style={{ gridColumn: 'span 2' }}>
@@ -4582,6 +4529,19 @@ const RoomDetail = ({ room, zone, onBack }) => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* 📷 Studio Ảnh & Tour 360° Modal */}
+      {isStudioOpen && (
+        <RoomMediaStudioModal
+          isOpen={isStudioOpen}
+          room={{ ...room, ...(roomDetail || {}), zoneName: zone?.name }}
+          onClose={() => setIsStudioOpen(false)}
+          onSaved={(updated) => {
+            setRoomDetail(prev => ({ ...(prev || {}), ...updated }));
+            fetchDetail();
+          }}
+        />
       )}
     </div>
   );

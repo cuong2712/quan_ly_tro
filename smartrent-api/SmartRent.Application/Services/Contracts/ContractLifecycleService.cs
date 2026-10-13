@@ -11,20 +11,22 @@ namespace SmartRent.Application.Services.Contracts;
 public class ContractLifecycleService(AppDbContext db, NotificationService notificationService)
 {
     // Tạo mới Hợp đồng thuê nhà và tự động đổi trạng thái phòng thành Occupied (Đã ở).
-    // NGHIỆP VỤ: Mỗi phòng chỉ có DUY NHẤT 1 Hợp đồng có hiệu lực tại một thời điểm.
+    // NGHIỆP VỤ: Mỗi phòng chỉ có DUY NHẤT 1 Hợp đồng MASTER có hiệu lực tại một thời điểm.
+    //            Nhiều Hợp đồng CoTenant có thể cùng tồn tại song song.
     public async Task<ContractDto> CreateAsync(Guid landlordId, CreateContractRequest req)
     {
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId)
             ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn");
 
-        // Kiểm tra ràng buộc: Phòng chỉ được có 1 Hợp đồng đang hiệu lực
-        var existingActiveContract = await db.Contracts
+        // Kiểm tra ràng buộc: Phòng chỉ được có 1 Hợp đồng MASTER đang hiệu lực
+        var existingMasterContract = await db.Contracts
             .AnyAsync(c => c.RoomId == req.RoomId &&
+                          c.Type == ContractType.Master &&
                           (c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested));
-        if (existingActiveContract)
+        if (existingMasterContract)
         {
             throw new InvalidOperationException(
-                "Phòng này hiện đã có hợp đồng thuê đang hiệu lực. " +
+                "Phòng này hiện đã có hợp đồng chính (Master) đang hiệu lực. " +
                 "Vui lòng thêm khách vào danh sách ở ghép hoặc thanh lý hợp đồng hiện tại trước khi tạo hợp đồng mới.");
         }
 
@@ -541,5 +543,163 @@ public class ContractLifecycleService(AppDbContext db, NotificationService notif
         };
 
         return ContractTemplateEngine.Render(template, sampleContract, room, landlord, tenant, utilityRate);
+    }
+
+    // ─── TẠO HỢP ĐỒNG Ở GHÉP (CO-TENANT CONTRACT) ───
+
+    // Tạo Hợp đồng / Phụ lục Ở Ghép cho thành viên trong phòng.
+    // Hợp đồng CoTenant liên kết tới Hợp đồng Master của phòng.
+    // Quy tắc: Số người có HĐ active (Master + CoTenant) không vượt quá Room.MaxTenants.
+    public async Task<ContractDto> CreateCoTenantContractAsync(Guid landlordId, CreateCoTenantContractRequest req)
+    {
+        var room = await db.Rooms.Include(r => r.Zone).ThenInclude(z => z.Landlord)
+            .FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId)
+            ?? throw new KeyNotFoundException("Phòng không tồn tại hoặc không thuộc quyền quản lý của bạn.");
+
+        // Kiểm tra Hợp đồng Master tồn tại và còn hiệu lực
+        var parentContract = await db.Contracts
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .FirstOrDefaultAsync(c => c.Id == req.ParentContractId && c.RoomId == req.RoomId && c.Type == ContractType.Master)
+            ?? throw new KeyNotFoundException("Không tìm thấy Hợp đồng chính (Master) của phòng này.");
+
+        if (parentContract.Status == ContractStatus.Liquidated)
+            throw new InvalidOperationException("Hợp đồng chính của phòng đã bị thanh lý. Không thể tạo hợp đồng ở ghép mới.");
+
+        // Kiểm tra tenant tồn tại
+        var tenant = await db.TenantProfiles.Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Id == req.TenantProfileId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hồ sơ khách thuê.");
+
+        // Không cho phép tạo CoTenant contract cho người đã có Master contract trong phòng này
+        var isAlreadyMaster = await db.Contracts
+            .AnyAsync(c => c.RoomId == req.RoomId && c.TenantProfileId == req.TenantProfileId &&
+                           c.Type == ContractType.Master &&
+                           (c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested));
+        if (isAlreadyMaster)
+            throw new InvalidOperationException("Khách thuê này đang là người đại diện chính của phòng (có hợp đồng Master). Không thể tạo hợp đồng ở ghép.");
+
+        // Không cho phép tạo 2 CoTenant contract cho cùng 1 người trong cùng 1 phòng
+        var existingCoTenant = await db.Contracts
+            .AnyAsync(c => c.RoomId == req.RoomId && c.TenantProfileId == req.TenantProfileId &&
+                           c.Type == ContractType.CoTenant &&
+                           (c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested));
+        if (existingCoTenant)
+            throw new InvalidOperationException("Khách thuê này đã có hợp đồng ở ghép đang hiệu lực trong phòng này.");
+
+        // Kiểm tra sức chứa tối đa của phòng (tính cả Master và CoTenant contracts đang active)
+        var activeContractCount = await db.Contracts
+            .CountAsync(c => c.RoomId == req.RoomId &&
+                             (c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested));
+        if (activeContractCount >= room.MaxTenants)
+            throw new InvalidOperationException(
+                $"Phòng {room.RoomNumber} đã đạt sức chứa tối đa ({room.MaxTenants} người). Không thể thêm thành viên ở ghép mới.");
+
+        var landlord = await db.Users.FirstOrDefaultAsync(u => u.Id == landlordId);
+        var utilityRate = await db.UtilityRates.FirstOrDefaultAsync(u => u.LandlordId == landlordId);
+
+        // Tạo mã hợp đồng ở ghép tự động: OG-[mã phòng]-[timestamp]
+        var coTenantCode = $"OG-{room.RoomNumber}-{DateTime.UtcNow:yyyyMMddHHmm}";
+
+        // Ngày kết thúc: dùng ngày của HĐ Master nếu không chỉ định
+        var endDate = req.EndDate ?? parentContract.EndDate;
+
+        var contract = new Contract
+        {
+            ContractCode = coTenantCode,
+            RoomId = req.RoomId,
+            TenantProfileId = tenant.Id,
+            StartDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc),
+            EndDate = DateTime.SpecifyKind(endDate, DateTimeKind.Utc),
+            RentAmount = parentContract.RentAmount,     // Kế thừa giá phòng từ HĐ Master
+            Deposit = req.IndividualDeposit,            // Tiền cọc riêng (nếu có)
+            PaymentTermDay = parentContract.PaymentTermDay,
+            Status = ContractStatus.Active,
+            Type = ContractType.CoTenant,
+            ParentContractId = parentContract.Id,
+            IndividualDeposit = req.IndividualDeposit,
+            SharedRentAmount = req.SharedRentAmount,
+            IsSignedByTenant = false,
+            Terms = req.Terms,
+        };
+
+        // Render nội dung hợp đồng ở ghép
+        contract.CustomContent = !string.IsNullOrWhiteSpace(req.CustomContent)
+            ? req.CustomContent
+            : ContractTemplateEngine.RenderCoTenantTemplate(contract, room, landlord, tenant, parentContract, utilityRate);
+
+        db.Contracts.Add(contract);
+
+        // Gán phòng cho thành viên nếu chưa được gán
+        if (tenant.RoomId != req.RoomId)
+        {
+            tenant.RoomId = req.RoomId;
+            tenant.LandlordId = landlordId;
+            if (tenant.MoveInDate == null) tenant.MoveInDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc);
+            if (tenant.Deposit == 0 && req.IndividualDeposit > 0) tenant.Deposit = req.IndividualDeposit;
+        }
+
+        if (room.Status == RoomStatus.Vacant) room.Status = RoomStatus.Occupied;
+
+        await db.SaveChangesAsync();
+
+        var full = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .Include(c => c.ParentContract)
+            .FirstAsync(c => c.Id == contract.Id);
+
+        // Thông báo cho khách thuê
+        await notificationService.SendNotificationAsync(
+            landlordId,
+            $"📋 Hợp đồng ở ghép phòng {room.RoomNumber} đã được lập",
+            $"Chủ trọ đã lập phụ lục hợp đồng ở ghép (Mã: {coTenantCode}) cho bạn tại phòng {room.RoomNumber}. Vui lòng đăng nhập để xem và ký xác nhận.",
+            NotificationTarget.User,
+            tenant.UserId
+        );
+
+        return full.ToContractDto();
+    }
+
+    // ─── KÝ XÁC NHẬN HỢP ĐỒNG ONLINE (KHÁCH THUÊ) ───
+
+    // Khách thuê ký xác nhận hợp đồng của mình (Master hoặc CoTenant) qua app.
+    public async Task<ContractDto> SignContractAsync(Guid contractId, Guid tenantUserId, SignContractRequest req)
+    {
+        var profile = await db.TenantProfiles.FirstOrDefaultAsync(t => t.UserId == tenantUserId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hồ sơ khách thuê.");
+
+        var contract = await db.Contracts
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+            .Include(c => c.ParentContract)
+            .FirstOrDefaultAsync(c => c.Id == contractId && c.TenantProfileId == profile.Id)
+            ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng của bạn hoặc bạn không có quyền ký.");
+
+        if (contract.Status == ContractStatus.Liquidated)
+            throw new InvalidOperationException("Hợp đồng đã bị thanh lý, không thể ký xác nhận.");
+
+        if (contract.IsSignedByTenant)
+            throw new InvalidOperationException("Hợp đồng này đã được ký xác nhận trước đó.");
+
+        contract.IsSignedByTenant = true;
+        contract.SignedAt = DateTime.UtcNow;
+        contract.SignatureNote = req.Note;
+
+        await db.SaveChangesAsync();
+
+        // Thông báo cho chủ trọ
+        var landlordId = contract.Room?.Zone?.LandlordId;
+        if (landlordId.HasValue)
+        {
+            await notificationService.SendNotificationAsync(
+                tenantUserId,
+                $"✅ Khách thuê đã ký xác nhận HĐ phòng {contract.Room?.RoomNumber}",
+                $"Khách {contract.TenantProfile?.User?.FullName} đã ký xác nhận hợp đồng {contract.ContractCode} lúc {DateTime.UtcNow:dd/MM/yyyy HH:mm}.",
+                NotificationTarget.User,
+                landlordId.Value
+            );
+        }
+
+        return contract.ToContractDto();
     }
 }

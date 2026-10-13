@@ -9,6 +9,7 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   const [searchTerm, setSearchTerm] = useState('');
   const [filterZoneId, setFilterZoneId] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'active' | 'expired' | 'liquidated' | 'uncontracted'
+  const [filterContractType, setFilterContractType] = useState('all'); // 'all' | 'Master' | 'CoTenant'
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState(null);
@@ -125,9 +126,12 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
   let expiredCount = 0;
   let liquidatedCount = 0;
   let pendingRenewCount = 0;
+  let coTenantCount = 0;
 
   contracts.forEach(c => {
     const info = getContractStatusInfo(c);
+    const isCo = (c.contractType || '').toLowerCase() === 'cotenant' || c.contractType === '2' || c.Type === 2 || c.type === 2;
+    if (isCo) coTenantCount++;
     if (info.isRequested) pendingRenewCount++;
     if (info.isActive) activeCount++;
     if (info.type === 'expired') expiredCount++;
@@ -164,7 +168,13 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
       (filterStatus === 'expired' && stInfo.type === 'expired') ||
       (filterStatus === 'liquidated' && stInfo.type === 'liquidated');
 
-    return matchesSearch && matchesZone && matchesStatus;
+    // Lọc theo Loại Hợp đồng (Master vs CoTenant)
+    const isCoTenantContract = (c.contractType || '').toLowerCase() === 'cotenant' || c.contractType === '2' || c.Type === 2 || c.type === 2;
+    const matchesContractType = filterContractType === 'all' ||
+      (filterContractType === 'Master' && !isCoTenantContract) ||
+      (filterContractType === 'CoTenant' && isCoTenantContract);
+
+    return matchesSearch && matchesZone && matchesStatus && matchesContractType;
   }).sort((a, b) => {
     // 🌟 ƯU TIÊN 1: Đưa hợp đồng đang có yêu cầu gia hạn lên đầu tiên
     const aReq = getContractStatusInfo(a).isRequested ? 1 : 0;
@@ -926,6 +936,19 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
 
         <div
           className="card"
+          onClick={() => { setFilterContractType(filterContractType === 'CoTenant' ? 'all' : 'CoTenant'); setCurrentPage(1); }}
+          style={{
+            padding: '8px 12px', cursor: 'pointer', borderRadius: '10px',
+            border: filterContractType === 'CoTenant' ? '2px solid #a855f7' : '1px solid var(--border-color)',
+            background: 'rgba(168,85,247,0.08)', transition: 'all 0.2s'
+          }}
+        >
+          <div style={{ fontSize: '13px', color: '#a855f7', fontWeight: 700 }}>👥 HĐ Ở Ghép</div>
+          <div style={{ fontSize: '21px', fontWeight: 800, color: '#a855f7', marginTop: '2px' }}>{coTenantCount}</div>
+        </div>
+
+        <div
+          className="card"
           onClick={() => { setFilterStatus('uncontracted'); setCurrentPage(1); }}
           style={{
             padding: '8px 12px', cursor: 'pointer', borderRadius: '10px',
@@ -1018,6 +1041,17 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
               <select
                 className="form-control"
+                value={filterContractType}
+                onChange={(e) => { setFilterContractType(e.target.value); setCurrentPage(1); }}
+                style={{ fontSize: '13.5px', height: '36px', padding: '4px 10px', width: 'auto', minWidth: '150px' }}
+              >
+                <option value="all">📑 Tất cả loại HĐ</option>
+                <option value="Master">🏠 HĐ chính (Master)</option>
+                <option value="CoTenant">👥 HĐ ở ghép (Co-Tenant)</option>
+              </select>
+
+              <select
+                className="form-control"
                 value={filterZoneId}
                 onChange={(e) => { setFilterZoneId(e.target.value); setCurrentPage(1); }}
                 style={{ fontSize: '13.5px', height: '36px', padding: '4px 10px', width: 'auto', minWidth: '150px' }}
@@ -1084,8 +1118,33 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                       title="Bấm vào dòng để xem chi tiết hợp đồng"
                     >
                       <td style={{ padding: '7px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: '700', color: isRenewReq ? '#f59e0b' : '#6366f1', fontSize: '15px' }}>{c.contractCode}</span>
+                          {c.contractType === 'CoTenant' || c.Type === 2 || c.Type === 'CoTenant' ? (
+                            <span style={{
+                              background: 'rgba(168, 85, 247, 0.15)',
+                              color: '#a855f7',
+                              border: '1px solid rgba(168, 85, 247, 0.35)',
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              padding: '1px 7px',
+                              borderRadius: '9999px',
+                            }}>
+                              👥 Ở ghép
+                            </span>
+                          ) : (
+                            <span style={{
+                              background: 'rgba(59, 130, 246, 0.12)',
+                              color: '#60a5fa',
+                              border: '1px solid rgba(59, 130, 246, 0.3)',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              padding: '1px 7px',
+                              borderRadius: '9999px',
+                            }}>
+                              🏠 HĐ chính
+                            </span>
+                          )}
                           {isRenewReq && (
                             <span style={{
                               background: 'linear-gradient(135deg, #f59e0b, #d97706)',
@@ -1099,7 +1158,15 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Tạo: {formatDate(c.startDate)}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: 6, alignItems: 'center', marginTop: 2 }}>
+                          <span>Tạo: {formatDate(c.startDate)}</span>
+                          <span>•</span>
+                          {c.isSignedByTenant ? (
+                            <span style={{ color: '#10b981', fontWeight: 600 }}>✍️ Đã ký</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>⏳ Chưa ký</span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ padding: '7px 14px' }}>
                         <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '15px' }}>
@@ -1121,7 +1188,14 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                       </td>
                       <td style={{ padding: '7px 14px', fontSize: '14.5px' }}>
                         <div>Thuê: <strong style={{ color: '#34d399' }}>{formatVND(c.rentAmount)}</strong></div>
-                        <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Cọc: {formatVND(c.deposit)}</div>
+                        {c.individualDeposit > 0 ? (
+                          <div style={{ fontSize: '12px', color: '#a855f7', fontWeight: 600 }}>Cọc riêng: {formatVND(c.individualDeposit)}</div>
+                        ) : (
+                          <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Cọc: {formatVND(c.deposit)}</div>
+                        )}
+                        {c.sharedRentAmount > 0 && (
+                          <div style={{ fontSize: '12px', color: '#f59e0b' }}>Đóng góp: {formatVND(c.sharedRentAmount)}</div>
+                        )}
                       </td>
                       <td style={{ padding: '7px 14px' }}>
                         <span className={`badge badge-${statusInfo.className}`} style={{
@@ -1311,6 +1385,56 @@ export const ContractMgmt = ({ contracts = [], setContracts, rooms = [], tenants
                   <Trash2 size={15} /> Xóa HĐ
                 </button>
               </div>
+
+              {/* Banner Thông Tin Loại Hợp Đồng & Ký Online */}
+              {(() => {
+                const isCo = viewingContract.contractType === 'CoTenant' || viewingContract.Type === 2 || viewingContract.Type === 'CoTenant';
+                return (
+                  <div style={{
+                    background: isCo ? 'rgba(168, 85, 247, 0.08)' : 'rgba(59, 130, 246, 0.08)',
+                    border: `1px solid ${isCo ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.25)'}`,
+                    borderRadius: '8px',
+                    padding: '10px 16px',
+                    margin: '12px 20px 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    fontSize: '13px'
+                  }}>
+                    <div>
+                      <span style={{ color: isCo ? '#a855f7' : '#60a5fa', fontWeight: 800 }}>
+                        {isCo ? '👥 Phụ Lục Hợp Đồng Cư Trú Ở Ghép' : '🏠 Hợp Đồng Chính Thuê Nguyên Phòng'}
+                      </span>
+                      {isCo && viewingContract.parentContractCode && (
+                        <span style={{ marginLeft: 10, color: 'var(--text-muted)' }}>
+                          (HĐ Master: <strong style={{ color: 'var(--text-primary)' }}>{viewingContract.parentContractCode}</strong>)
+                        </span>
+                      )}
+                      {isCo && viewingContract.individualDeposit > 0 && (
+                        <span style={{ marginLeft: 10, color: '#10b981' }}>
+                          • Cọc riêng: <strong>{formatVND(viewingContract.individualDeposit)}</strong>
+                        </span>
+                      )}
+                      {isCo && viewingContract.sharedRentAmount > 0 && (
+                        <span style={{ marginLeft: 10, color: '#f59e0b' }}>
+                          • Đóng góp phòng: <strong>{formatVND(viewingContract.sharedRentAmount)}</strong>
+                        </span>
+                      )}
+                    </div>
+                    {viewingContract.isSignedByTenant ? (
+                      <span style={{ color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        ✍️ Khách đã ký online ({formatDate(viewingContract.signedAt)})
+                      </span>
+                    ) : (
+                      <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                        ⏳ Khách chưa ký xác nhận trên app
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Modal Document Body */}
               <div className="modal-body contract-paper" id="contract-pdf-content" style={{ background: '#ffffff', color: '#0f172a', padding: '32px 40px', overflowY: 'auto', flex: 1, fontFamily: 'serif, system-ui' }}>

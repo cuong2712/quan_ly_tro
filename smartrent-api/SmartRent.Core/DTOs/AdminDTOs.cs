@@ -1,6 +1,12 @@
 using SmartRent.Core.Enums;
 namespace SmartRent.Core.DTOs;
 
+public record AdminMonthlyRevenueDto(
+    string Month,
+    string Label,
+    decimal Revenue
+);
+
 public record SystemStatsDto(
     int TotalLandlords,
     int TotalTenants,
@@ -11,7 +17,10 @@ public record SystemStatsDto(
     decimal TotalRevenue,
     int TotalInvoices,
     decimal OccupancyRate,
-    decimal VacancyRate
+    decimal VacancyRate,
+    int MaintenanceRooms = 0,
+    int DepositRooms = 0,
+    List<AdminMonthlyRevenueDto>? MonthlyRevenue = null
 );
 
 public record LandlordListDto(

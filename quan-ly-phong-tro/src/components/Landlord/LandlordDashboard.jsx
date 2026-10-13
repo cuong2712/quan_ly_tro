@@ -25,14 +25,26 @@ export const LandlordDashboard = ({ data = {} }) => {
   const unpaidCount = dbStats.unpaidInvoices ?? unpaidInvoices.length;
   const outstandingDebt = unpaidInvoices.reduce((sum, i) => sum + (i.totalAmount || 0), 0);
 
+  const normalizeMonthKey = (m) => {
+    if (!m) return '';
+    const str = String(m).trim();
+    if (str.includes('/')) {
+      const parts = str.split('/');
+      if (parts.length === 2 && parts[1].length === 4) {
+        return `${parts[1]}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return str;
+  };
+
   const currentMonthStr = new Date().toISOString().slice(0, 7);
   const currentMonthPaid = invoices
-    .filter(i => i.month === currentMonthStr && (i.status || '').toLowerCase() === 'paid')
+    .filter(i => normalizeMonthKey(i.month) === currentMonthStr && (i.status || '').toLowerCase() === 'paid')
     .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
   const totalPaidAllTime = invoices
     .filter(i => (i.status || '').toLowerCase() === 'paid')
     .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
-  const revenueDisplay = dbStats.revenue || currentMonthPaid || totalPaidAllTime;
+  const revenueDisplay = dbStats.revenue || totalPaidAllTime || currentMonthPaid;
 
   const occupancyRate = dbStats.occupancyRate ?? (totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0);
 
@@ -49,7 +61,7 @@ export const LandlordDashboard = ({ data = {} }) => {
 
   const revenueByMonth = last6Months.map(m => {
     return invoices
-      .filter(i => i.month === m.key && (i.status || '').toLowerCase() === 'paid')
+      .filter(i => normalizeMonthKey(i.month) === m.key && (i.status || '').toLowerCase() === 'paid')
       .reduce((sum, i) => sum + (i.totalAmount || 0), 0);
   });
 

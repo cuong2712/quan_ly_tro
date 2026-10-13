@@ -31,11 +31,16 @@ namespace SmartRent.API.Middlewares
             var ip = context.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
             var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
 
+            // Bỏ qua rate limit cho localhost/loopback khi test dev và SignalR Hubs / uploads
+            if (ip == "::1" || ip == "127.0.0.1" || ip.StartsWith("fe80::") || path.StartsWith("/hubs") || path.StartsWith("/uploads"))
+            {
+                await _next(context);
+                return;
+            }
+
             // Áp dụng giới hạn 200 request/phút cho endpoint xác thực và 300 request/phút cho endpoint thường
             bool isAuthEndpoint = path.Contains("/auth") || path.Contains("/change-password");
             int maxRequests = isAuthEndpoint ? 200 : 300;
-
-
 
             // Khóa lưu trong bộ nhớ đệm phân biệt theo IP và loại endpoint
             var cacheKey = $"rate_limit_{ip}_{(isAuthEndpoint ? "auth" : "gen")}";
@@ -55,7 +60,7 @@ namespace SmartRent.API.Middlewares
             {
                 _logger.LogWarning("Vượt quá giới hạn request cho IP: {IP} tại đường dẫn: {Path}. Số lượt: {Count}", ip, path, requestCount);
 
-                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
                 context.Response.ContentType = "application/json; charset=utf-8";
                 context.Response.Headers["Retry-After"] = "60";
 

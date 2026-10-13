@@ -139,9 +139,29 @@ public class Contract
     public DateTime? RenewRequestedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    // ── TRƯỜNG MỚI: Hệ thống Hợp đồng Ở Ghép ──
+    // Loại hợp đồng: Master (chính), CoTenant (ở ghép), Individual (cá nhân)
+    public ContractType Type { get; set; } = ContractType.Master;
+
+    // Nếu là CoTenant -> liên kết tới Hợp đồng Master của phòng
+    public Guid? ParentContractId { get; set; }
+
+    // Tiền cọc riêng của thành viên ở ghép (nếu nộp riêng cho chủ trọ)
+    public decimal IndividualDeposit { get; set; } = 0;
+
+    // Trách nhiệm đóng tiền phòng thỏa thuận hàng tháng (nếu chia lẻ)
+    public decimal SharedRentAmount { get; set; } = 0;
+
+    // Trạng thái ký xác nhận hợp đồng (khách thuê xác nhận online)
+    public bool IsSignedByTenant { get; set; } = false;
+    public DateTime? SignedAt { get; set; }
+    public string? SignatureNote { get; set; } // Ghi chú / xác nhận khi ký
+
     // Navigation
     public Room Room { get; set; } = null!;
     public TenantProfile TenantProfile { get; set; } = null!;
+    public Contract? ParentContract { get; set; }
+    public ICollection<Contract> SubContracts { get; set; } = [];
 }
 
 public class UtilityLog

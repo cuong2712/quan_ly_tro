@@ -42,7 +42,16 @@ public static class ContractMappingExtensions
             c.RequestedRenewMonths,
             c.RenewNotes,
             c.RenewRequestedAt,
-            c.CustomContent
+            c.CustomContent,
+            // Co-Tenant fields
+            c.Type.ToString(),
+            c.ParentContractId,
+            c.ParentContract?.ContractCode,
+            c.IndividualDeposit,
+            c.SharedRentAmount,
+            c.IsSignedByTenant,
+            c.SignedAt,
+            c.SignatureNote
         );
     }
 }

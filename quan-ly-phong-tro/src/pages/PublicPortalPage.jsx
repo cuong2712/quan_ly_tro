@@ -653,30 +653,52 @@ export const PublicPortalPage = () => {
                     )}
 
                     {/* Chủ trọ info footer */}
-                    <div style={{ marginTop: 'auto', borderTop: '1px solid #f1f5f9', paddingTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ fontSize: '12.5px', color: '#64748b' }}>
+                    <div style={{
+                      marginTop: 'auto',
+                      borderTop: '1px solid #f1f5f9',
+                      paddingTop: 14,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 10
+                    }}>
+                      <div
+                        style={{
+                          fontSize: '12.5px',
+                          color: '#64748b',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          minWidth: 0,
+                          flex: 1
+                        }}
+                        title={`Chủ trọ: ${room.landlordName || ''}`}
+                      >
                         Chủ trọ: <strong style={{ color: '#1e293b' }}>{room.landlordName}</strong>
                       </div>
 
                       <button
                         onClick={() => navigate(`/phong/${room.id}`)}
                         style={{
-                          display: 'flex',
+                          display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
                           background: has360 ? 'linear-gradient(135deg, #7c3aed, #2563eb)' : '#2563eb',
                           color: '#fff',
                           border: 'none',
-                          padding: '8px 16px',
+                          padding: '7px 13px',
                           borderRadius: '10px',
-                          fontSize: '13px',
+                          fontSize: '12.5px',
                           fontWeight: 700,
                           cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
                           boxShadow: has360 ? '0 4px 10px rgba(124, 58, 237, 0.25)' : '0 4px 10px rgba(37, 99, 235, 0.2)',
+                          transition: 'all 0.2s',
                         }}
                       >
-                        {has360 ? <Sparkles size={14} color="#38bdf8" /> : null}
-                        <span>{has360 ? 'Xem Cam 360°' : 'Xem Chi Tiết'}</span>
+                        {has360 ? <Sparkles size={13} color="#38bdf8" /> : null}
+                        <span style={{ whiteSpace: 'nowrap' }}>{has360 ? 'Xem Cam 360°' : 'Xem Chi Tiết'}</span>
                         <ChevronRight size={14} />
                       </button>
                     </div>

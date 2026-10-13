@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SmartRent.Application.Common.Mappings;
+using SmartRent.Application.Services.Contracts;
 using SmartRent.Core.DTOs;
+using SmartRent.Core.Entities;
 using SmartRent.Core.Enums;
 using SmartRent.Infrastructure.Data;
 
@@ -9,8 +11,8 @@ namespace SmartRent.Application.Services.Rooms;
 // Dịch vụ quản lý Thành viên ở ghép (Occupants / Roommates) trong phòng
 public class RoomOccupantService(AppDbContext db)
 {
-    // Thêm thành viên ở ghép (Occupant) vào phòng mà không tạo hợp đồng mới.
-    // Chỉ cập nhật TenantProfile.RoomId = roomId để liên kết người thuê với phòng.
+    // Thêm thành viên ở ghép (Occupant) vào phòng.
+    // Nếu req.CreateCoTenantContract == true, tự động tạo Hợp đồng / Phụ lục Ở Ghép liên kết HĐ Master.
     public async Task<TenantDto> AddOccupantAsync(Guid roomId, Guid landlordId, AddOccupantRequest req)
     {
         var room = await db.Rooms
@@ -39,10 +41,52 @@ public class RoomOccupantService(AppDbContext db)
                 $"Phòng {room.RoomNumber} đã đạt sức chứa tối đa ({currentCount}/{room.MaxTenants} người). " +
                 "Không thể thêm thành viên ở ghép mới.");
 
-        // Không kiểm tra hợp đồng - chỉ cập nhật liên kết phòng
         tenant.RoomId = roomId;
         tenant.LandlordId = landlordId;
-        if (tenant.MoveInDate == null) tenant.MoveInDate = DateTime.UtcNow;
+        var moveIn = req.StartDate ?? DateTime.UtcNow;
+        if (tenant.MoveInDate == null) tenant.MoveInDate = DateTime.SpecifyKind(moveIn, DateTimeKind.Utc);
+        if (req.IndividualDeposit > 0) tenant.Deposit = req.IndividualDeposit;
+
+        // Nếu chủ trọ chọn lập Hợp đồng ở ghép ngay khi thêm thành viên
+        if (req.CreateCoTenantContract)
+        {
+            var masterContract = await db.Contracts
+                .Include(c => c.TenantProfile).ThenInclude(t => t.User)
+                .FirstOrDefaultAsync(c => c.RoomId == roomId && c.Type == ContractType.Master &&
+                                          (c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested));
+
+            if (masterContract != null)
+            {
+                var landlord = await db.Users.FirstOrDefaultAsync(u => u.Id == landlordId);
+                var utilityRate = await db.UtilityRates.FirstOrDefaultAsync(u => u.LandlordId == landlordId);
+                var endDate = req.EndDate ?? masterContract.EndDate;
+                var coTenantCode = $"OG-{room.RoomNumber}-{DateTime.UtcNow:yyyyMMddHHmm}";
+
+                var coContract = new Contract
+                {
+                    ContractCode = coTenantCode,
+                    RoomId = roomId,
+                    TenantProfileId = tenant.Id,
+                    StartDate = DateTime.SpecifyKind(moveIn, DateTimeKind.Utc),
+                    EndDate = DateTime.SpecifyKind(endDate, DateTimeKind.Utc),
+                    RentAmount = masterContract.RentAmount,
+                    Deposit = req.IndividualDeposit,
+                    PaymentTermDay = masterContract.PaymentTermDay,
+                    Status = ContractStatus.Active,
+                    Type = ContractType.CoTenant,
+                    ParentContractId = masterContract.Id,
+                    IndividualDeposit = req.IndividualDeposit,
+                    SharedRentAmount = req.SharedRentAmount,
+                    IsSignedByTenant = false,
+                    Terms = req.Terms
+                };
+
+                coContract.CustomContent = ContractTemplateEngine.RenderCoTenantTemplate(
+                    coContract, room, landlord, tenant, masterContract, utilityRate);
+
+                db.Contracts.Add(coContract);
+            }
+        }
 
         // Đổi trạng thái phòng thành Occupied nếu đang Vacant
         if (room.Status == RoomStatus.Vacant)
@@ -55,8 +99,8 @@ public class RoomOccupantService(AppDbContext db)
     }
 
     // Gỡ thành viên ở ghép (Occupant) khỏi phòng khi họ rời đi.
-    // Không ảnh hưởng đến hợp đồng chính của phòng.
-    // Không cho phép gỡ Primary Tenant (người đứng tên HĐ) - phải chuyển quyền đại diện trước.
+    // Không cho phép gỡ Primary Tenant (người đứng tên HĐ chính Master) - phải chuyển quyền đại diện trước.
+    // Tự động thanh lý các Hợp đồng CoTenant của thành viên này trong phòng.
     public async Task RemoveOccupantAsync(Guid roomId, Guid landlordId, Guid tenantProfileId)
     {
         var room = await db.Rooms
@@ -69,15 +113,27 @@ public class RoomOccupantService(AppDbContext db)
             .FirstOrDefaultAsync(t => t.Id == tenantProfileId && t.RoomId == roomId)
             ?? throw new KeyNotFoundException("Không tìm thấy khách thuê trong phòng này.");
 
-        // Kiểm tra: nếu người này là Primary Tenant của hợp đồng đang hiệu lực, không cho phép gỡ
+        // Kiểm tra: nếu người này là Primary Tenant (Hợp đồng Master), không cho phép gỡ trực tiếp
         var isRepresentative = await db.Contracts
             .AnyAsync(c => c.RoomId == roomId && c.TenantProfileId == tenantProfileId &&
+                          c.Type == ContractType.Master &&
                           (c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested));
         if (isRepresentative)
         {
             throw new InvalidOperationException(
-                "Khách thuê này đang là người đại diện đứng tên hợp đồng chính của phòng. " +
+                "Khách thuê này đang là người đại diện đứng tên hợp đồng chính (Master) của phòng. " +
                 "Vui lòng sử dụng chức năng \"Chuyển quyền đại diện\" hoặc thanh lý hợp đồng trước khi gỡ người này khỏi phòng.");
+        }
+
+        // Tự động thanh lý các Hợp đồng Ở Ghép (CoTenant) đang active của thành viên này trong phòng
+        var coTenantContracts = await db.Contracts
+            .Where(c => c.RoomId == roomId && c.TenantProfileId == tenantProfileId &&
+                        c.Type == ContractType.CoTenant &&
+                        (c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested))
+            .ToListAsync();
+        foreach (var ctc in coTenantContracts)
+        {
+            ctc.Status = ContractStatus.Liquidated;
         }
 
         // Gỡ liên kết phòng (Occupant rời đi), nhưng giữ lại LandlordId để chủ trọ có thể xếp lại phòng sau này
@@ -97,3 +153,4 @@ public class RoomOccupantService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 }
+

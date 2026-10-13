@@ -38,3 +38,4 @@ public class ServicesController(ServiceMgmtService serviceMgmt) : ControllerBase
     public async Task<IActionResult> Delete(Guid id) 
         => await serviceMgmt.DeleteAsync(id, LandlordId) ? NoContent() : NotFound(new { message = "Không tìm thấy dịch vụ hoặc không có quyền xóa." });
 }
+
