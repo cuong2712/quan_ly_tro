@@ -97,7 +97,7 @@ export const AvatarUploader = ({
             borderRadius: '50%',
             border: '3.5px solid #6366f1',
             boxShadow: '0 6px 18px rgba(99, 102, 241, 0.35)',
-            background: '#1e293b',
+            background: 'var(--bg-uploader)',
             overflow: 'hidden',
             cursor: !disabled ? 'pointer' : 'default'
           }}
@@ -204,7 +204,7 @@ export const AvatarUploader = ({
             border: '3px solid #6366f1',
             boxShadow: '0 4px 14px rgba(99, 102, 241, 0.25)',
             flexShrink: 0,
-            background: '#1e293b'
+            background: 'var(--bg-uploader)'
           }}
         >
           {uploading ? (
@@ -383,8 +383,8 @@ export const CccdCardUploader = ({
           position: 'relative',
           height: height,
           borderRadius: '10px',
-          border: value ? '1px solid rgba(99, 102, 241, 0.4)' : '2px dashed var(--border-color)',
-          background: 'rgba(30, 41, 59, 0.4)',
+          border: value ? '1px solid rgba(99, 102, 241, 0.4)' : '2px dashed var(--border-uploader, var(--border-color))',
+          background: 'var(--bg-uploader)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -396,7 +396,7 @@ export const CccdCardUploader = ({
         {uploading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#6366f1' }}>
             <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
-            <span style={{ fontSize: '12px', color: '#cbd5e1' }}>Đang tải ảnh lên...</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Đang tải ảnh lên...</span>
           </div>
         ) : value ? (
           <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -434,8 +434,8 @@ export const CccdCardUploader = ({
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)' }}>
-            <ImageIcon size={32} style={{ margin: '0 auto 6px', color: '#64748b' }} />
-            <div style={{ fontSize: '12px', marginBottom: '8px' }}>Chưa có ảnh {label.toLowerCase()}</div>
+            <ImageIcon size={32} style={{ margin: '0 auto 6px', color: 'var(--text-muted)' }} />
+            <div style={{ fontSize: '12px', marginBottom: '8px', color: 'var(--text-secondary)', fontWeight: 500 }}>Chưa có ảnh {label.toLowerCase()}</div>
             {!disabled && (
               <button
                 type="button"

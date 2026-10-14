@@ -7,6 +7,7 @@ import { PrivateRoute, RoleRedirect } from './components/Common/PrivateRoute';
 import LoginPage from './pages/LoginPage';
 import PublicPortalPage from './pages/PublicPortalPage';
 import PublicRoomDetailPage from './pages/PublicRoomDetailPage';
+import MobileDemoPage from './pages/MobileDemoPage';
 import './styles/main.css';
 
 // ─── Dashboards theo role ───────────────────────────
@@ -34,6 +35,10 @@ export function App() {
             <Route path="/phong-tro/:id" element={<PublicRoomDetailPage />} />
             <Route path="/room/:id" element={<PublicRoomDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
+
+            {/* Trang Trải Nghiệm Giao Diện Điện Thoại Di Động (Mobile Demo) */}
+            <Route path="/mobile-demo" element={<MobileDemoPage />} />
+            <Route path="/mobile" element={<MobileDemoPage />} />
 
             {/* Role-based dashboards */}
             <Route

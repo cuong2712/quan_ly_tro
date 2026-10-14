@@ -9,6 +9,7 @@
   --bg-card: rgba(17, 24, 39, 0.85);
   --bg-card-hover: rgba(30, 41, 59, 0.9);
   --bg-glass: rgba(17, 24, 39, 0.75);
+  --surface-color: rgba(17, 24, 39, 0.85);
   --border-color: rgba(255, 255, 255, 0.12);
   --border-glow: rgba(16, 185, 129, 0.35);
   
@@ -16,6 +17,28 @@
   --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
   
+  /* Form Controls & Search Boxes - Dark Mode */
+  --bg-input: rgba(15, 23, 42, 0.82);
+  --bg-input-focus: rgba(30, 41, 59, 0.95);
+  --border-input: rgba(255, 255, 255, 0.14);
+  --border-input-hover: rgba(255, 255, 255, 0.28);
+  --placeholder-color: #64748b;
+  --bg-input-disabled: rgba(15, 23, 42, 0.55);
+  --text-input-disabled: #64748b;
+
+  /* Media & Uploader */
+  --bg-uploader: rgba(30, 41, 59, 0.45);
+  --border-uploader: rgba(255, 255, 255, 0.16);
+
+  /* Secondary Button */
+  --bg-btn-secondary: rgba(30, 41, 59, 0.75);
+  --bg-btn-secondary-hover: rgba(51, 65, 85, 0.9);
+  --text-btn-secondary: #f8fafc;
+  --border-btn-secondary: rgba(255, 255, 255, 0.15);
+
+  /* Table Row Hover */
+  --bg-row-hover: rgba(255, 255, 255, 0.05);
+
   /* Brand Gradients & Accents */
   --primary: #10b981;
   --primary-hover: #059669;
@@ -65,16 +88,40 @@
 
 /* Light Mode Overrides */
 body.light-mode {
+  color-scheme: light;
   --bg-dark: #f8fafc;
   --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --bg-glass: rgba(255, 255, 255, 0.95);
-  --border-color: #cbd5e1;
-  --border-glow: rgba(16, 185, 129, 0.3);
+  --bg-card-hover: #f8fafc;
+  --bg-glass: rgba(255, 255, 255, 0.96);
+  --surface-color: #ffffff;
+  --border-color: #e2e8f0;
+  --border-glow: rgba(16, 185, 129, 0.25);
   --text-primary: #0f172a;
   --text-secondary: #334155;
-  --text-muted: #475569;
-  --shadow-card: 0 4px 16px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --text-muted: #64748b;
+  --shadow-card: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+
+  /* Form Controls & Search Boxes - Light Mode */
+  --bg-input: #ffffff;
+  --bg-input-focus: #ffffff;
+  --border-input: #cbd5e1;
+  --border-input-hover: #94a3b8;
+  --placeholder-color: #94a3b8;
+  --bg-input-disabled: #f1f5f9;
+  --text-input-disabled: #64748b;
+
+  /* Media & Uploader - Light Mode */
+  --bg-uploader: #f8fafc;
+  --border-uploader: #cbd5e1;
+
+  /* Secondary Button - Light Mode */
+  --bg-btn-secondary: #f1f5f9;
+  --bg-btn-secondary-hover: #e2e8f0;
+  --text-btn-secondary: #1e293b;
+  --border-btn-secondary: #cbd5e1;
+
+  /* Table Row Hover - Light Mode */
+  --bg-row-hover: #f1f5f9;
 }
 
 * {
@@ -698,7 +745,15 @@ body.light-mode .zone-page-header { background: linear-gradient(135deg, #3730a3,
   letter-spacing: -0.02em;
 }
 
-/* Custom Table Styles */
+/* Custom Card & Table Styles */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: var(--transition);
+}
+
 .card-table-container {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -709,7 +764,7 @@ body.light-mode .zone-page-header { background: linear-gradient(135deg, #3730a3,
 }
 
 .table-toolbar {
-  padding: 22px 28px;
+  padding: 18px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -721,16 +776,21 @@ body.light-mode .zone-page-header { background: linear-gradient(135deg, #3730a3,
 .search-input-group {
   display: flex;
   align-items: center;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
-  padding: 10px 18px;
+  padding: 10px 16px;
   gap: 12px;
-  min-width: 300px;
+  min-width: 280px;
   transition: var(--transition);
 }
 
+.search-input-group:hover {
+  border-color: var(--border-input-hover);
+}
+
 .search-input-group:focus-within {
+  background: var(--bg-input-focus);
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
@@ -740,21 +800,66 @@ body.light-mode .zone-page-header { background: linear-gradient(135deg, #3730a3,
   border: none;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 15px;
+  font-size: 14.5px;
   outline: none;
   width: 100%;
 }
 
-.filter-select {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-color);
+.search-input-group input::placeholder {
+  color: var(--placeholder-color);
+  opacity: 1;
+}
+
+.search-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
-  padding: 10px 18px;
+  color: var(--text-primary);
+  outline: none;
+  transition: var(--transition);
+}
+
+.search-input:hover {
+  border-color: var(--border-input-hover);
+}
+
+.search-input:focus {
+  background: var(--bg-input-focus);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.search-input::placeholder {
+  color: var(--placeholder-color);
+  opacity: 1;
+}
+
+.filter-select {
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 15px;
+  font-size: 14.5px;
   outline: none;
   cursor: pointer;
+  transition: var(--transition);
+}
+
+.filter-select:hover {
+  border-color: var(--border-input-hover);
+}
+
+.filter-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.filter-select option,
+select.form-control option {
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .custom-table {
@@ -788,11 +893,15 @@ body.light-mode .custom-table th {
 }
 
 .custom-table tbody tr {
-  transition: var(--transition);
+  transition: background-color 0.15s ease;
 }
 
 .custom-table tbody tr:hover {
-  background: rgba(30, 41, 59, 0.6);
+  background-color: var(--bg-row-hover);
+}
+
+.custom-table tbody tr:hover td {
+  background-color: transparent;
 }
 
 /* Status Badges */
@@ -857,13 +966,14 @@ body.light-mode .custom-table th {
 }
 
 .btn-secondary {
-  background: rgba(30, 41, 59, 0.7);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  background: var(--bg-btn-secondary);
+  color: var(--text-btn-secondary);
+  border: 1px solid var(--border-btn-secondary);
+  font-weight: 600;
 }
 .btn-secondary:hover {
-  background: rgba(51, 65, 85, 0.85);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg-btn-secondary-hover);
+  border-color: var(--border-input-hover);
 }
 
 .btn-danger {
@@ -974,19 +1084,38 @@ body.light-mode .custom-table th {
 .form-control {
   width: 100%;
   padding: 12px 16px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 15px;
+  font-size: 14.5px;
   outline: none;
   transition: var(--transition);
 }
 
+.form-control::placeholder {
+  color: var(--placeholder-color);
+  opacity: 1;
+}
+
+.form-control:hover:not(:disabled):not([readonly]) {
+  border-color: var(--border-input-hover);
+}
+
 .form-control:focus {
+  background: var(--bg-input-focus);
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.form-control:disabled,
+.form-control[readonly] {
+  background: var(--bg-input-disabled);
+  color: var(--text-input-disabled);
+  cursor: not-allowed;
+  border-color: var(--border-input);
+  opacity: 0.9;
 }
 
 .form-row {
@@ -1221,7 +1350,7 @@ body.light-mode .custom-table th {
 }
 
 .stat-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   padding: 16px 20px;
   border-radius: var(--radius-md);
@@ -1229,11 +1358,12 @@ body.light-mode .custom-table th {
   align-items: center;
   gap: 14px;
   transition: var(--transition);
+  box-shadow: var(--shadow-card);
 }
 
 .stat-card:hover {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg-card-hover);
+  border-color: rgba(99, 102, 241, 0.35);
   transform: translateY(-2px);
 }
 
@@ -1424,7 +1554,7 @@ body.light-mode .custom-table th {
 }
 
 .custom-table tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
 }
 
 /* ==========================================================================
@@ -1810,6 +1940,217 @@ body.light-mode .notify-callout-popover .callout-arrow {
 body.light-mode .callout-close-btn:hover {
   background: rgba(0, 0, 0, 0.06);
 }
+
+/* ==========================================================================
+   LIGHT MODE & COMPONENT POLISH (TỐI ƯU TOÀN DIỆN CHO CHẾ ĐỘ SÁNG VÀ TỐI)
+   ========================================================================== */
+
+/* Calendar picker icon contrast */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1);
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+body.light-mode input[type="date"]::-webkit-calendar-picker-indicator,
+body.light-mode input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+  opacity: 0.65;
+}
+
+/* Light mode modal refinement */
+body.light-mode .modal-content {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.2);
+}
+
+body.light-mode .modal-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+body.light-mode .modal-footer {
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+}
+
+body.light-mode .btn-close {
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+body.light-mode .btn-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Light mode table & cards refinement */
+body.light-mode .card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
+}
+
+body.light-mode .card-table-container {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+body.light-mode .filter-card {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light-mode .table-toolbar {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+body.light-mode .custom-table th {
+  background: #f8fafc;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+body.light-mode .custom-table td {
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+}
+
+body.light-mode .custom-table tbody tr:hover,
+body.light-mode .custom-table tbody tr:hover td,
+body.light-mode .custom-table tr:hover,
+body.light-mode .custom-table tr:hover td {
+  background-color: #f1f5f9 !important;
+}
+
+/* Light mode role badges contrast */
+body.light-mode .role-badge.superadmin {
+  background: rgba(244, 63, 94, 0.12) !important;
+  color: #be123c !important;
+  border-color: rgba(244, 63, 94, 0.28) !important;
+}
+body.light-mode .role-badge.landlord {
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: #4338ca !important;
+  border-color: rgba(99, 102, 241, 0.28) !important;
+}
+body.light-mode .role-badge.tenant {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #047857 !important;
+  border-color: rgba(16, 185, 129, 0.28) !important;
+}
+
+/* Light mode status pills contrast */
+body.light-mode .status-pill.active,
+body.light-mode .status-pill.paid,
+body.light-mode .status-pill.occupied,
+body.light-mode .status-pill.completed,
+body.light-mode .status-pill.resolved {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #047857 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+body.light-mode .status-pill.vacant {
+  background: rgba(6, 182, 212, 0.12) !important;
+  color: #0e7490 !important;
+  border-color: rgba(6, 182, 212, 0.3) !important;
+}
+
+body.light-mode .status-pill.unpaid,
+body.light-mode .status-pill.pending,
+body.light-mode .status-pill.deposit,
+body.light-mode .status-pill.in_progress {
+  background: rgba(245, 158, 11, 0.14) !important;
+  color: #b45309 !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+body.light-mode .status-pill.locked,
+body.light-mode .status-pill.overdue,
+body.light-mode .status-pill.maintenance,
+body.light-mode .status-pill.cancelled {
+  background: rgba(244, 63, 94, 0.12) !important;
+  color: #be123c !important;
+  border-color: rgba(244, 63, 94, 0.3) !important;
+}
+
+/* Light mode search and inputs crispness */
+body.light-mode .form-control,
+body.light-mode .search-input-group,
+body.light-mode .search-input,
+body.light-mode .filter-select {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+body.light-mode .form-control:hover:not(:disabled):not([readonly]),
+body.light-mode .search-input-group:hover,
+body.light-mode .search-input:hover,
+body.light-mode .filter-select:hover {
+  border-color: #94a3b8;
+}
+
+body.light-mode .form-control:focus,
+body.light-mode .search-input-group:focus-within,
+body.light-mode .search-input:focus,
+body.light-mode .filter-select:focus {
+  background-color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+
+body.light-mode .form-control::placeholder,
+body.light-mode .search-input-group input::placeholder,
+body.light-mode .search-input::placeholder {
+  color: #94a3b8;
+}
+
+body.light-mode .form-control:disabled,
+body.light-mode .form-control[readonly] {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #64748b;
+  opacity: 1;
+}
+
+/* Light mode secondary buttons */
+body.light-mode .btn-secondary {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+body.light-mode .btn-secondary:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+/* Light mode chart cards */
+body.light-mode .chart-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
+}
+
 
 
 
