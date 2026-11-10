@@ -9,6 +9,8 @@ import {
 import { Panorama360Viewer } from '../components/Common/Panorama360Viewer';
 import { getMediaUrl } from '../utils/media';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 export const PublicRoomDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -33,18 +35,33 @@ export const PublicRoomDetailPage = () => {
     loadRoomDetail();
   }, [id]);
 
+  const safeExtractObject = (res) => {
+    let d = res?.data;
+    if (!d) return null;
+    if (d && typeof d === 'object') {
+      if (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) {
+        if (d.data.data && typeof d.data.data === 'object' && !Array.isArray(d.data.data)) {
+          return d.data.data;
+        }
+        return d.data;
+      }
+      return d;
+    }
+    return null;
+  };
+
   const loadRoomDetail = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`http://localhost:5000/api/PublicRooms/${id}`);
-      if (res.data?.success) {
-        const r = res.data.data;
+      const res = await axios.get(`${API_BASE_URL}/PublicRooms/${id}`);
+      const r = safeExtractObject(res);
+      if (r) {
         setRoom(r);
         if (r.depositAmount && Number(r.depositAmount) > 0) {
           setDepositAmount(Number(r.depositAmount));
         }
         // Nếu không có ảnh 360, chuyển sang tab gallery
-        if (!r.panorama360Url && r.images?.length > 0) {
+        if (!r.panorama360Url) {
           setActiveTab('gallery');
         }
       }
@@ -109,9 +126,10 @@ export const PublicRoomDetailPage = () => {
           : `VIETQR-${Date.now().toString().slice(-6)}`
       };
 
-      const res = await axios.post(`http://localhost:5000/api/PublicRooms/${id}/confirm-deposit`, payload);
-      if (res.data?.success) {
-        setDepositResult(res.data);
+      const res = await axios.post(`${API_BASE_URL}/PublicRooms/${id}/confirm-deposit`, payload);
+      const raw = res.data;
+      if (raw?.success || raw?.id) {
+        setDepositResult(raw?.data || raw);
         setDepositStep(3); // Chuyển sang màn hình thành công
         // Cập nhật lại thông tin phòng trên trang
         setRoom(prev => ({
@@ -553,23 +571,37 @@ export const PublicRoomDetailPage = () => {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: '50%',
-                    backgroundColor: '#eff6ff',
-                    border: '2px solid #3b82f6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 750,
-                    fontSize: '18px',
-                    color: '#2563eb',
-                  }}
-                >
-                  {room.landlordName ? room.landlordName.charAt(0) : 'C'}
-                </div>
+                {room.landlordAvatar ? (
+                  <img
+                    src={getMediaUrl(room.landlordAvatar)}
+                    alt={room.landlordName || 'Chủ trọ'}
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '2px solid #3b82f6',
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: '50%',
+                      backgroundColor: '#eff6ff',
+                      border: '2px solid #3b82f6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 750,
+                      fontSize: '18px',
+                      color: '#2563eb',
+                    }}
+                  >
+                    {room.landlordName ? room.landlordName.charAt(0) : 'C'}
+                  </div>
+                )}
                 <div>
                   <div style={{ fontSize: '16px', fontWeight: 750, color: '#0f172a' }}>
                     {room.landlordName || 'Chủ trọ SmartRent'}

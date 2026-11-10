@@ -97,13 +97,13 @@ public class PublicRoomsController(AppDbContext db, NotificationService notifica
 
         if (room is null)
         {
-            return NotFound(new { message = "Không tìm thấy phòng trọ hoặc phòng chưa được công khai." });
+            return NotFound(new { success = false, message = "Không tìm thấy phòng trọ hoặc phòng chưa được công khai." });
         }
 
         return Ok(MapToPublicDto(room));
     }
 
-    // Lấy danh sách các Khu trọ công khai để làm bộ lọc khu vực
+    // Lấy danh sách các Khu trọ công khai để làm bộ lọc khu vực & giới thiệu khu trọ
     [HttpGet("zones")]
     public async Task<IActionResult> GetPublicZones()
     {
@@ -114,7 +114,11 @@ public class PublicRoomsController(AppDbContext db, NotificationService notifica
                 z.Id,
                 z.Name,
                 z.Address,
-                TotalPublicRooms = z.Rooms.Count(r => r.IsPublic)
+                TotalPublicRooms = z.Rooms.Count(r => r.IsPublic),
+                VacantRoomsCount = z.Rooms.Count(r => r.IsPublic && r.Status == RoomStatus.Vacant),
+                MinPrice = z.Rooms.Where(r => r.IsPublic).Select(r => (decimal?)r.Price).Min() ?? 0,
+                MaxPrice = z.Rooms.Where(r => r.IsPublic).Select(r => (decimal?)r.Price).Max() ?? 0,
+                Has360 = z.Rooms.Any(r => r.IsPublic && !string.IsNullOrEmpty(r.Panorama360Url))
             })
             .OrderBy(z => z.Name)
             .ToListAsync();

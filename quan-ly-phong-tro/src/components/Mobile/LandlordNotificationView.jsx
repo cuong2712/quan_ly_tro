@@ -30,7 +30,7 @@ const QUICK_TEMPLATES = [
 
 export function LandlordNotificationView({
   zones = [],
-  rooms = [],
+  rooms = [], 
   isLight = false,
   onBack,
   onSuccess

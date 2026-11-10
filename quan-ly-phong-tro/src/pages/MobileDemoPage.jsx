@@ -1405,41 +1405,54 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
         </main>
 
 
-        {/* ── 4. BOTTOM SHEET MODAL (Trượt Từ Dưới Lên) ── */}
+        {/* ── 4. BOTTOM SHEET MODAL (Trượt Từ Dưới Lên) / TOÀN MÀN HÌNH CHO THÔNG BÁO ── */}
         {bottomSheet && (
           <div
             onClick={() => setBottomSheet(null)}
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'rgba(0,0,0,0.65)',
-              backdropFilter: 'blur(4px)',
+              background: bottomSheet === 'notifications'
+                ? (isLight ? '#f8fafc' : '#0b1120')
+                : 'rgba(0,0,0,0.65)',
+              backdropFilter: bottomSheet === 'notifications' ? 'none' : 'blur(4px)',
               zIndex: 999,
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'flex-end',
-              animation: 'fadeIn 0.2s ease'
+              justifyContent: bottomSheet === 'notifications' ? 'stretch' : 'flex-end',
+              animation: 'fadeIn 0.2s ease',
+              overflow: 'hidden'
             }}
           >
             <div
               onClick={e => e.stopPropagation()}
               style={{
-                background: isLight ? '#ffffff' : '#111827',
-                borderTopLeftRadius: '24px',
-                borderTopRightRadius: '24px',
-                border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
+                background: bottomSheet === 'notifications'
+                  ? (isLight ? '#f8fafc' : '#0b1120')
+                  : (isLight ? '#ffffff' : '#111827'),
+                borderTopLeftRadius: bottomSheet === 'notifications' ? 0 : '24px',
+                borderTopRightRadius: bottomSheet === 'notifications' ? 0 : '24px',
+                border: bottomSheet === 'notifications' ? 'none' : `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
                 borderBottom: 'none',
-                padding: '16px 20px 24px',
-                maxHeight: '90%',
-                overflowY: 'auto'
+                padding: bottomSheet === 'notifications'
+                  ? (viewMode === 'frame' ? '38px 16px 16px' : '16px 16px 16px')
+                  : '16px 20px 24px',
+                height: bottomSheet === 'notifications' ? '100%' : 'auto',
+                maxHeight: bottomSheet === 'notifications' ? '100%' : '90%',
+                display: 'flex',
+                flexDirection: 'column',
+                flex: bottomSheet === 'notifications' ? 1 : 'none',
+                overflowY: bottomSheet === 'notifications' ? 'hidden' : 'auto'
               }}
             >
-              {/* Drag Handle Bar */}
-              <div style={{
-                width: 40, height: 4, borderRadius: 2,
-                background: isLight ? '#cbd5e1' : '#4b5563',
-                margin: '0 auto 14px'
-              }} />
+              {/* Drag Handle Bar (Chỉ hiển thị khi là bottom sheet thông thường, ẩn khi là thông báo toàn màn hình) */}
+              {bottomSheet !== 'notifications' && (
+                <div style={{
+                  width: 40, height: 4, borderRadius: 2,
+                  background: isLight ? '#cbd5e1' : '#4b5563',
+                  margin: '0 auto 14px'
+                }} />
+              )}
 
               {/* ──────── BOTTOM SHEET 1: QUÉT MÃ VIETQR THANH TOÁN ──────── */}
               {bottomSheet === 'qr_pay' && (
@@ -1758,19 +1771,25 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                 </div>
               )}
 
-              {/* ──────── BOTTOM SHEET 3: TRUNG TÂM THÔNG BÁO CHUẨN NATIVE (GIỐNG BẢN WEB) ──────── */}
+              {/* ──────── BOTTOM SHEET 3: TRUNG TÂM THÔNG BÁO CHUẨN NATIVE (GIỐNG BẢN WEB - TOÀN MÀN HÌNH) ──────── */}
               {bottomSheet === 'notifications' && (
-                <div>
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
                   {/* Nếu đang xem chi tiết 1 thông báo cụ thể */}
                   {viewingNotif ? (
-                    <div>
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
                       {/* Header Chi Tiết */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                      <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        marginBottom: 14, paddingBottom: 10,
+                        borderBottom: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                        flexShrink: 0
+                      }}>
                         <button
                           onClick={() => setViewingNotif(null)}
                           style={{
                             background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
-                            border: 'none', borderRadius: 8, padding: '6px 10px',
+                            border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
+                            borderRadius: 8, padding: '6px 12px',
                             display: 'flex', alignItems: 'center', gap: 6,
                             fontSize: '12px', fontWeight: 700, color: isLight ? '#334155' : '#e2e8f0',
                             cursor: 'pointer'
@@ -1778,12 +1797,18 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                         >
                           <ArrowLeft size={14} /> Danh sách
                         </button>
-                        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6, color: isLight ? '#0f172a' : '#fff' }}>
                           <Bell size={16} color="#6366f1" /> Chi Tiết Thông Báo
                         </h3>
                         <button
                           onClick={() => { setViewingNotif(null); setBottomSheet(null); }}
-                          style={{ background: 'transparent', border: 'none', fontSize: '18px', color: isLight ? '#64748b' : '#94a3b8', cursor: 'pointer' }}
+                          style={{
+                            width: 32, height: 32, borderRadius: 8,
+                            background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
+                            border: 'none', fontSize: '16px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: isLight ? '#64748b' : '#94a3b8', cursor: 'pointer'
+                          }}
                         >
                           ✕
                         </button>
@@ -1794,7 +1819,7 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                         const meta = getNotifMeta(viewingNotif);
                         const MetaIcon = meta.icon;
                         return (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <div style={{
                               background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
                               border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
@@ -1875,15 +1900,36 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                       })()}
                     </div>
                   ) : (
-                    <div>
-                      {/* Header Danh Sách Thông Báo */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <div>
-                          <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Bell size={18} color="#6366f1" /> Trung Tâm Thông Báo
-                          </h3>
-                          <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>
-                            {unreadNotifCount > 0 ? `Bạn có ${unreadNotifCount} thông báo chưa đọc` : 'Không có thông báo mới chưa đọc'}
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
+                      {/* Header Danh Sách Thông Báo Toàn Màn Hình */}
+                      <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        marginBottom: 12, paddingBottom: 10,
+                        borderBottom: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                        flexShrink: 0
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <button
+                            onClick={() => setBottomSheet(null)}
+                            style={{
+                              width: 32, height: 32, borderRadius: 8,
+                              background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
+                              border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: isLight ? '#334155' : '#cbd5e1',
+                              cursor: 'pointer'
+                            }}
+                            title="Quay lại"
+                          >
+                            <ArrowLeft size={16} />
+                          </button>
+                          <div>
+                            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6, color: isLight ? '#0f172a' : '#fff' }}>
+                              <Bell size={18} color="#6366f1" /> Trung Tâm Thông Báo
+                            </h3>
+                            <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                              {unreadNotifCount > 0 ? `Bạn có ${unreadNotifCount} thông báo chưa đọc` : 'Không có thông báo mới chưa đọc'}
+                            </div>
                           </div>
                         </div>
 
@@ -1911,7 +1957,14 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                           )}
                           <button
                             onClick={() => setBottomSheet(null)}
-                            style={{ background: 'transparent', border: 'none', fontSize: '18px', color: isLight ? '#64748b' : '#94a3b8', cursor: 'pointer' }}
+                            style={{
+                              width: 32, height: 32, borderRadius: 8,
+                              background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
+                              border: 'none', fontSize: '16px',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: isLight ? '#64748b' : '#94a3b8', cursor: 'pointer'
+                            }}
+                            title="Đóng"
                           >
                             ✕
                           </button>
@@ -1919,7 +1972,7 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                       </div>
 
                       {/* Ô Tìm Kiếm Nhanh */}
-                      <div style={{ position: 'relative', marginBottom: 10 }}>
+                      <div style={{ position: 'relative', marginBottom: 10, flexShrink: 0 }}>
                         <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: isLight ? '#94a3b8' : '#64748b' }} />
                         <input
                           type="text"
@@ -1954,7 +2007,8 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                         overflowX: 'auto',
                         paddingBottom: 8,
                         marginBottom: 10,
-                        scrollbarWidth: 'none'
+                        scrollbarWidth: 'none',
+                        flexShrink: 0
                       }}>
                         {[
                           { id: 'all', label: `Tất cả (${notifications.length})` },
@@ -1997,7 +2051,7 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                       </div>
 
                       {/* Danh Sách Thông Báo Dạng Thẻ */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '420px', overflowY: 'auto', paddingRight: 2 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 2, paddingBottom: 24 }}>
                         {filteredNotifications.map(n => {
                           const meta = getNotifMeta(n);
                           const MetaIcon = meta.icon;
