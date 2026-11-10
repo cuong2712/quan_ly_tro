@@ -31,6 +31,7 @@ import {
   VIETNAM_BANKS
 } from '../utils/formatters';
 import { MobileLandlordView } from '../components/Mobile/MobileLandlordView';
+import { MobileTenantView } from '../components/Mobile/MobileTenantView';
 
 export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
   const navigate = useNavigate();
@@ -72,6 +73,7 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
   const [notifications, setNotifications] = useState([]);
   const [profile, setProfile] = useState(null);
   const [vehicle, setVehicle] = useState(null);
+  const [payments, setPayments] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [zones, setZones] = useState([]);
 
@@ -133,13 +135,14 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
 
       if (role === 'tenant') {
         // Tải dữ liệu Khách thuê
-        const [dashRes, invRes, contRes, mainRes, profRes, vehRes] = await Promise.allSettled([
+        const [dashRes, invRes, contRes, mainRes, profRes, vehRes, payRes] = await Promise.allSettled([
           dashboardService.getTenantDashboard(),
           invoiceService.getInvoices(),
           contractService.getContracts(),
           maintenanceService.getRequests(),
           profileService.getProfile(),
-          profileService.getVehicle()
+          profileService.getVehicle(),
+          paymentService.getPayments()
         ]);
 
         if (dashRes.status === 'fulfilled') setTenantDashboard(dashRes.value?.data || dashRes.value);
@@ -148,6 +151,7 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
         if (mainRes.status === 'fulfilled') setMaintenanceRequests(Array.isArray(mainRes.value) ? mainRes.value : mainRes.value?.data || []);
         if (profRes.status === 'fulfilled') setProfile(profRes.value?.data || profRes.value);
         if (vehRes.status === 'fulfilled') setVehicle(vehRes.value?.data || vehRes.value);
+        if (payRes.status === 'fulfilled') setPayments(Array.isArray(payRes.value) ? payRes.value : payRes.value?.data || []);
       } else {
         // Tải dữ liệu Chủ trọ
         const [dashRes, roomRes, zoneRes, invRes, mainRes, profRes] = await Promise.allSettled([
@@ -809,6 +813,28 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
           {/* ────────────── DÀNH CHO KHÁCH THUÊ (TENANT) ────────── */}
           {/* ═════════════════════════════════════════════════════ */}
           {role === 'tenant' && (
+            <MobileTenantView
+              dashboard={tenantDashboard}
+              invoices={invoices}
+              contracts={contracts}
+              maintenanceRequests={maintenanceRequests}
+              payments={payments}
+              profile={profile}
+              vehicle={vehicle}
+              notifications={notifications}
+              onRefresh={() => loadData(true)}
+              isLight={isLight}
+              theme={isLight ? 'light' : 'dark'}
+              onOpenNotif={() => setBottomSheet('notifications')}
+              onLogout={async () => {
+                await logout();
+                navigate('/login');
+              }}
+              onSwitchToDesktop={onSwitchToDesktop}
+            />
+          )}
+
+          {false && role === 'tenant' && (
             <>
               {/* ──────── TAB 1: TRANG CHỦ (HOME) ──────── */}
               {activeTab === 'home' && (
@@ -1378,73 +1404,6 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
 
         </main>
 
-        {/* ── 3. BOTTOM NAVIGATION BAR (Dành riêng cho Khách thuê) ── */}
-        {role === 'tenant' && (
-          <nav style={{
-            background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(11,17,32,0.96)',
-            backdropFilter: 'blur(16px)',
-            borderTop: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
-            padding: '8px 4px 14px',
-            flexShrink: 0,
-            zIndex: 90
-          }}>
-            {[
-              { id: 'home', label: 'Trang chủ', icon: Home },
-              { id: 'invoices', label: 'Hóa đơn', icon: Receipt, badge: unpaidInvoices.length > 0 ? String(unpaidInvoices.length) : null },
-              { id: 'repairs', label: 'Báo sửa', icon: Wrench, badge: maintenanceRequests.length > 0 ? String(maintenanceRequests.length) : null },
-              { id: 'contracts', label: 'Hợp đồng', icon: FileText },
-              { id: 'profile', label: 'Cá nhân', icon: User }
-            ].map(tab => {
-              const Icon = tab.icon;
-              const isAct = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 3,
-                    cursor: 'pointer',
-                    color: isAct ? '#10b981' : (isLight ? '#64748b' : '#94a3b8'),
-                    position: 'relative',
-                    padding: '4px 0',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <div style={{ position: 'relative' }}>
-                    <Icon size={19} />
-                    {tab.badge && (
-                      <span style={{
-                        position: 'absolute', top: -3, right: -6,
-                        background: '#ef4444', color: '#fff', fontSize: '9px',
-                        fontWeight: 800, width: 14, height: 14, borderRadius: '50%',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        {tab.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ fontSize: '10px', fontWeight: isAct ? 800 : 600 }}>
-                    {tab.label}
-                  </span>
-                  {isAct && (
-                    <div style={{
-                      width: 4, height: 4, borderRadius: '50%',
-                      background: '#10b981',
-                      position: 'absolute', bottom: 0
-                    }} />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        )}
 
         {/* ── 4. BOTTOM SHEET MODAL (Trượt Từ Dưới Lên) ── */}
         {bottomSheet && (
