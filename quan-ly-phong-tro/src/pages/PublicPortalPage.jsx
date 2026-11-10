@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   Building2, Search, Sparkles, Filter, Home, Phone, MessageSquare, 
   MapPin, CheckCircle2, ShieldCheck, ArrowRight, UserCheck, LogIn,
-  Zap, Eye, SlidersHorizontal, Layers, ChevronRight
+  Zap, Eye, SlidersHorizontal, Layers, ChevronRight, Smartphone
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -134,6 +134,28 @@ export const PublicPortalPage = () => {
 
           {/* Quick Nav & User Switcher */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <button
+              onClick={() => navigate('/mobile')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                borderRadius: '24px',
+                border: '1.5px solid #10b981',
+                background: 'rgba(16,185,129,0.1)',
+                color: '#10b981',
+                fontSize: '13.5px',
+                fontWeight: 650,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              title="Trải nghiệm ứng dụng di động SmartRent"
+            >
+              <Smartphone size={16} />
+              <span>📱 Giao diện Mobile</span>
+            </button>
+
             <button
               onClick={() => setOnly360(!only360)}
               style={{

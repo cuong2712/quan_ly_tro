@@ -95,11 +95,9 @@ export const Navbar = ({
       {/* RIGHT: Actions — luôn luôn nằm bên phải */}
       <div className="top-navbar-actions">
 
-        {/* Mobile Demo button */}
+        {/* Mobile App button */}
         <a
-          href="/mobile-demo"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/mobile"
           className="btn btn-sm btn-secondary"
           style={{
             display: 'inline-flex',
@@ -109,12 +107,15 @@ export const Navbar = ({
             fontSize: '12px',
             padding: '5px 12px',
             borderRadius: '8px',
-            fontWeight: 600
+            fontWeight: 700,
+            background: 'rgba(16,185,129,0.15)',
+            color: '#10b981',
+            border: '1px solid rgba(16,185,129,0.3)'
           }}
-          title="Trải nghiệm thử giao diện điện thoại di động"
+          title="Mở giao diện ứng dụng điện thoại di động (Mobile App)"
         >
-          <Smartphone size={15} color="#10b981" />
-          <span>📱 Mobile Demo</span>
+          <Smartphone size={15} />
+          <span>📱 Giao diện Mobile</span>
         </a>
 
         {/* 1. Toggle Light/Dark */}

@@ -14,6 +14,8 @@ import {
 } from '../services';
 
 import { ErrorBoundary } from '../components/Common/ErrorBoundary';
+import { useDeviceMode } from '../hooks/useDeviceMode';
+import MobileDemoPage from './MobileDemoPage';
 
 // Lazy load — chỉ load khi cần
 const LandlordDashboard = lazy(() => import('../components/Landlord/LandlordDashboard').then(m => ({ default: m.LandlordDashboard })));
@@ -94,6 +96,7 @@ const ACTIVE_TABS = new Set([
 ]);
 
 export default function LandlordPage() {
+  const { isMobile, setView } = useDeviceMode();
   const { user, logout, updateUser } = useAuth();
   const { notifications, setNotifications } = useNotification();
   const navigate = useNavigate();
@@ -338,6 +341,16 @@ export default function LandlordPage() {
     }
   };
 
+  // TỰ ĐỘNG CHUYỂN GIAO DIỆN MOBILE KHI MỞ BẰNG ĐIỆN THOẠI
+  if (isMobile) {
+    return (
+      <MobileDemoPage
+        initialRole="landlord"
+        onSwitchToDesktop={() => setView('desktop')}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       <Sidebar currentRole="landlord" activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -357,6 +370,33 @@ export default function LandlordPage() {
             {renderContent()}
           </ErrorBoundary>
         </main>
+
+        {/* Nút Chuyển Sang Giao Diện Mobile */}
+        <button
+          onClick={() => setView('mobile')}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '30px',
+            padding: '10px 18px',
+            fontWeight: 800,
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 8px 24px rgba(99,102,241,0.4)',
+            cursor: 'pointer',
+            zIndex: 9999,
+            transition: 'transform 0.2s',
+          }}
+          title="Chuyển sang Giao diện Điện Thoại (Mobile App)"
+        >
+          <span>📱 Giao diện Mobile</span>
+        </button>
       </div>
     </div>
   );

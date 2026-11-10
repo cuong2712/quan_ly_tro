@@ -19,8 +19,11 @@ import { TenantInvoice } from '../components/Tenant/TenantInvoice';
 import { TenantRepair } from '../components/Tenant/TenantRepair';
 import { TenantNotify } from '../components/Tenant/TenantNotify';
 import { TenantPayment } from '../components/Tenant/TenantPayment';
+import { useDeviceMode } from '../hooks/useDeviceMode';
+import MobileDemoPage from './MobileDemoPage';
 
 export default function TenantPage() {
+  const { isMobile, setView, preferredView } = useDeviceMode();
   const { user, logout, updateUser } = useAuth();
   const { notifications, setNotifications } = useNotification();
   const navigate = useNavigate();
@@ -185,6 +188,16 @@ export default function TenantPage() {
     }
   };
 
+  // TỰ ĐỘNG CHUYỂN GIAO DIỆN MOBILE KHI MỞ BẰNG ĐIỆN THOẠI
+  if (isMobile) {
+    return (
+      <MobileDemoPage
+        initialRole="tenant"
+        onSwitchToDesktop={() => setView('desktop')}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       <Sidebar currentRole="tenant" activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -202,6 +215,33 @@ export default function TenantPage() {
         <main className="page-body">
           {renderContent()}
         </main>
+
+        {/* Nút Chuyển Nhanh Sang Giao Diện Mobile */}
+        <button
+          onClick={() => setView('mobile')}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '30px',
+            padding: '10px 18px',
+            fontWeight: 800,
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 8px 24px rgba(16,185,129,0.4)',
+            cursor: 'pointer',
+            zIndex: 9999,
+            transition: 'transform 0.2s',
+          }}
+          title="Chuyển sang Giao diện Điện Thoại (Mobile App)"
+        >
+          <span>📱 Giao diện Mobile</span>
+        </button>
       </div>
     </div>
   );
