@@ -525,7 +525,7 @@ export const LandlordProfile = ({ activeLandlord, setActiveLandlord }) => {
                           <img 
                             src={getVietQRUrl({
                               bankId: profileData.bankName || 'BIDV',
-                              accountNo: profileData.bankAccountNumber || '6531211114',
+                              accountNo: profileData.bankAccountNumber,
                               accountName: profileData.bankAccountName || profileData.fullName || 'CHU TRO',
                               amount: 0,
                               addInfo: 'Quet thu nghiem'

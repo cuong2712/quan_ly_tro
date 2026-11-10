@@ -91,7 +91,10 @@ export const getImageUrl = (url, defaultFallback = '') => {
 };
 
 // Tạo liên kết hình ảnh QR Code chuyển khoản ngân hàng VietQR
-export const getVietQRUrl = ({ bankId = 'BIDV', accountNo = '6531211114', accountName = 'NGUYEN MANH CUONG', amount = 0, addInfo = '' }) => {
+export const getVietQRUrl = ({ bankId = 'BIDV', accountNo = '', accountName = '', amount = 0, addInfo = '' }) => {
+  const cleanAccNo = String(accountNo || '').replace(/\D/g, '');
+  if (!cleanAccNo) return '';
+
   let cleanBankId = String(bankId || 'BIDV').trim();
   // Tự động đối chiếu mã ngân hàng chuẩn (Ưu tiên khớp chính xác mã Code, sau đó tên viết tắt ShortName)
   const upper = cleanBankId.toUpperCase();
@@ -102,9 +105,8 @@ export const getVietQRUrl = ({ bankId = 'BIDV', accountNo = '6531211114', accoun
     cleanBankId = matchedBank.code;
   }
 
-  const cleanAccNo = String(accountNo || '6531211114').replace(/\D/g, '') || '6531211114';
   const cleanInfo = encodeURIComponent(addInfo || 'Thanh toan tien nha');
-  const cleanName = encodeURIComponent(accountName || 'NGUYEN MANH CUONG');
+  const cleanName = encodeURIComponent(accountName || '');
   const validAmount = Math.max(0, Math.round(Number(amount) || 0));
 
   return `https://img.vietqr.io/image/${cleanBankId}-${cleanAccNo}-compact2.png?amount=${validAmount}&addInfo=${cleanInfo}&accountName=${cleanName}`;

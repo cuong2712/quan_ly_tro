@@ -51,26 +51,26 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
   const roomNum = selectedInvoice?.roomNumber || activeTenant?.roomNumber || '101';
   const transferContent = selectedInvoice ? `Phong ${roomNum} thanh toan ${selectedInvoice.invoiceCode}` : `Phong ${roomNum} thanh toan tien nha`;
 
-  const landlordBank = selectedInvoice?.landlordBankName || invoices[0]?.landlordBankName || 'BIDV';
-  const landlordAccNo = selectedInvoice?.landlordBankAccountNumber || invoices[0]?.landlordBankAccountNumber || '6531211114';
-  const landlordAccName = selectedInvoice?.landlordBankAccountName || invoices[0]?.landlordBankAccountName || 'NGUYEN MANH CUONG';
+  const landlordBank = selectedInvoice?.landlordBankName || invoices[0]?.landlordBankName || '';
+  const landlordAccNo = selectedInvoice?.landlordBankAccountNumber || invoices[0]?.landlordBankAccountNumber || '';
+  const landlordAccName = selectedInvoice?.landlordBankAccountName || invoices[0]?.landlordBankAccountName || '';
 
   const bankObj = VIETNAM_BANKS.find(b => 
     b.code.toUpperCase() === (landlordBank || '').toUpperCase() || 
     b.shortName.toLowerCase() === (landlordBank || '').toLowerCase() ||
     (b.name && b.name.toLowerCase().includes((landlordBank || '').toLowerCase()))
-  ) || { code: landlordBank || 'BIDV', shortName: landlordBank || 'BIDV' };
+  ) || (landlordBank ? { code: landlordBank, shortName: landlordBank } : null);
   
-  const bankCode = bankObj.code || 'BIDV';
-  const bankDisplay = bankObj.shortName || landlordBank || 'BIDV';
+  const bankCode = bankObj?.code || landlordBank || '';
+  const bankDisplay = bankObj?.shortName || landlordBank || 'Chưa thiết lập';
 
-  const qrUrl = getVietQRUrl({
-    bankId: bankCode,
+  const qrUrl = landlordAccNo ? getVietQRUrl({
+    bankId: bankCode || 'BIDV',
     accountNo: landlordAccNo,
     accountName: landlordAccName,
     amount: amountToPay,
     addInfo: transferContent,
-  });
+  }) : '';
 
   const handleCopy = (text, fieldName) => {
     if (!text) return;
@@ -190,29 +190,38 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
 
           {/* QR Image Container với Nút Phóng To */}
           <div style={{ textAlign: 'center', marginBottom: '16px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div 
-              onClick={() => setIsQrModalOpen(true)}
-              style={{ 
-                background: '#fff', 
-                padding: '16px', 
-                borderRadius: '16px', 
-                display: 'inline-block', 
-                border: '2px solid rgba(99, 102, 241, 0.3)', 
-                cursor: 'pointer',
-                transition: 'all 0.25s ease',
-                boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
-                position: 'relative'
-              }}
-              className="qr-card-hover"
-              title="🔍 Bấm để phóng to toàn màn hình mã QR"
-            >
-              <img src={qrUrl} alt="VietQR Code" style={{ width: '270px', height: '270px', display: 'block', margin: '0 auto' }} />
-              
-              {/* Badge phóng to ngay dưới ảnh */}
-              <div style={{ marginTop: '8px', background: '#6366f1', color: '#fff', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                <ZoomIn size={14} /> Nhấn để phóng to QR
+            {qrUrl && landlordAccNo ? (
+              <div 
+                onClick={() => setIsQrModalOpen(true)}
+                style={{ 
+                  background: '#fff', 
+                  padding: '16px', 
+                  borderRadius: '16px', 
+                  display: 'inline-block', 
+                  border: '2px solid rgba(99, 102, 241, 0.3)', 
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
+                  position: 'relative'
+                }}
+                className="qr-card-hover"
+                title="🔍 Bấm để phóng to toàn màn hình mã QR"
+              >
+                <img src={qrUrl} alt="VietQR Code" style={{ width: '270px', height: '270px', display: 'block', margin: '0 auto' }} />
+                
+                {/* Badge phóng to ngay dưới ảnh */}
+                <div style={{ marginTop: '8px', background: '#6366f1', color: '#fff', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <ZoomIn size={14} /> Nhấn để phóng to QR
+                </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ padding: '36px 24px', background: 'rgba(239, 68, 68, 0.06)', border: '1.5px dashed rgba(239, 68, 68, 0.4)', borderRadius: '16px', maxWidth: '340px', margin: '0 auto' }}>
+                <p style={{ color: '#ef4444', fontWeight: 700, fontSize: '14px', marginBottom: '8px' }}>⚠️ Chưa Có Tài Khoản Nhận Tiền</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, lineHeight: '1.6' }}>
+                  Chủ trọ chưa thiết lập số tài khoản ngân hàng để tạo mã VietQR tự động. Vui lòng liên hệ trực tiếp chủ trọ để lấy số tài khoản hoặc thanh toán tiền mặt.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Chi tiết tài khoản (Khung to, chữ lớn, dễ nhìn) */}
@@ -225,16 +234,20 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border-color)', padding: '6px 0' }}>
               <span style={{ color: 'var(--text-muted)' }}>Số tài khoản:</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <strong style={{ color: '#6366f1', fontSize: '16px', letterSpacing: '0.5px' }}>{landlordAccNo}</strong>
-                <button type="button" onClick={() => handleCopy(landlordAccNo, 'STK')} className="btn btn-sm btn-secondary" style={{ padding: '3px 8px', height: '26px' }} title="Sao chép số tài khoản">
-                  {copiedField === 'STK' ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
-                </button>
+                <strong style={{ color: landlordAccNo ? '#6366f1' : 'var(--text-muted)', fontSize: '16px', letterSpacing: '0.5px' }}>
+                  {landlordAccNo || 'Chưa thiết lập'}
+                </strong>
+                {landlordAccNo && (
+                  <button type="button" onClick={() => handleCopy(landlordAccNo, 'STK')} className="btn btn-sm btn-secondary" style={{ padding: '3px 8px', height: '26px' }} title="Sao chép số tài khoản">
+                    {copiedField === 'STK' ? <Check size={13} color="#10b981" /> : <Copy size={13} />}
+                  </button>
+                )}
               </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-color)', padding: '6px 0' }}>
               <span style={{ color: 'var(--text-muted)' }}>Chủ tài khoản:</span>
-              <strong style={{ fontSize: '14.5px' }}>{landlordAccName}</strong>
+              <strong style={{ fontSize: '14.5px' }}>{landlordAccName || 'Chưa thiết lập'}</strong>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--border-color)', padding: '6px 0' }}>

@@ -178,6 +178,11 @@ public class PaymentService(AppDbContext db, NotificationService notificationSer
         p.ProofImageUrl,
         p.Note,
         p.CreatedAt,
-        p.ConfirmedAt
+        p.ConfirmedAt,
+        p.Invoice?.Room?.RoomNumber,
+        p.Invoice?.Room?.ZoneId,
+        p.Invoice?.Room?.Zone?.Name,
+        p.Invoice?.TenantProfile?.User?.FullName,
+        p.Invoice?.Month
     );
 }

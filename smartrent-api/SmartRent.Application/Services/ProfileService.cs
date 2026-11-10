@@ -54,20 +54,28 @@ public class ProfileService(AppDbContext db)
     {
         var u = await db.Users.FindAsync(userId) ?? throw new KeyNotFoundException("Không tìm thấy người dùng");
 
-        // 1. Kiểm tra họ và tên (chỉ gồm chữ cái và khoảng trắng, không có số và ký tự đặc biệt)
-        if (string.IsNullOrWhiteSpace(req.FullName) || req.FullName.Trim().Length < 2)
+        // 1. Kiểm tra họ và tên (nếu có cập nhật)
+        if (!string.IsNullOrWhiteSpace(req.FullName))
         {
-            throw new InvalidOperationException("Họ và tên không được để trống (tối thiểu 2 ký tự).");
-        }
-        if (!System.Text.RegularExpressions.Regex.IsMatch(req.FullName.Trim(), @"^[\p{L}\s]+$"))
-        {
-            throw new InvalidOperationException("Họ và tên không hợp lệ! Tên chỉ được chứa chữ cái, không được chứa số hoặc ký tự đặc biệt.");
+            if (req.FullName.Trim().Length < 2)
+            {
+                throw new InvalidOperationException("Họ và tên không được để trống (tối thiểu 2 ký tự).");
+            }
+            if (!System.Text.RegularExpressions.Regex.IsMatch(req.FullName.Trim(), @"^[\p{L}\s]+$"))
+            {
+                throw new InvalidOperationException("Họ và tên không hợp lệ! Tên chỉ được chứa chữ cái, không được chứa số hoặc ký tự đặc biệt.");
+            }
+            u.FullName = req.FullName.Trim();
         }
 
-        // 2. Kiểm tra số điện thoại (đúng 10 chữ số và bắt đầu bằng số 0)
-        if (string.IsNullOrWhiteSpace(req.Phone) || !System.Text.RegularExpressions.Regex.IsMatch(req.Phone.Trim(), @"^0\d{9}$"))
+        // 2. Kiểm tra số điện thoại (nếu có cập nhật)
+        if (!string.IsNullOrWhiteSpace(req.Phone))
         {
-            throw new InvalidOperationException("Số điện thoại không hợp lệ! Vui lòng nhập đúng 10 chữ số và bắt đầu bằng số 0.");
+            if (!System.Text.RegularExpressions.Regex.IsMatch(req.Phone.Trim(), @"^0\d{9}$"))
+            {
+                throw new InvalidOperationException("Số điện thoại không hợp lệ! Vui lòng nhập đúng 10 chữ số và bắt đầu bằng số 0.");
+            }
+            u.Phone = req.Phone.Trim();
         }
 
         // 3. Kiểm tra số CCCD nếu có nhập (đúng 12 chữ số và bắt đầu bằng số 0)
@@ -96,9 +104,7 @@ public class ProfileService(AppDbContext db)
             }
         }
 
-        u.FullName = req.FullName.Trim();
-        u.Phone = req.Phone.Trim();
-        u.AvatarUrl = req.AvatarUrl;
+        if (req.AvatarUrl != null) u.AvatarUrl = req.AvatarUrl;
 
         // Cập nhật thông tin ngân hàng của chủ trọ (nếu có)
         if (req.BankName != null) u.BankName = req.BankName.Trim();

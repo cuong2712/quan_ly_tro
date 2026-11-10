@@ -5,7 +5,7 @@ import {
   ChevronRight, ArrowLeft, Camera, ExternalLink, Sparkles, Smartphone,
   Monitor, Info, Building2, Zap, Send, Check, RefreshCw, Copy,
   LogOut, Plus, ChevronDown, CheckCheck, Upload, AlertCircle, X,
-  FileCheck, Shield, DollarSign, Calendar
+  FileCheck, Shield, DollarSign, Calendar, Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +30,7 @@ import {
   getImageUrl,
   VIETNAM_BANKS
 } from '../utils/formatters';
+import { MobileLandlordView } from '../components/Mobile/MobileLandlordView';
 
 export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
   const navigate = useNavigate();
@@ -93,6 +94,11 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
   // State đăng nhập nhanh
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
+
+  // State lọc & xem chi tiết thông báo
+  const [notifFilter, setNotifFilter] = useState('all'); // 'all' | 'unread' | 'invoices' | 'repairs' | 'contracts' | 'system'
+  const [notifSearch, setNotifSearch] = useState('');
+  const [viewingNotif, setViewingNotif] = useState(null);
 
   // Tự động nhận diện thiết bị: nếu màn hình nhỏ < 768px thì mặc định toàn màn hình
   useEffect(() => {
@@ -293,6 +299,191 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
   // Số lượng thông báo chưa đọc
   const unreadNotifCount = notifications.filter(n => !n.isRead).length;
 
+  // ── PHÂN LOẠI & ĐIỀU HƯỚNG THÔNG BÁO CHUẨN GIỐNG BẢN WEB ──
+  const isRepairNotif = useCallback((n) => {
+    const text = `${n?.title || ''} ${n?.content || ''}`.toLowerCase();
+    return text.includes('sự cố') ||
+           text.includes('bảo trì') ||
+           text.includes('sửa chữa') ||
+           text.includes('tiếp nhận') ||
+           text.includes('hoàn thành sửa') ||
+           text.includes('hư hỏng') ||
+           text.includes('hỏng') ||
+           n?.target === 'Maintenance';
+  }, []);
+
+  const isInvoiceNotif = useCallback((n) => {
+    const text = `${n?.title || ''} ${n?.content || ''}`.toLowerCase();
+    return text.includes('hóa đơn') ||
+           text.includes('tiền phòng') ||
+           text.includes('tiền điện') ||
+           text.includes('tiền nước') ||
+           text.includes('thanh toán') ||
+           text.includes('đóng tiền') ||
+           text.includes('vietqr');
+  }, []);
+
+  const isContractNotif = useCallback((n) => {
+    const text = `${n?.title || ''} ${n?.content || ''}`.toLowerCase();
+    return text.includes('hợp đồng') ||
+           text.includes('gia hạn') ||
+           text.includes('thanh lý') ||
+           text.includes('đặt cọc') ||
+           text.includes('trả phòng');
+  }, []);
+
+  const isAdminNotif = useCallback((n) => {
+    return n?.target === 'SystemAll' ||
+           n?.target === 'All' ||
+           n?.target === 'SuperAdmin' ||
+           (n?.senderName && (n.senderName.toLowerCase().includes('hệ thống') || n.senderName.toLowerCase().includes('admin'))) ||
+           n?.senderRole === 'SuperAdmin';
+  }, []);
+
+  const getNotifMeta = useCallback((n) => {
+    if (isInvoiceNotif(n)) {
+      return {
+        label: 'Hóa Đơn & Tiền Phòng',
+        icon: Receipt,
+        color: '#10b981',
+        bg: 'rgba(16,185,129,0.12)',
+        border: 'rgba(16,185,129,0.3)',
+        actionLabel: role === 'tenant' ? 'Đi đến Hóa Đơn & Thanh Toán' : 'Đi đến Duyệt Thanh Toán VietQR',
+        actionDesc: role === 'tenant' ? 'Xem chi tiết hóa đơn & quét mã VietQR' : 'Kiểm tra ủy nhiệm chi & duyệt tiền'
+      };
+    }
+    if (isRepairNotif(n)) {
+      return {
+        label: 'Sự Cố & Sửa Chữa',
+        icon: Wrench,
+        color: '#f59e0b',
+        bg: 'rgba(245,158,11,0.12)',
+        border: 'rgba(245,158,11,0.3)',
+        actionLabel: role === 'tenant' ? 'Đi đến Phiếu Báo Sửa' : 'Đi đến Quản Lý Sự Cố',
+        actionDesc: role === 'tenant' ? 'Theo dõi tiến độ thợ sửa chữa' : 'Điều phối thợ và cập nhật trạng thái'
+      };
+    }
+    if (isContractNotif(n)) {
+      return {
+        label: 'Hợp Đồng Thuê',
+        icon: FileText,
+        color: '#3b82f6',
+        bg: 'rgba(59,130,246,0.12)',
+        border: 'rgba(59,130,246,0.3)',
+        actionLabel: role === 'tenant' ? 'Đi đến Hợp Đồng Của Tôi' : 'Đi đến Quản Lý Hợp Đồng',
+        actionDesc: role === 'tenant' ? 'Xem hợp đồng & tiền đặt cọc' : 'Quản lý hợp đồng & cư dân'
+      };
+    }
+    if (isAdminNotif(n)) {
+      return {
+        label: 'Ban Quản Trị Sàn',
+        icon: ShieldCheck,
+        color: '#8b5cf6',
+        bg: 'rgba(139,92,246,0.12)',
+        border: 'rgba(139,92,246,0.3)',
+        actionLabel: 'Trang Tổng Quan',
+        actionDesc: 'Thông báo quy định & chính sách từ sàn SmartRent'
+      };
+    }
+    return {
+      label: role === 'tenant' ? (n?.senderName || 'Chủ Khu Trọ') : (n?.senderName || 'Hệ Thống'),
+      icon: Bell,
+      color: '#6366f1',
+      bg: 'rgba(99,102,241,0.12)',
+      border: 'rgba(99,102,241,0.3)',
+      actionLabel: 'Trang Tổng Quan',
+      actionDesc: 'Thông báo chung từ ban quản lý'
+    };
+  }, [role, isInvoiceNotif, isRepairNotif, isContractNotif, isAdminNotif]);
+
+  // Đánh dấu 1 thông báo đã đọc
+  const handleMarkAsRead = async (id) => {
+    try {
+      await notificationService.markRead(id);
+    } catch (e) {
+      console.warn('markRead error:', e);
+    }
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  };
+
+  // Đánh dấu tất cả đã đọc
+  const handleMarkAllAsRead = async () => {
+    const unread = notifications.filter(n => !n.isRead);
+    if (unread.length === 0) return;
+    try {
+      await Promise.allSettled(unread.map(n => notificationService.markRead(n.id)));
+    } catch (e) {
+      console.warn('markAllAsRead error:', e);
+    }
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  };
+
+  // Điều hướng chính xác theo nội dung thông báo giống bản Web
+  const handleNavigateFromNotif = (notif) => {
+    if (!notif) return;
+    if (!notif.isRead) {
+      handleMarkAsRead(notif.id);
+    }
+    setBottomSheet(null);
+    setViewingNotif(null);
+
+    const isRepair = isRepairNotif(notif);
+    const isInvoice = isInvoiceNotif(notif);
+    const isContract = isContractNotif(notif);
+
+    if (role === 'tenant') {
+      if (isInvoice) {
+        setActiveTab('invoices');
+        if (unpaidInvoices.length > 0) {
+          handleOpenQrPay(unpaidInvoices[0]);
+        }
+      } else if (isRepair) {
+        setActiveTab('repairs');
+      } else if (isContract) {
+        setActiveTab('contracts');
+      } else {
+        setActiveTab('home');
+      }
+    } else {
+      // role === 'landlord'
+      if (isInvoice) {
+        window.dispatchEvent(new CustomEvent('smartrent:mobile-landlord-nav', {
+          detail: { subView: 'review_vietqr', tab: 'invoices' }
+        }));
+      } else if (isRepair) {
+        window.dispatchEvent(new CustomEvent('smartrent:mobile-landlord-nav', {
+          detail: { subView: null, tab: 'more' }
+        }));
+      } else if (isContract) {
+        window.dispatchEvent(new CustomEvent('smartrent:mobile-landlord-nav', {
+          detail: { subView: null, tab: 'tenants_contracts', subTab: 'contracts' }
+        }));
+      } else {
+        window.dispatchEvent(new CustomEvent('smartrent:mobile-landlord-nav', {
+          detail: { subView: null, tab: 'home' }
+        }));
+      }
+    }
+  };
+
+  // Danh sách thông báo sau khi lọc
+  const filteredNotifications = useMemo(() => {
+    return notifications.filter(n => {
+      const matchSearch = !notifSearch.trim() ||
+        (n.title || '').toLowerCase().includes(notifSearch.toLowerCase()) ||
+        (n.content || '').toLowerCase().includes(notifSearch.toLowerCase()) ||
+        (n.senderName || '').toLowerCase().includes(notifSearch.toLowerCase());
+      if (!matchSearch) return false;
+
+      if (notifFilter === 'unread') return !n.isRead;
+      if (notifFilter === 'invoices') return isInvoiceNotif(n);
+      if (notifFilter === 'repairs') return isRepairNotif(n);
+      if (notifFilter === 'contracts') return isContractNotif(n);
+      if (notifFilter === 'system') return isAdminNotif(n);
+      return true;
+    });
+  }, [notifications, notifFilter, notifSearch, isInvoiceNotif, isRepairNotif, isContractNotif, isAdminNotif]);
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -331,9 +522,10 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
             <button
               onClick={() => navigate(-1)}
               className="btn btn-sm btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8 }}
+              title="Quay lại trang trước"
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, padding: 0, borderRadius: 8 }}
             >
-              <ArrowLeft size={15} /> Quay lại
+              <ArrowLeft size={16} />
             </button>
             <div style={{ fontWeight: 800, fontSize: '15px', color: '#10b981', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Smartphone size={18} /> SMARTRENT MOBILE APP
@@ -544,16 +736,33 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
               )}
             </button>
 
-            {/* Avatar người dùng */}
+            {/* Avatar người dùng -> Mở Hồ Sơ & Đổi tài khoản / Đăng xuất */}
             <button
-              onClick={() => setActiveTab('profile')}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+              onClick={() => setBottomSheet('profile')}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', position: 'relative' }}
+              title="Xem thông tin cá nhân & đổi tài khoản"
             >
               <img
                 src={getImageUrl(user?.avatarUrl, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100')}
                 alt="Avatar"
-                style={{ width: 34, height: 34, borderRadius: '50%', border: '2px solid #10b981', objectFit: 'cover' }}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: '50%',
+                  border: `2px solid ${role === 'tenant' ? '#10b981' : '#6366f1'}`,
+                  objectFit: 'cover'
+                }}
               />
+              <span style={{
+                position: 'absolute',
+                bottom: 0,
+                right: 0,
+                width: 9,
+                height: 9,
+                borderRadius: '50%',
+                background: '#10b981',
+                border: `1.5px solid ${isLight ? '#fff' : '#0b1120'}`
+              }} />
             </button>
           </div>
         </header>
@@ -567,7 +776,8 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
           flexDirection: 'column',
           gap: '16px',
           background: isLight ? '#f8fafc' : '#0b1120',
-          scrollbarWidth: 'none'
+          scrollbarWidth: 'none',
+          position: 'relative'
         }}>
 
           {/* Banner đăng nhập nếu chưa đăng nhập */}
@@ -1115,10 +1325,10 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                   }}>
                     {[
                       { label: 'Phòng đang thuê', val: `Phòng ${currentRoomNumber}` },
-                      { label: 'Số CCCD', val: profile?.cccd || tenantDashboard?.cccd || '001201009876' },
+                      { label: 'Số CCCD', val: profile?.cccd || tenantDashboard?.cccd || 'Chưa cập nhật' },
                       { label: 'Quê quán', val: profile?.hometown || tenantDashboard?.hometown || 'Chưa cập nhật' },
-                      { label: 'Phương tiện gửi', val: vehicle?.licensePlate ? `${vehicle.vehicleType || 'Xe máy'} (${vehicle.licensePlate})` : (tenantDashboard?.vehicleInfo || '1 xe máy') },
-                      { label: 'Ngày vào ở', val: formatDate(tenantDashboard?.moveInDate) || '01/08/2026' }
+                      { label: 'Phương tiện gửi', val: vehicle?.licensePlate ? `${vehicle.vehicleType || 'Xe máy'} (${vehicle.licensePlate})` : (tenantDashboard?.vehicleInfo || 'Chưa đăng ký') },
+                      { label: 'Ngày vào ở', val: formatDate(tenantDashboard?.moveInDate) || 'Chưa cập nhật' }
                     ].map((item, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < 4 ? `1px solid ${isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)'}` : 'none' }}>
                         <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>{item.label}</span>
@@ -1153,342 +1363,88 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
           {/* ────────────── DÀNH CHO CHỦ TRỌ (LANDLORD) ────────── */}
           {/* ═════════════════════════════════════════════════════ */}
           {role === 'landlord' && (
-            <>
-              {/* ──────── TAB 1: TỔNG QUAN CHỦ TRỌ (HOME) ──────── */}
-              {activeTab === 'home' && (
-                <>
-                  <div style={{
-                    background: isLight
-                      ? 'linear-gradient(135deg, #ffffff, #eef2ff)'
-                      : 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(15,23,42,0.9))',
-                    border: `1px solid ${isLight ? '#c7d2fe' : 'rgba(99,102,241,0.3)'}`,
-                    borderRadius: '18px', padding: '18px',
-                    boxShadow: isLight ? '0 4px 18px rgba(99,102,241,0.08)' : '0 8px 24px rgba(0,0,0,0.3)'
-                  }}>
-                    <span style={{
-                      fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
-                      color: '#6366f1', background: 'rgba(99,102,241,0.15)',
-                      padding: '3px 8px', borderRadius: '6px'
-                    }}>
-                      Tổng Quan Kinh Doanh
-                    </span>
-                    <h2 style={{ fontSize: '22px', fontWeight: 800, margin: '8px 0 2px', color: isLight ? '#0f172a' : '#fff' }}>
-                      {zones[0]?.name || 'Hệ Thống Trọ SmartRent'}
-                    </h2>
-                    <div style={{ fontSize: '12px', color: isLight ? '#64748b' : '#94a3b8' }}>
-                      Tổng {landlordDashboard?.totalRooms || rooms.length || 0} phòng • Tỉ lệ lấp đầy: {landlordDashboard?.occupancyRate || 0}%
-                    </div>
-
-                    <div style={{
-                      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10,
-                      marginTop: 16, paddingTop: 14, borderTop: `1px dashed ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`
-                    }}>
-                      <div>
-                        <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>Doanh thu tháng này</div>
-                        <div style={{ fontSize: '17px', fontWeight: 800, color: '#10b981', marginTop: 2 }}>
-                          {formatVND(landlordDashboard?.revenue || 0)}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>Hóa đơn chưa thu</div>
-                        <div style={{ fontSize: '17px', fontWeight: 800, color: '#ef4444', marginTop: 2 }}>
-                          {landlordDashboard?.unpaidInvoices || 0} phòng
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 4 Thống kê nhanh */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div style={{ background: isLight ? '#ffffff' : 'rgba(17,24,39,0.7)', padding: 14, borderRadius: 14, border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}` }}>
-                      <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>Phòng đang thuê</div>
-                      <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: 2 }}>
-                        {landlordDashboard?.occupied || 0}
-                      </div>
-                    </div>
-                    <div style={{ background: isLight ? '#ffffff' : 'rgba(17,24,39,0.7)', padding: 14, borderRadius: 14, border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}` }}>
-                      <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>Phòng còn trống</div>
-                      <div style={{ fontSize: '20px', fontWeight: 800, color: '#3b82f6', marginTop: 2 }}>
-                        {landlordDashboard?.vacant || 0}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sự cố cần sửa */}
-                  <div style={{
-                    background: isLight ? '#ffffff' : 'rgba(17,24,39,0.7)',
-                    border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: '16px', padding: '16px'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Wrench size={16} color="#f59e0b" /> Yêu Cầu Sửa Chữa Cần Xử Lý
-                      </div>
-                      <span style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 800 }}>
-                        {landlordDashboard?.pendingMaintenance || 0} việc
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* ──────── TAB 2: QUẢN LÝ PHÒNG (ROOMS) ──────── */}
-              {activeTab === 'invoices' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Hóa Đơn Thu Tiền</h3>
-                    <span style={{ fontSize: '12px', color: '#6366f1', fontWeight: 700 }}>
-                      Tổng: {invoices.length}
-                    </span>
-                  </div>
-
-                  {invoices.slice(0, 10).map(inv => (
-                    <div
-                      key={inv.id}
-                      style={{
-                        background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
-                        border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-                        borderRadius: '14px', padding: '14px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: '14px' }}>
-                            Phòng {inv.roomNumber || 'Phòng'} • {inv.month ? `T${inv.month}/${inv.year}` : inv.invoiceCode}
-                          </div>
-                          <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8', marginTop: 2 }}>
-                            Khách: {inv.tenantName || 'Người thuê'}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontWeight: 800, fontSize: '15px', color: inv.status === 'Paid' ? '#10b981' : '#ef4444' }}>
-                            {formatVND(inv.totalAmount)}
-                          </div>
-                          <span style={{
-                            fontSize: '10px', fontWeight: 700,
-                            color: inv.status === 'Paid' ? '#10b981' : '#ef4444',
-                            background: inv.status === 'Paid' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                            padding: '1px 6px', borderRadius: 4
-                          }}>
-                            {inv.status === 'Paid' ? 'Đã thu' : 'Chưa thu'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ──────── TAB 3: DANH SÁCH PHÒNG TRỌ (CONTRACTS TAB ICON) ──────── */}
-              {activeTab === 'contracts' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Danh Sách Phòng Trọ</h3>
-                    <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700 }}>
-                      {rooms.length} phòng
-                    </span>
-                  </div>
-
-                  {rooms.slice(0, 15).map(room => (
-                    <div
-                      key={room.id}
-                      style={{
-                        background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
-                        border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-                        borderRadius: '14px', padding: '14px',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '15px' }}>
-                          Phòng {room.roomNumber}
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: isLight ? '#64748b' : '#94a3b8', marginTop: 2 }}>
-                          {room.zoneName || 'Khu trọ'} • {formatVND(room.price)}/th
-                        </div>
-                      </div>
-                      <span style={{
-                        fontSize: '11px', fontWeight: 800,
-                        padding: '3px 8px', borderRadius: 6,
-                        background: room.status === 'Occupied' ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)',
-                        color: room.status === 'Occupied' ? '#10b981' : '#3b82f6'
-                      }}>
-                        {room.status === 'Occupied' ? 'Đang thuê' : 'Còn trống'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ──────── TAB 4: BẢO TRÌ SỬA CHỮA (REPAIRS) ──────── */}
-              {activeTab === 'repairs' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Xử Lý Báo Hỏng</h3>
-                    <span style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 700 }}>
-                      {maintenanceRequests.length} phiếu
-                    </span>
-                  </div>
-
-                  {maintenanceRequests.map(req => (
-                    <div
-                      key={req.id}
-                      style={{
-                        background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
-                        border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-                        borderRadius: '14px', padding: '14px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: '14px' }}>{req.title}</div>
-                          <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8', marginTop: 2 }}>
-                            Phòng: <strong>{req.roomNumber || 'Phòng'}</strong> • Khách: {req.tenantName || 'Người gửi'}
-                          </div>
-                        </div>
-                        <span style={{
-                          fontSize: '10px', fontWeight: 800,
-                          padding: '2px 6px', borderRadius: 4,
-                          background: req.status === 'Completed' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
-                          color: req.status === 'Completed' ? '#10b981' : '#f59e0b'
-                        }}>
-                          {req.status === 'Completed' ? 'Đã xong' : 'Cần xử lý'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ──────── TAB 5: HỒ SƠ CHỦ TRỌ (PROFILE) ──────── */}
-              {activeTab === 'profile' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{
-                    background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
-                    border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: '16px', padding: '18px', textAlign: 'center'
-                  }}>
-                    <img
-                      src={getImageUrl(user?.avatarUrl, 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120')}
-                      alt="Avatar"
-                      style={{ width: 68, height: 68, borderRadius: '50%', border: '3px solid #6366f1', margin: '0 auto 8px', objectFit: 'cover' }}
-                    />
-                    <h3 style={{ fontSize: '17px', fontWeight: 800, margin: '0 0 2px' }}>
-                      {user?.fullName || 'Chủ Khu Trọ'}
-                    </h3>
-                    <div style={{ fontSize: '12px', color: isLight ? '#64748b' : '#94a3b8' }}>
-                      {user?.email || 'landlord@smartrent.vn'}
-                    </div>
-                  </div>
-
-                  <div style={{
-                    background: isLight ? '#ffffff' : 'rgba(17,24,39,0.7)',
-                    border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: '16px', padding: '14px 16px', fontSize: '13px'
-                  }}>
-                    <div style={{ fontWeight: 800, marginBottom: 8, color: '#6366f1' }}>💳 Tài Khoản Nhận Tiền VietQR:</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                      <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>Ngân hàng</span>
-                      <strong>{profile?.bankName || 'BIDV'}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                      <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>Số tài khoản</span>
-                      <strong>{profile?.bankAccountNumber || '6531211114'}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                      <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>Chủ tài khoản</span>
-                      <strong>{profile?.bankAccountName || 'NGUYEN MANH CUONG'}</strong>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={async () => {
-                      if (window.confirm('Bạn có chắc muốn đăng xuất không?')) {
-                        await logout();
-                        navigate('/login');
-                      }
-                    }}
-                    style={{
-                      background: 'rgba(239,68,68,0.1)', color: '#ef4444',
-                      border: '1px solid rgba(239,68,68,0.25)', borderRadius: 12,
-                      padding: '12px', fontSize: '14px', fontWeight: 800,
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
-                    }}
-                  >
-                    <LogOut size={16} /> Đăng Xuất Tài Khoản
-                  </button>
-                </div>
-              )}
-            </>
+            <MobileLandlordView
+              dashboard={landlordDashboard}
+              rooms={rooms}
+              zones={zones}
+              invoices={invoices}
+              maintenanceRequests={maintenanceRequests}
+              profile={profile}
+              onRefresh={() => loadData(true)}
+              isLight={isLight}
+              theme={isLight ? 'light' : 'dark'}
+            />
           )}
 
         </main>
 
-        {/* ── 3. BOTTOM NAVIGATION BAR (Thanh Điều Hướng Đáy Chuẩn App) ── */}
-        <nav style={{
-          background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(11,17,32,0.96)',
-          backdropFilter: 'blur(16px)',
-          borderTop: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          padding: '8px 4px 14px',
-          flexShrink: 0,
-          zIndex: 90
-        }}>
-          {[
-            { id: 'home', label: 'Trang chủ', icon: Home },
-            { id: 'invoices', label: role === 'tenant' ? 'Hóa đơn' : 'Thu tiền', icon: Receipt, badge: role === 'tenant' && unpaidInvoices.length > 0 ? String(unpaidInvoices.length) : null },
-            { id: 'repairs', label: 'Báo sửa', icon: Wrench, badge: maintenanceRequests.length > 0 ? String(maintenanceRequests.length) : null },
-            { id: 'contracts', label: role === 'tenant' ? 'Hợp đồng' : 'DS Phòng', icon: FileText },
-            { id: 'profile', label: 'Cá nhân', icon: User }
-          ].map(tab => {
-            const Icon = tab.icon;
-            const isAct = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 3,
-                  cursor: 'pointer',
-                  color: isAct ? (role === 'tenant' ? '#10b981' : '#6366f1') : (isLight ? '#64748b' : '#94a3b8'),
-                  position: 'relative',
-                  padding: '4px 0',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ position: 'relative' }}>
-                  <Icon size={19} />
-                  {tab.badge && (
-                    <span style={{
-                      position: 'absolute', top: -3, right: -6,
-                      background: '#ef4444', color: '#fff', fontSize: '9px',
-                      fontWeight: 800, width: 14, height: 14, borderRadius: '50%',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      {tab.badge}
-                    </span>
+        {/* ── 3. BOTTOM NAVIGATION BAR (Dành riêng cho Khách thuê) ── */}
+        {role === 'tenant' && (
+          <nav style={{
+            background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(11,17,32,0.96)',
+            backdropFilter: 'blur(16px)',
+            borderTop: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            padding: '8px 4px 14px',
+            flexShrink: 0,
+            zIndex: 90
+          }}>
+            {[
+              { id: 'home', label: 'Trang chủ', icon: Home },
+              { id: 'invoices', label: 'Hóa đơn', icon: Receipt, badge: unpaidInvoices.length > 0 ? String(unpaidInvoices.length) : null },
+              { id: 'repairs', label: 'Báo sửa', icon: Wrench, badge: maintenanceRequests.length > 0 ? String(maintenanceRequests.length) : null },
+              { id: 'contracts', label: 'Hợp đồng', icon: FileText },
+              { id: 'profile', label: 'Cá nhân', icon: User }
+            ].map(tab => {
+              const Icon = tab.icon;
+              const isAct = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 3,
+                    cursor: 'pointer',
+                    color: isAct ? '#10b981' : (isLight ? '#64748b' : '#94a3b8'),
+                    position: 'relative',
+                    padding: '4px 0',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ position: 'relative' }}>
+                    <Icon size={19} />
+                    {tab.badge && (
+                      <span style={{
+                        position: 'absolute', top: -3, right: -6,
+                        background: '#ef4444', color: '#fff', fontSize: '9px',
+                        fontWeight: 800, width: 14, height: 14, borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {tab.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '10px', fontWeight: isAct ? 800 : 600 }}>
+                    {tab.label}
+                  </span>
+                  {isAct && (
+                    <div style={{
+                      width: 4, height: 4, borderRadius: '50%',
+                      background: '#10b981',
+                      position: 'absolute', bottom: 0
+                    }} />
                   )}
-                </div>
-                <span style={{ fontSize: '10px', fontWeight: isAct ? 800 : 600 }}>
-                  {tab.label}
-                </span>
-                {isAct && (
-                  <div style={{
-                    width: 4, height: 4, borderRadius: '50%',
-                    background: role === 'tenant' ? '#10b981' : '#6366f1',
-                    position: 'absolute', bottom: 0
-                  }} />
-                )}
-              </button>
-            );
-          })}
-        </nav>
+                </button>
+              );
+            })}
+          </nav>
+        )}
 
         {/* ── 4. BOTTOM SHEET MODAL (Trượt Từ Dưới Lên) ── */}
         {bottomSheet && (
@@ -1565,28 +1521,41 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                         const inv = selectedInvoice || unpaidInvoices[0] || null;
                         const amt = inv ? inv.totalAmount : 0;
                         const bank = inv?.landlordBankName || profile?.bankName || 'BIDV';
-                        const accNo = inv?.landlordBankAccountNumber || profile?.bankAccountNumber || '6531211114';
-                        const accName = inv?.landlordBankAccountName || profile?.bankAccountName || 'NGUYEN MANH CUONG';
+                        const accNo = inv?.landlordBankAccountNumber || profile?.bankAccountNumber || '';
+                        const accName = inv?.landlordBankAccountName || profile?.bankAccountName || '';
                         const content = `Phong ${inv?.roomNumber || currentRoomNumber} thanh toan ${inv?.invoiceCode || 'tien nha'}`;
-                        const qrUrl = getVietQRUrl(bank, accNo, amt, content, accName);
+                        const qrUrl = accNo ? getVietQRUrl(bank, accNo, amt, content, accName) : '';
 
                         return (
                           <>
                             <div style={{ textAlign: 'center', margin: '10px 0' }}>
-                              <div style={{
-                                display: 'inline-block', padding: 10, background: '#fff',
-                                borderRadius: 16, border: '2px solid #10b981',
-                                boxShadow: '0 8px 24px rgba(16,185,129,0.15)'
-                              }}>
-                                <img
-                                  src={qrUrl}
-                                  alt="VietQR"
-                                  style={{ width: '220px', height: 'auto', display: 'block' }}
-                                />
-                              </div>
-                              <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8', marginTop: 6 }}>
-                                📸 Mở app ngân hàng bất kỳ (Vietcombank, MB, Techcombank...) để quét
-                              </div>
+                              {accNo ? (
+                                <>
+                                  <div style={{
+                                    display: 'inline-block', padding: 10, background: '#fff',
+                                    borderRadius: 16, border: '2px solid #10b981',
+                                    boxShadow: '0 8px 24px rgba(16,185,129,0.15)'
+                                  }}>
+                                    <img
+                                      src={qrUrl}
+                                      alt="VietQR"
+                                      style={{ width: '220px', height: 'auto', display: 'block' }}
+                                    />
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8', marginTop: 6 }}>
+                                    📸 Mở app ngân hàng bất kỳ (Vietcombank, MB, Techcombank...) để quét
+                                  </div>
+                                </>
+                              ) : (
+                                <div style={{
+                                  padding: '20px 14px', borderRadius: 14,
+                                  background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
+                                  color: '#f59e0b', fontSize: '12.5px', lineHeight: 1.5
+                                }}>
+                                  ⚠️ Chủ trọ chưa thiết lập số tài khoản ngân hàng nhận tiền trên hệ thống.<br />
+                                  Vui lòng liên hệ trực tiếp chủ trọ để thanh toán.
+                                </div>
+                              )}
                             </div>
 
                             {/* Thông Tin Chuyển Khoản Chi Tiết Kèm Nút Copy */}
@@ -1830,12 +1799,377 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                 </div>
               )}
 
-              {/* ──────── BOTTOM SHEET 3: THÔNG BÁO HỆ THỐNG ──────── */}
+              {/* ──────── BOTTOM SHEET 3: TRUNG TÂM THÔNG BÁO CHUẨN NATIVE (GIỐNG BẢN WEB) ──────── */}
               {bottomSheet === 'notifications' && (
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  {/* Nếu đang xem chi tiết 1 thông báo cụ thể */}
+                  {viewingNotif ? (
+                    <div>
+                      {/* Header Chi Tiết */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                        <button
+                          onClick={() => setViewingNotif(null)}
+                          style={{
+                            background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
+                            border: 'none', borderRadius: 8, padding: '6px 10px',
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            fontSize: '12px', fontWeight: 700, color: isLight ? '#334155' : '#e2e8f0',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <ArrowLeft size={14} /> Danh sách
+                        </button>
+                        <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Bell size={16} color="#6366f1" /> Chi Tiết Thông Báo
+                        </h3>
+                        <button
+                          onClick={() => { setViewingNotif(null); setBottomSheet(null); }}
+                          style={{ background: 'transparent', border: 'none', fontSize: '18px', color: isLight ? '#64748b' : '#94a3b8', cursor: 'pointer' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Thẻ Thông Tin Chi Tiết */}
+                      {(() => {
+                        const meta = getNotifMeta(viewingNotif);
+                        const MetaIcon = meta.icon;
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div style={{
+                              background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
+                              border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                              borderRadius: 14, padding: '16px'
+                            }}>
+                              {/* Phân loại & Ngày giờ */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                                  background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`,
+                                  padding: '3px 10px', borderRadius: 14, fontSize: '11px', fontWeight: 700
+                                }}>
+                                  <MetaIcon size={12} /> {meta.label}
+                                </span>
+                                <span style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Calendar size={12} /> {formatDateTime(viewingNotif.createdAt)}
+                                </span>
+                              </div>
+
+                              {/* Tiêu đề */}
+                              <h4 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 10px', color: isLight ? '#0f172a' : '#fff', lineHeight: 1.4 }}>
+                                {viewingNotif.title}
+                              </h4>
+
+                              {/* Người gửi */}
+                              {viewingNotif.senderName && (
+                                <div style={{ fontSize: '11.5px', color: isLight ? '#64748b' : '#94a3b8', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                  <User size={13} /> Người phát hành: <strong style={{ color: isLight ? '#334155' : '#cbd5e1' }}>{viewingNotif.senderName}</strong>
+                                </div>
+                              )}
+
+                              {/* Toàn văn nội dung */}
+                              <div style={{
+                                background: isLight ? '#f8fafc' : 'rgba(15,23,42,0.6)',
+                                border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.06)'}`,
+                                borderRadius: 10, padding: '12px 14px',
+                                fontSize: '13px', lineHeight: 1.6,
+                                color: isLight ? '#334155' : '#e2e8f0',
+                                whiteSpace: 'pre-line'
+                              }}>
+                                {viewingNotif.content}
+                              </div>
+                            </div>
+
+                            {/* Nút Điều Hướng Trực Tiếp Đến Trang Tương Ứng Giống Bản Web */}
+                            <button
+                              onClick={() => handleNavigateFromNotif(viewingNotif)}
+                              style={{
+                                width: '100%',
+                                padding: '14px',
+                                borderRadius: 14,
+                                background: meta.color === '#10b981'
+                                  ? 'linear-gradient(135deg, #10b981, #059669)'
+                                  : meta.color === '#f59e0b'
+                                  ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                  : meta.color === '#3b82f6'
+                                  ? 'linear-gradient(135deg, #3b82f6, #2563eb)'
+                                  : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                color: '#fff',
+                                border: 'none',
+                                fontWeight: 800,
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8,
+                                boxShadow: `0 4px 14px ${meta.color}44`
+                              }}
+                            >
+                              <MetaIcon size={17} /> {meta.actionLabel} <ChevronRight size={16} />
+                            </button>
+                            <div style={{ textAlign: 'center', fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                              {meta.actionDesc}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div>
+                      {/* Header Danh Sách Thông Báo */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <div>
+                          <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Bell size={18} color="#6366f1" /> Trung Tâm Thông Báo
+                          </h3>
+                          <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                            {unreadNotifCount > 0 ? `Bạn có ${unreadNotifCount} thông báo chưa đọc` : 'Không có thông báo mới chưa đọc'}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {unreadNotifCount > 0 && (
+                            <button
+                              onClick={handleMarkAllAsRead}
+                              style={{
+                                background: 'rgba(16,185,129,0.12)',
+                                border: '1px solid rgba(16,185,129,0.3)',
+                                color: '#10b981',
+                                borderRadius: 8,
+                                padding: '5px 10px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4
+                              }}
+                              title="Đánh dấu tất cả là đã đọc"
+                            >
+                              <CheckCheck size={13} /> Đã đọc hết
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setBottomSheet(null)}
+                            style={{ background: 'transparent', border: 'none', fontSize: '18px', color: isLight ? '#64748b' : '#94a3b8', cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Ô Tìm Kiếm Nhanh */}
+                      <div style={{ position: 'relative', marginBottom: 10 }}>
+                        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: isLight ? '#94a3b8' : '#64748b' }} />
+                        <input
+                          type="text"
+                          placeholder="Tìm thông báo theo từ khóa..."
+                          value={notifSearch}
+                          onChange={e => setNotifSearch(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px 8px 32px',
+                            borderRadius: 10,
+                            background: isLight ? '#f1f5f9' : '#1f2937',
+                            border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                            color: isLight ? '#0f172a' : '#fff',
+                            fontSize: '12px',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                        {notifSearch && (
+                          <button
+                            onClick={() => setNotifSearch('')}
+                            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', fontSize: '13px', cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Bộ Lọc Tabs Phân Loại Ngang (Chuẩn Mobile App) */}
+                      <div style={{
+                        display: 'flex',
+                        gap: 6,
+                        overflowX: 'auto',
+                        paddingBottom: 8,
+                        marginBottom: 10,
+                        scrollbarWidth: 'none'
+                      }}>
+                        {[
+                          { id: 'all', label: `Tất cả (${notifications.length})` },
+                          { id: 'unread', label: `Chưa đọc (${unreadNotifCount})`, alert: unreadNotifCount > 0 },
+                          { id: 'invoices', label: 'Hóa đơn', icon: Receipt },
+                          { id: 'repairs', label: 'Sửa chữa', icon: Wrench },
+                          { id: 'contracts', label: 'Hợp đồng', icon: FileText },
+                          { id: 'system', label: 'Hệ thống', icon: ShieldCheck }
+                        ].map(tab => {
+                          const isAct = notifFilter === tab.id;
+                          const TabIcon = tab.icon;
+                          return (
+                            <button
+                              key={tab.id}
+                              onClick={() => setNotifFilter(tab.id)}
+                              style={{
+                                flexShrink: 0,
+                                padding: '6px 12px',
+                                borderRadius: 20,
+                                border: isAct
+                                  ? '1px solid #6366f1'
+                                  : `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                                background: isAct
+                                  ? 'rgba(99,102,241,0.15)'
+                                  : (isLight ? '#f8fafc' : 'rgba(15,23,42,0.5)'),
+                                color: isAct ? '#6366f1' : (isLight ? '#64748b' : '#94a3b8'),
+                                fontWeight: isAct ? 800 : 600,
+                                fontSize: '11.5px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4
+                              }}
+                            >
+                              {TabIcon && <TabIcon size={12} />}
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Danh Sách Thông Báo Dạng Thẻ */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '420px', overflowY: 'auto', paddingRight: 2 }}>
+                        {filteredNotifications.map(n => {
+                          const meta = getNotifMeta(n);
+                          const MetaIcon = meta.icon;
+                          return (
+                            <div
+                              key={n.id}
+                              onClick={() => {
+                                if (!n.isRead) handleMarkAsRead(n.id);
+                                setViewingNotif(n);
+                              }}
+                              style={{
+                                background: !n.isRead
+                                  ? (isLight ? '#ffffff' : 'rgba(30,41,59,0.7)')
+                                  : (isLight ? '#f8fafc' : 'rgba(15,23,42,0.5)'),
+                                border: !n.isRead
+                                  ? `1.5px solid ${meta.color}`
+                                  : `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.06)'}`,
+                                borderRadius: 12,
+                                padding: '12px 14px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 6,
+                                boxShadow: !n.isRead
+                                  ? (isLight ? '0 4px 12px rgba(0,0,0,0.05)' : '0 4px 14px rgba(0,0,0,0.3)')
+                                  : 'none'
+                              }}
+                            >
+                              {/* Header Card: Icon phân loại + Trạng thái chưa đọc + Thời gian */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                    background: meta.bg, color: meta.color,
+                                    padding: '2px 8px', borderRadius: 10,
+                                    fontSize: '10.5px', fontWeight: 700
+                                  }}>
+                                    <MetaIcon size={11} /> {meta.label}
+                                  </span>
+                                  {!n.isRead && (
+                                    <span style={{
+                                      width: 7, height: 7, borderRadius: '50%',
+                                      background: '#ef4444', display: 'inline-block'
+                                    }} />
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '10.5px', color: isLight ? '#94a3b8' : '#64748b' }}>
+                                  {formatRelativeTime(n.createdAt)}
+                                </span>
+                              </div>
+
+                              {/* Tiêu đề & Tóm tắt */}
+                              <div style={{
+                                fontWeight: !n.isRead ? 800 : 700,
+                                fontSize: '13px',
+                                color: isLight ? '#0f172a' : '#fff',
+                                lineHeight: 1.3
+                              }}>
+                                {n.title}
+                              </div>
+                              <div style={{
+                                fontSize: '11.5px',
+                                color: isLight ? '#64748b' : '#94a3b8',
+                                overflow: 'hidden',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                lineHeight: 1.4
+                              }}>
+                                {n.content}
+                              </div>
+
+                              {/* Footer Card: Người gửi + Nút điều hướng nhanh */}
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginTop: 4,
+                                paddingTop: 6,
+                                borderTop: `1px solid ${isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)'}`
+                              }}>
+                                <span style={{ fontSize: '10.5px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                                  Từ: {n.senderName || (role === 'tenant' ? 'Chủ Trọ' : 'Ban Quản Trị')}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNavigateFromNotif(n);
+                                  }}
+                                  style={{
+                                    background: meta.bg,
+                                    border: `1px solid ${meta.border}`,
+                                    color: meta.color,
+                                    borderRadius: 6,
+                                    padding: '3px 8px',
+                                    fontSize: '10.5px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 3
+                                  }}
+                                >
+                                  {meta.actionLabel} <ChevronRight size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {filteredNotifications.length === 0 && (
+                          <div style={{ textAlign: 'center', padding: '36px 16px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                            <Bell size={36} style={{ opacity: 0.25, margin: '0 auto 8px' }} />
+                            <div style={{ fontSize: '13px', fontWeight: 700 }}>Không tìm thấy thông báo nào</div>
+                            <div style={{ fontSize: '11px', marginTop: 4 }}>Thử đổi bộ lọc hoặc xóa ô tìm kiếm</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ──────── BOTTOM SHEET 5: HỒ SƠ CÁ NHÂN & ĐỔI TÀI KHOẢN / ĐĂNG XUẤT ──────── */}
+              {bottomSheet === 'profile' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Bell size={18} color="#10b981" /> Thông Báo ({notifications.length})
+                      <User size={18} color={role === 'tenant' ? '#10b981' : '#6366f1'} /> Hồ Sơ & Tài Khoản Cá Nhân
                     </h3>
                     <button
                       onClick={() => setBottomSheet(null)}
@@ -1845,34 +2179,109 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                     </button>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '350px', overflowY: 'auto' }}>
-                    {notifications.map(n => (
-                      <div
-                        key={n.id}
+                  {/* Card Thông Tin Người Dùng Chính */}
+                  <div style={{
+                    background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
+                    border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: 16, padding: '16px', textAlign: 'center',
+                    boxShadow: isLight ? '0 2px 10px rgba(0,0,0,0.04)' : 'none'
+                  }}>
+                    <div style={{ position: 'relative', width: 68, height: 68, margin: '0 auto 8px' }}>
+                      <img
+                        src={getImageUrl(user?.avatarUrl, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120')}
+                        alt="Avatar"
                         style={{
-                          background: isLight ? '#f8fafc' : 'rgba(15,23,42,0.6)',
-                          border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.06)'}`,
-                          borderRadius: 10, padding: '10px 12px', fontSize: '12px'
+                          width: '100%', height: '100%', borderRadius: '50%',
+                          border: `3px solid ${role === 'tenant' ? '#10b981' : '#6366f1'}`,
+                          objectFit: 'cover'
                         }}
-                      >
-                        <div style={{ fontWeight: 800, color: isLight ? '#0f172a' : '#fff' }}>
-                          {n.title}
-                        </div>
-                        <div style={{ color: isLight ? '#64748b' : '#94a3b8', marginTop: 2 }}>
-                          {n.content}
-                        </div>
-                        <div style={{ fontSize: '10.5px', color: '#10b981', marginTop: 4 }}>
-                          {formatRelativeTime(n.createdAt)}
-                        </div>
+                      />
+                      <span style={{
+                        position: 'absolute', bottom: 2, right: 2,
+                        width: 14, height: 14, borderRadius: '50%',
+                        background: '#10b981', border: '2px solid #fff'
+                      }} />
+                    </div>
+
+                    <h3 style={{ fontSize: '17px', fontWeight: 800, margin: '0 0 4px', color: isLight ? '#0f172a' : '#fff' }}>
+                      {user?.fullName || profile?.fullName || (role === 'landlord' ? 'Chủ Trọ SmartRent' : 'Khách Thuê Phòng')}
+                    </h3>
+                    <div style={{ fontSize: '12px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                      {user?.email || profile?.email || 'user@smartrent.vn'} • {profile?.phoneNumber || profile?.phone || '0987.654.321'}
+                    </div>
+
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: role === 'tenant' ? 'rgba(16,185,129,0.12)' : 'rgba(99,102,241,0.12)',
+                      color: role === 'tenant' ? '#10b981' : '#6366f1',
+                      padding: '4px 12px', borderRadius: 20, fontSize: '11.5px', fontWeight: 700, marginTop: 8
+                    }}>
+                      <ShieldCheck size={13} />
+                      {role === 'tenant'
+                        ? `👤 Cư Dân Phòng ${currentRoomNumber} • ${currentZoneName}`
+                        : `🏠 Chủ Khu Trọ • ${zones.length} khu trọ (${rooms.length} phòng)`}
+                    </div>
+                  </div>
+
+                  {/* Chi Tiết Hồ Sơ Theo Vai Trò */}
+                  <div style={{
+                    background: isLight ? '#ffffff' : 'rgba(17,24,39,0.7)',
+                    border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                    borderRadius: 14, padding: '12px 14px', fontSize: '12.5px'
+                  }}>
+                    {role === 'tenant' ? [
+                      { label: 'Phòng đang thuê', val: `Phòng ${currentRoomNumber} (${currentZoneName})` },
+                      { label: 'Số CCCD', val: profile?.cccd || tenantDashboard?.cccd || 'Chưa cập nhật' },
+                      { label: 'Quê quán', val: profile?.hometown || tenantDashboard?.hometown || 'Chưa cập nhật' },
+                      { label: 'Phương tiện', val: vehicle?.licensePlate ? `${vehicle.vehicleType || 'Xe máy'} (${vehicle.licensePlate})` : (tenantDashboard?.vehicleInfo || 'Chưa đăng ký') },
+                      { label: 'Ngày vào ở', val: formatDate(tenantDashboard?.moveInDate) || 'Chưa cập nhật' }
+                    ].map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < 4 ? `1px solid ${isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)'}` : 'none' }}>
+                        <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>{item.label}</span>
+                        <strong style={{ color: isLight ? '#0f172a' : '#fff' }}>{item.val}</strong>
+                      </div>
+                    )) : [
+                      { label: 'Số CCCD', val: profile?.cccd || 'Chưa cập nhật' },
+                      { label: 'Ngân hàng nhận VietQR', val: profile?.bankName || 'Chưa thiết lập' },
+                      { label: 'Số tài khoản VietQR', val: profile?.bankAccountNumber || 'Chưa thiết lập' },
+                      { label: 'Chủ tài khoản', val: profile?.bankAccountName || profile?.fullName?.toUpperCase() || 'Chưa thiết lập' },
+                      { label: 'Tổng số phòng quản lý', val: `${rooms.length} phòng (${rooms.filter(r => (r.status || '').toLowerCase() === 'occupied').length} phòng đang thuê)` }
+                    ].map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < 4 ? `1px solid ${isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)'}` : 'none' }}>
+                        <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>{item.label}</span>
+                        <strong style={{ color: isLight ? '#0f172a' : '#fff' }}>{item.val}</strong>
                       </div>
                     ))}
-
-                    {notifications.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: '20px', color: isLight ? '#64748b' : '#94a3b8' }}>
-                        Không có thông báo nào
-                      </div>
-                    )}
                   </div>
+
+                  {/* Nút Đăng Xuất An Toàn để đổi tài khoản */}
+                  <button
+                    onClick={async () => {
+                      if (window.confirm('Bạn có chắc muốn đăng xuất khỏi tài khoản này để đổi tài khoản khác?')) {
+                        await logout();
+                        setBottomSheet(null);
+                        navigate('/login');
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(239,68,68,0.1)',
+                      color: '#ef4444',
+                      border: '1.5px solid rgba(239,68,68,0.3)',
+                      borderRadius: 14,
+                      padding: '13px',
+                      fontSize: '14px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      marginTop: 4
+                    }}
+                  >
+                    <LogOut size={17} /> Đăng Xuất (Đổi Tài Khoản)
+                  </button>
                 </div>
               )}
 
