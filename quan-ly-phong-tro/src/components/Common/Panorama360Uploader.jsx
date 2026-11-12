@@ -4,6 +4,7 @@ import {
   RefreshCw, Link as LinkIcon, AlertCircle, X
 } from 'lucide-react';
 import { fileService } from '../../services';
+import apiClient from '../../services/apiClient';
 import { getMediaUrl } from '../../utils/media';
 import { Panorama360Viewer } from './Panorama360Viewer';
 
@@ -39,8 +40,25 @@ export const Panorama360Uploader = ({
 
     setUploading(true);
     try {
-      const res = await fileService.uploadPanorama(file);
-      const url = res?.url || res?.data?.url;
+      let url = null;
+      if (fileService && typeof fileService.uploadPanorama === 'function') {
+        try {
+          const res = await fileService.uploadPanorama(file);
+          url = res?.url || res?.data?.url;
+        } catch (e) {
+          console.warn('fileService.uploadPanorama failed, trying direct apiClient:', e);
+        }
+      }
+
+      if (!url) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await apiClient.post('/files/upload-panorama', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        url = res?.data?.url || res?.url || res?.data?.data?.url;
+      }
+
       if (url) {
         onChange(url);
       } else {

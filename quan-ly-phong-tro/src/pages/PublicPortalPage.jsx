@@ -166,30 +166,8 @@ export const PublicPortalPage = () => {
             </div>
           </div>
 
-          {/* Quick Nav & User Switcher */}
+          {/* Quick Nav & Filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => navigate('/mobile')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 16px',
-                borderRadius: '24px',
-                border: '1.5px solid #10b981',
-                background: 'rgba(16,185,129,0.08)',
-                color: '#059669',
-                fontSize: '13.5px',
-                fontWeight: 650,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-              title="Trải nghiệm ứng dụng di động SmartRent"
-            >
-              <Smartphone size={16} />
-              <span>📱 Giao diện Mobile</span>
-            </button>
-
             <button
               onClick={() => setOnlyVacant(!onlyVacant)}
               style={{

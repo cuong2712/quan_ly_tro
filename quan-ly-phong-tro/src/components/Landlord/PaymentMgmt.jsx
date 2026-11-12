@@ -1,17 +1,36 @@
 import React, { useState } from 'react';
-import { CreditCard, Eye, Search, Image as ImageIcon } from 'lucide-react';
+import { CreditCard, Eye, Search, Image as ImageIcon, Zap, CheckCircle, RefreshCw, X, ShieldCheck } from 'lucide-react';
 import { formatVND } from '../../utils/formatters';
 import { paymentService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 
-export const PaymentMgmt = ({ payments = [], setPayments, _invoices = [], _setInvoices, onRefresh }) => {
+export const PaymentMgmt = ({ payments = [], setPayments, invoices = [], setInvoices, rooms = [], profile = {}, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'completed' | 'rejected'
   const [processing, setProcessing] = useState(false);
   const [viewingProofPayment, setViewingProofPayment] = useState(null);
 
+  // Modal test giả lập tự động gạch nợ
+  const [showSimModal, setShowSimModal] = useState(false);
+  const [simType, setSimType] = useState('deposit'); // 'deposit' | 'invoice'
+  const [simRoomId, setSimRoomId] = useState(rooms[0]?.id || '');
+  const [simInvoiceId, setSimInvoiceId] = useState('');
+  const [simAmount, setSimAmount] = useState('500000');
+  const [simPhone, setSimPhone] = useState('0987654321');
+  const [simLoading, setSimLoading] = useState(false);
+  const [simResult, setSimResult] = useState(null);
+
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 7;
+
+  // Lấy ngân hàng của chủ trọ đang đăng nhập
+  const bankName = profile?.bankName || 'MBBank';
+  const bankAccNo = profile?.bankAccountNumber || '0379513393';
+  const bankAccName = profile?.bankAccountName || profile?.fullName || 'LÊ THỊ THÙY GIANG';
+
+  const unpaidInvoices = (Array.isArray(invoices) ? invoices : (invoices?.items || [])).filter(
+    i => (i.status || '').toLowerCase() !== 'paid'
+  );
 
   const filteredPayments = payments.filter(p => {
     const code = (p.invoiceCode || p.invoiceId || p.id || '').toLowerCase();
@@ -57,6 +76,44 @@ export const PaymentMgmt = ({ payments = [], setPayments, _invoices = [], _setIn
     }
   };
 
+  const handleRunSimulation = async () => {
+    setSimLoading(true);
+    setSimResult(null);
+    try {
+      let res;
+      if (simType === 'deposit') {
+        const targetRoom = simRoomId || rooms[0]?.id;
+        if (!targetRoom) {
+          alert('Chưa có phòng nào để thử nghiệm cọc');
+          return;
+        }
+        res = await paymentService.simulateDeposit(targetRoom, {
+          amount: Number(simAmount) || 500000,
+          tenantPhone: simPhone || '0987654321',
+          tenantName: 'Khách cọc (Test)'
+        });
+      } else {
+        const targetInv = simInvoiceId || unpaidInvoices[0]?.id;
+        if (!targetInv) {
+          alert('Hiện không có hóa đơn chưa thanh toán nào để gạch nợ');
+          return;
+        }
+        res = await paymentService.simulateAutoPaid(targetInv);
+      }
+      setSimResult(res?.data || res);
+      onRefresh?.();
+      try {
+        const newPayments = await paymentService.getPayments();
+        if (Array.isArray(newPayments)) setPayments(newPayments);
+        else if (newPayments?.items) setPayments(newPayments.items);
+      } catch {}
+    } catch (err) {
+      alert('Lỗi giả lập gạch nợ: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSimLoading(false);
+    }
+  };
+
   const pendingCount = payments.filter(p => {
     const st = (p.status || '').toLowerCase();
     return st === 'pending' || st === 'pendingapproval' || st === 'pending_approval';
@@ -76,6 +133,83 @@ export const PaymentMgmt = ({ payments = [], setPayments, _invoices = [], _setIn
           <p className="page-subtitle" style={{ fontSize: '13.5px', margin: '3px 0 0 0' }}>
             Kiểm tra minh chứng chuyển khoản của khách thuê, xem ảnh biên lai ngân hàng và xác nhận duyệt tiền
           </p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            className="btn btn-primary" 
+            onClick={() => { setSimResult(null); setShowSimModal(true); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', fontWeight: '700', borderRadius: '10px', padding: '9px 18px', cursor: 'pointer' }}
+          >
+            <Zap size={18} /> Test Gạch Nợ Tự Động
+          </button>
+        </div>
+      </div>
+
+      {/* Banner Tự Động Gạch Nợ Thông Minh 24/7 */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%)',
+        border: '1px solid rgba(16, 185, 129, 0.35)',
+        borderRadius: '16px',
+        padding: '16px 20px',
+        marginBottom: '18px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '14px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: '1 1 500px' }}>
+          <div style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '12px',
+            background: '#10b981',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)'
+          }}>
+            <ShieldCheck size={28} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '15.5px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                ⚡ Hệ Thống Tự Động Gạch Nợ 24/7 (Đang Hoạt Động)
+              </span>
+              <span style={{
+                background: '#10b981',
+                color: '#fff',
+                fontSize: '11px',
+                fontWeight: '800',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                textTransform: 'uppercase'
+              }}>
+                Live Webhook
+              </span>
+            </div>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13.5px', color: 'var(--text-muted)' }}>
+              Tài khoản nhận: <strong style={{ color: '#10b981' }}>{bankName}</strong> | STK: <strong style={{ color: 'var(--text-primary)' }}>{bankAccNo}</strong> ({bankAccName}) — Tự động gạch nợ ngay khi có tiền về cho cả <strong style={{ color: '#6366f1' }}>Tiền cọc phòng</strong> và <strong style={{ color: '#6366f1' }}>Tiền phòng hàng tháng</strong>.
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => { setSimResult(null); setShowSimModal(true); }}
+            className="btn btn-sm"
+            style={{
+              background: 'rgba(16, 185, 129, 0.15)',
+              color: '#10b981',
+              border: '1px solid #10b981',
+              fontWeight: '700',
+              padding: '7px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            ⚡ Test Giả Lập Giao Dịch
+          </button>
         </div>
       </div>
 
@@ -370,6 +504,151 @@ export const PaymentMgmt = ({ payments = [], setPayments, _invoices = [], _setIn
                   ✅ Xác Nhận Duyệt Tiền Ngay
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ MODAL TEST GIẢ LẬP GẠCH NỢ TỰ ĐỘNG */}
+      {showSimModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '580px', padding: 0, overflow: 'hidden', borderRadius: '16px' }}>
+            <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '17px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                <Zap size={20} color="#10b981" /> Test Giả Lập Gạch Nợ Tự Động (VietQR / Webhook)
+              </h3>
+              <button className="btn btn-sm btn-secondary" onClick={() => setShowSimModal(false)}>✕</button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '20px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>
+                  CHỌN LOẠI KHOẢN TIỀN CẦN TEST GẠCH NỢ
+                </label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setSimType('deposit'); setSimResult(null); }}
+                    className={`btn ${simType === 'deposit' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: '10px', fontWeight: 700, borderRadius: '10px' }}
+                  >
+                    🎉 1. Tiền Cọc Phòng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSimType('invoice'); setSimResult(null); }}
+                    className={`btn ${simType === 'invoice' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: '10px', fontWeight: 700, borderRadius: '10px' }}
+                  >
+                    ⚡ 2. Tiền Phòng Hàng Tháng
+                  </button>
+                </div>
+              </div>
+
+              {simType === 'deposit' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                      Chọn phòng cần cọc:
+                    </label>
+                    <select
+                      value={simRoomId}
+                      onChange={(e) => setSimRoomId(e.target.value)}
+                      className="form-control"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px' }}
+                    >
+                      {rooms.map(r => (
+                        <option key={r.id} value={r.id}>
+                          Phòng {r.roomNumber} - Trạng thái: {r.status === 'Vacant' ? 'Còn trống' : r.status === 'Deposit' ? 'Đã cọc' : 'Đang ở'} ({formatVND(r.price)}/tháng)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                      Số tiền cọc thử nghiệm (VNĐ):
+                    </label>
+                    <input
+                      type="number"
+                      value={simAmount}
+                      onChange={(e) => setSimAmount(e.target.value)}
+                      className="form-control"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                      Số điện thoại khách cọc:
+                    </label>
+                    <input
+                      type="text"
+                      value={simPhone}
+                      onChange={(e) => setSimPhone(e.target.value)}
+                      className="form-control"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px' }}
+                    />
+                  </div>
+                  <div style={{ background: 'var(--bg-dark)', padding: '12px', borderRadius: '8px', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                    💡 <strong>Cú pháp mô phỏng:</strong> <code>COC {rooms.find(r => r.id === simRoomId)?.roomNumber || '101'} {simPhone}</code> gửi tới STK <strong>{bankAccNo} ({bankName})</strong>.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                      Chọn hóa đơn cần gạch nợ:
+                    </label>
+                    {unpaidInvoices.length === 0 ? (
+                      <div style={{ padding: '12px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderRadius: '8px', fontSize: '13px' }}>
+                        ⚠️ Hiện không có hóa đơn nào chưa thanh toán!
+                      </div>
+                    ) : (
+                      <select
+                        value={simInvoiceId || unpaidInvoices[0]?.id}
+                        onChange={(e) => setSimInvoiceId(e.target.value)}
+                        className="form-control"
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: '8px' }}
+                      >
+                        {unpaidInvoices.map(inv => (
+                          <option key={inv.id} value={inv.id}>
+                            Mã {inv.invoiceCode} - Phòng {inv.roomNumber} - Tháng {inv.month} ({formatVND(inv.totalAmount)})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <div style={{ background: 'var(--bg-dark)', padding: '12px', borderRadius: '8px', fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                    💡 <strong>Cú pháp mô phỏng:</strong> <code>Phong {unpaidInvoices.find(i => i.id === simInvoiceId)?.roomNumber || '101'} thanh toan {unpaidInvoices.find(i => i.id === simInvoiceId)?.invoiceCode || 'HD...'}</code> gửi tới STK <strong>{bankAccNo} ({bankName})</strong>.
+                  </div>
+                </div>
+              )}
+
+              {/* Kết quả sau khi chạy test */}
+              {simResult && (
+                <div style={{ marginTop: '16px', padding: '14px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', fontWeight: 700, fontSize: '14px' }}>
+                    <CheckCircle size={18} /> Gạch nợ thành công!
+                  </div>
+                  <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'var(--text-primary)' }}>
+                    {simResult.message}
+                  </p>
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Số tiền: <strong>{formatVND(simResult.amount)}</strong> | Phòng: <strong>{simResult.roomNumber}</strong> | STK: <strong>{simResult.bankAccount}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ padding: '16px 20px', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)' }}>
+              <button className="btn btn-secondary" onClick={() => setShowSimModal(false)}>Đóng</button>
+              <button
+                className="btn btn-primary"
+                disabled={simLoading || (simType === 'invoice' && unpaidInvoices.length === 0)}
+                onClick={handleRunSimulation}
+                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', fontWeight: 700, padding: '10px 22px', cursor: 'pointer' }}
+              >
+                {simLoading ? 'Đang gửi tín hiệu...' : '⚡ Bắn Tín Hiệu Gạch Nợ Thử Nghiệm'}
+              </button>
             </div>
           </div>
         </div>

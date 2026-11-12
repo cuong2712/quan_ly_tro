@@ -144,6 +144,23 @@ export const fileService = {
     formData.append('file', file);
     return apiClient.post('/files/upload-document', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
   },
+  uploadRoomImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-room-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+  uploadRoomImages: (files) => {
+    const formData = new FormData();
+    Array.from(files).forEach(file => {
+      formData.append('files', file);
+    });
+    return apiClient.post('/files/upload-room-images', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+  uploadPanorama: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/files/upload-panorama', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
 };
 
 export const invoiceService = {
@@ -164,6 +181,9 @@ export const paymentService = {
   submit: (data) => apiClient.post('/payments', data).then(r => r.data),
   submitPayment: (data) => apiClient.post('/payments', data).then(r => r.data),
   confirm: (id, data) => apiClient.patch(`/payments/${id}/confirm`, data).then(r => r.data),
+  simulateAutoPaid: (invoiceId) => apiClient.post(`/payments/simulate-auto-paid/${invoiceId}`).then(r => r.data),
+  simulateDeposit: (roomId, data = {}) => apiClient.post(`/payments/simulate-deposit/${roomId}`, data).then(r => r.data),
+  webhookTest: (data) => apiClient.post('/payments/sepay-webhook', data).then(r => r.data),
 };
 
 export const maintenanceService = {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CreditCard, Upload, CheckCircle, Clock, Image as ImageIcon, Eye, 
-  Copy, Check, RefreshCw, Maximize2, ZoomIn, Receipt
+  Copy, Check, RefreshCw, Maximize2, ZoomIn, Receipt, Zap
 } from 'lucide-react';
 import { formatVND, formatDate, getVietQRUrl, VIETNAM_BANKS } from '../../utils/formatters';
 import { paymentService, fileService } from '../../services';
@@ -51,9 +51,9 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
   const roomNum = selectedInvoice?.roomNumber || activeTenant?.roomNumber || '101';
   const transferContent = selectedInvoice ? `Phong ${roomNum} thanh toan ${selectedInvoice.invoiceCode}` : `Phong ${roomNum} thanh toan tien nha`;
 
-  const landlordBank = selectedInvoice?.landlordBankName || invoices[0]?.landlordBankName || '';
-  const landlordAccNo = selectedInvoice?.landlordBankAccountNumber || invoices[0]?.landlordBankAccountNumber || '';
-  const landlordAccName = selectedInvoice?.landlordBankAccountName || invoices[0]?.landlordBankAccountName || '';
+  const landlordBank = selectedInvoice?.landlordBankName || invoices.find(i => i.landlordBankAccountNumber)?.landlordBankName || activeTenant?.landlordBankName || '';
+  const landlordAccNo = selectedInvoice?.landlordBankAccountNumber || invoices.find(i => i.landlordBankAccountNumber)?.landlordBankAccountNumber || activeTenant?.landlordBankAccountNumber || '';
+  const landlordAccName = selectedInvoice?.landlordBankAccountName || invoices.find(i => i.landlordBankAccountName)?.landlordBankAccountName || activeTenant?.landlordBankAccountName || '';
 
   const bankObj = VIETNAM_BANKS.find(b => 
     b.code.toUpperCase() === (landlordBank || '').toUpperCase() || 
@@ -62,7 +62,7 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
   ) || (landlordBank ? { code: landlordBank, shortName: landlordBank } : null);
   
   const bankCode = bankObj?.code || landlordBank || '';
-  const bankDisplay = bankObj?.shortName || landlordBank || 'Chưa thiết lập';
+  const bankDisplay = bankObj?.shortName || bankObj?.name || landlordBank || (landlordAccNo ? 'Chưa rõ' : 'Chưa thiết lập');
 
   const qrUrl = landlordAccNo ? getVietQRUrl({
     bankId: bankCode || 'BIDV',
@@ -270,6 +270,46 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
               </div>
             </div>
           </div>
+
+          {/* Nút Test giả lập tự động gạch nợ */}
+          {selectedInvoice && (
+            <div style={{ marginTop: '14px' }}>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={async () => {
+                  if (!confirm(`Bạn có muốn giả lập chuyển khoản và tự động gạch nợ cho hóa đơn ${selectedInvoice.invoiceCode}?`)) return;
+                  try {
+                    setSubmitting(true);
+                    const res = await paymentService.simulateAutoPaid(selectedInvoice.id);
+                    alert(res?.data?.message || res?.message || '✅ Đã tự động gạch nợ thành công!');
+                    onRefresh?.();
+                  } catch (err) {
+                    alert('Lỗi: ' + (err.response?.data?.message || err.message));
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+                className="btn btn-sm"
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 700,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                <Zap size={16} /> ⚡ Giả Lập Quét QR & Gạch Nợ Tự Động (Test)
+              </button>
+            </div>
+          )}
         </div>
 
         {/* CỘT PHẢI: FORM GỬI MINH CHỨNG (KÍCH THƯỚC TO RÕ) */}

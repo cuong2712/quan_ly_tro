@@ -110,6 +110,11 @@ export default function TenantPage() {
     moveInDate: dashboard?.moveInDate,
     vehicleCount: tenantProfileState.vehicleCount !== undefined ? tenantProfileState.vehicleCount : (dashboard?.vehicleCount || 0),
     vehicleInfo: tenantProfileState.vehicleInfo !== undefined ? tenantProfileState.vehicleInfo : (dashboard?.vehicleInfo || ''),
+    landlordBankName: dashboard?.landlordBankName,
+    landlordBankAccountNumber: dashboard?.landlordBankAccountNumber,
+    landlordBankAccountName: dashboard?.landlordBankAccountName,
+    landlordName: dashboard?.landlordName,
+    landlordPhone: dashboard?.landlordPhone,
   };
 
   const renderContent = () => {
@@ -190,12 +195,7 @@ export default function TenantPage() {
 
   // TỰ ĐỘNG CHUYỂN GIAO DIỆN MOBILE KHI MỞ BẰNG ĐIỆN THOẠI
   if (isMobile) {
-    return (
-      <MobileDemoPage
-        initialRole="tenant"
-        onSwitchToDesktop={() => setView('desktop')}
-      />
-    );
+    return <MobileDemoPage initialRole="tenant" />;
   }
 
   return (
@@ -215,33 +215,6 @@ export default function TenantPage() {
         <main className="page-body">
           {renderContent()}
         </main>
-
-        {/* Nút Chuyển Nhanh Sang Giao Diện Mobile */}
-        <button
-          onClick={() => setView('mobile')}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            background: 'linear-gradient(135deg, #10b981, #059669)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '30px',
-            padding: '10px 18px',
-            fontWeight: 800,
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 8px 24px rgba(16,185,129,0.4)',
-            cursor: 'pointer',
-            zIndex: 9999,
-            transition: 'transform 0.2s',
-          }}
-          title="Chuyển sang Giao diện Điện Thoại (Mobile App)"
-        >
-          <span>📱 Giao diện Mobile</span>
-        </button>
       </div>
     </div>
   );

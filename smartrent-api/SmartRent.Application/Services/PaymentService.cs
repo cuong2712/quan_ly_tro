@@ -3,6 +3,7 @@ using SmartRent.Core.DTOs;
 using SmartRent.Core.Entities;
 using SmartRent.Core.Enums;
 using SmartRent.Infrastructure.Data;
+using System.Text.RegularExpressions;
 
 namespace SmartRent.Application.Services;
 
@@ -166,6 +167,385 @@ public class PaymentService(AppDbContext db, NotificationService notificationSer
         }
 
         return MapPayment(pay);
+    }
+
+    // Xử lý Webhook Biến động số dư tự động gạch nợ Đa Chủ Trọ (Multi-Landlord)
+    // Tự động nhận diện và gạch nợ:
+    // 1. Tiền Cọc Phòng (Deposit): Khách cọc phòng qua VietQR (cú pháp: COC [Số_phòng] [SĐT])
+    // 2. Tiền Phòng Hàng Tháng (Monthly Rent): Khách đóng tiền theo mã hóa đơn hoặc số phòng
+    public async Task<AutoReconcileResultDto> ProcessSepayWebhookAsync(SepayWebhookDto webhook)
+    {
+        // 1. Kiểm tra loại giao dịch: chỉ xử lý tiền vào (in)
+        if (!string.IsNullOrEmpty(webhook.TransferType) && webhook.TransferType.Trim().ToLower() != "in")
+        {
+            return new AutoReconcileResultDto(true, "Bỏ qua giao dịch tiền ra (out).");
+        }
+
+        // 2. Nội dung giao dịch & STK nhận
+        var content = (webhook.Content ?? webhook.Description ?? "").Trim();
+        if (string.IsNullOrEmpty(content) && !string.IsNullOrEmpty(webhook.Code))
+        {
+            content = webhook.Code;
+        }
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return new AutoReconcileResultDto(false, "Nội dung chuyển khoản rỗng, không thể đối soát.");
+        }
+
+        var incomingAcc = (webhook.AccountNumber ?? webhook.SubAccount ?? "").Trim().Replace(" ", "").Replace("-", "");
+
+        // 3. Tìm Chủ trọ tương ứng theo STK nhận tiền (nếu có cung cấp STK)
+        User? matchedLandlord = null;
+        if (!string.IsNullOrEmpty(incomingAcc))
+        {
+            var landlords = await db.Users.AsNoTracking()
+                .Where(u => u.Role == UserRole.Landlord && !string.IsNullOrEmpty(u.BankAccountNumber))
+                .ToListAsync();
+
+            matchedLandlord = landlords.FirstOrDefault(l =>
+            {
+                var cleanDbAcc = (l.BankAccountNumber ?? "").Trim().Replace(" ", "").Replace("-", "");
+                return cleanDbAcc.Equals(incomingAcc, StringComparison.OrdinalIgnoreCase) ||
+                       cleanDbAcc.EndsWith(incomingAcc, StringComparison.OrdinalIgnoreCase) ||
+                       incomingAcc.EndsWith(cleanDbAcc, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        var cleanContent = content.Replace(" ", "").Replace("-", "").ToUpperInvariant();
+
+        // 4. KIỂM TRA NGHIỆP VỤ 1: ĐẶT CỌC GIỮ PHÒNG (DEPOSIT)
+        // Cú pháp cọc thông dụng: "COC 101 03971818799", "COC 101", "DAT COC PHONG 101", "TIEN COC 101", "COC-101"
+        var isDepositPattern = cleanContent.StartsWith("COC") || 
+                               cleanContent.Contains("DATCOC") || 
+                               cleanContent.Contains("TIENCOC") || 
+                               cleanContent.Contains("GIUCHO") ||
+                               Regex.IsMatch(content, @"\b(?:COC|CỌC)\b", RegexOptions.IgnoreCase);
+
+        if (isDepositPattern)
+        {
+            // Bóc tách số phòng và số điện thoại từ nội dung
+            string? parsedRoomNumber = null;
+            string? parsedPhone = null;
+
+            // Pattern A: "COC 101 03971818799" hoặc "COC P101 0987654321"
+            var matchA = Regex.Match(content, @"(?:COC|CỌC|DAT\s*COC|TIEN\s*COC)[\s_\-\.]*(?:PHONG|P)?[\s_\-\.]*([A-Za-z0-9]+)[\s_\-\.]+([0-9]{9,11})", RegexOptions.IgnoreCase);
+            if (matchA.Success)
+            {
+                parsedRoomNumber = matchA.Groups[1].Value.Trim();
+                parsedPhone = matchA.Groups[2].Value.Trim();
+            }
+            else
+            {
+                // Pattern B: "COC 101" hoặc "COC P101"
+                var matchB = Regex.Match(content, @"(?:COC|CỌC|DAT\s*COC|TIEN\s*COC)[\s_\-\.]*(?:PHONG|P)?[\s_\-\.]*([A-Za-z0-9]+)", RegexOptions.IgnoreCase);
+                if (matchB.Success)
+                {
+                    parsedRoomNumber = matchB.Groups[1].Value.Trim();
+                }
+                var phoneMatch = Regex.Match(content, @"\b(0[0-9]{9,10})\b");
+                if (phoneMatch.Success)
+                {
+                    parsedPhone = phoneMatch.Groups[1].Value.Trim();
+                }
+            }
+
+            // Tìm phòng tương ứng
+            var roomQuery = db.Rooms
+                .Include(r => r.Zone).ThenInclude(z => z.Landlord)
+                .AsQueryable();
+
+            if (matchedLandlord != null)
+            {
+                roomQuery = roomQuery.Where(r => r.Zone.LandlordId == matchedLandlord.Id);
+            }
+
+            var candidateRooms = await roomQuery.ToListAsync();
+
+            Room? matchedRoom = null;
+            if (!string.IsNullOrEmpty(parsedRoomNumber))
+            {
+                var normParsed = parsedRoomNumber.Replace("P", "").Replace("PHONG", "").ToUpperInvariant();
+                matchedRoom = candidateRooms.FirstOrDefault(r =>
+                {
+                    var normR = r.RoomNumber.Replace("P", "").Replace("PHONG", "").ToUpperInvariant();
+                    return normR == normParsed || r.RoomNumber.Equals(parsedRoomNumber, StringComparison.OrdinalIgnoreCase);
+                });
+            }
+
+            // Nếu chưa tìm thấy phòng và đã lọc theo chủ trọ, thử tìm trên toàn bộ hệ thống
+            if (matchedRoom == null && matchedLandlord != null && !string.IsNullOrEmpty(parsedRoomNumber))
+            {
+                var normParsed = parsedRoomNumber.Replace("P", "").Replace("PHONG", "").ToUpperInvariant();
+                matchedRoom = await db.Rooms
+                    .Include(r => r.Zone).ThenInclude(z => z.Landlord)
+                    .FirstOrDefaultAsync(r => r.RoomNumber.Replace("P", "").Replace("PHONG", "").ToUpperInvariant() == normParsed);
+            }
+
+            if (matchedRoom != null)
+            {
+                var landlord = matchedRoom.Zone?.Landlord ?? matchedLandlord;
+                var transferAmount = webhook.TransferAmount > 0 
+                    ? webhook.TransferAmount 
+                    : (matchedRoom.DepositAmount.HasValue && matchedRoom.DepositAmount.Value > 0 ? matchedRoom.DepositAmount.Value : 500000m);
+
+                var bankDisplay = landlord != null && !string.IsNullOrEmpty(landlord.BankAccountNumber)
+                    ? $"{landlord.BankName ?? webhook.Gateway ?? "Ngân hàng"} (STK {landlord.BankAccountNumber} - {landlord.FullName})"
+                    : $"{webhook.Gateway ?? "Ngân hàng"} (STK {webhook.AccountNumber ?? "chưa rõ"})";
+
+                var txCode = webhook.ReferenceCode ?? webhook.Id?.ToString() ?? "SEPAY-" + DateTime.UtcNow.Ticks;
+
+                matchedRoom.Status = RoomStatus.Deposit;
+                matchedRoom.DepositAmount = transferAmount;
+                if (!string.IsNullOrEmpty(parsedPhone))
+                {
+                    matchedRoom.DepositTenantPhone = parsedPhone;
+                    if (string.IsNullOrEmpty(matchedRoom.DepositTenantName) || matchedRoom.DepositTenantName.Contains("Khách"))
+                    {
+                        matchedRoom.DepositTenantName = $"Khách cọc (SĐT: {parsedPhone})";
+                    }
+                }
+                else if (string.IsNullOrEmpty(matchedRoom.DepositTenantName))
+                {
+                    matchedRoom.DepositTenantName = "Khách cọc VietQR";
+                }
+
+                matchedRoom.DepositNote = $"[Tự động gạch nợ Cọc VietQR] {bankDisplay} | Mã GD: {txCode} | ND: {content}";
+
+                await db.SaveChangesAsync();
+
+                // Gửi thông báo Realtime cho Chủ trọ
+                if (landlord != null)
+                {
+                    await notificationService.SendNotificationAsync(
+                        senderId: landlord.Id,
+                        title: $"🎉 Có cọc mới: Phòng {matchedRoom.RoomNumber} ({matchedRoom.Zone?.Name ?? "Khu trọ"})",
+                        content: $"Tài khoản {bankDisplay} vừa nhận số tiền {transferAmount:N0}đ cọc giữ chỗ phòng {matchedRoom.RoomNumber}. Hệ thống SmartRent đã tự động gạch nợ và đổi trạng thái phòng sang ĐÃ CỌC.",
+                        target: NotificationTarget.User,
+                        targetId: landlord.Id
+                    );
+                }
+
+                // Nếu có SĐT khách và trùng với tài khoản Tenant đã đăng ký: gửi thông báo Realtime cho Tenant
+                if (!string.IsNullOrEmpty(parsedPhone))
+                {
+                    var tenantUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Phone == parsedPhone);
+                    if (tenantUser != null)
+                    {
+                        await notificationService.SendNotificationAsync(
+                            senderId: landlord?.Id ?? Guid.Empty,
+                            title: $"✅ Cọc giữ chỗ thành công phòng {matchedRoom.RoomNumber}",
+                            content: $"Giao dịch chuyển cọc {transferAmount:N0}đ cho phòng {matchedRoom.RoomNumber} đã được hệ thống SmartRent tự động ghi nhận và giữ chỗ thành công cho bạn.",
+                            target: NotificationTarget.User,
+                            targetId: tenantUser.Id
+                        );
+                    }
+                }
+
+                return new AutoReconcileResultDto(
+                    Success: true,
+                    Message: $"Tự động gạch nợ cọc phòng {matchedRoom.RoomNumber} thành công qua {bankDisplay}",
+                    RoomNumber: matchedRoom.RoomNumber,
+                    Amount: transferAmount,
+                    BankAccount: landlord?.BankAccountNumber ?? webhook.AccountNumber,
+                    Type: "Deposit",
+                    RoomId: matchedRoom.Id,
+                    LandlordName: landlord?.FullName
+                );
+            }
+        }
+
+        // 5. KIỂM TRA NGHIỆP VỤ 2: THANH TOÁN TIỀN PHÒNG HÀNG THÁNG (INVOICE)
+        var invoiceQuery = db.Invoices
+            .Include(i => i.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(i => i.TenantProfile).ThenInclude(t => t.User)
+            .Where(i => i.Status == InvoiceStatus.Unpaid)
+            .AsQueryable();
+
+        if (matchedLandlord != null)
+        {
+            invoiceQuery = invoiceQuery.Where(i => i.Room.Zone.LandlordId == matchedLandlord.Id);
+        }
+
+        var unpaidInvoices = await invoiceQuery.ToListAsync();
+
+        Invoice? matchedInvoice = null;
+
+        // Ưu tiên 1: Khớp chính xác InvoiceCode
+        matchedInvoice = unpaidInvoices.FirstOrDefault(i =>
+            cleanContent.Contains(i.InvoiceCode.Replace(" ", "").Replace("-", "").ToUpperInvariant())
+        );
+
+        // Ưu tiên 2: Tìm theo số phòng trong danh sách hóa đơn của chủ trọ
+        if (matchedInvoice == null)
+        {
+            matchedInvoice = unpaidInvoices.FirstOrDefault(i =>
+            {
+                var rNum = i.Room?.RoomNumber?.Replace(" ", "").Replace(".", "").ToUpperInvariant();
+                return !string.IsNullOrEmpty(rNum) && (
+                    cleanContent.Contains($"PHONG{rNum}") ||
+                    cleanContent.Contains($"P{rNum}") ||
+                    cleanContent.Contains(rNum)
+                );
+            });
+        }
+
+        // Nếu chưa tìm thấy và đã lọc theo chủ trọ, mở rộng tìm kiếm toàn hệ thống
+        if (matchedInvoice == null && matchedLandlord != null)
+        {
+            var globalUnpaids = await db.Invoices
+                .Include(i => i.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+                .Include(i => i.TenantProfile).ThenInclude(t => t.User)
+                .Where(i => i.Status == InvoiceStatus.Unpaid)
+                .ToListAsync();
+
+            matchedInvoice = globalUnpaids.FirstOrDefault(i =>
+                cleanContent.Contains(i.InvoiceCode.Replace(" ", "").Replace("-", "").ToUpperInvariant())
+            ) ?? globalUnpaids.FirstOrDefault(i =>
+            {
+                var rNum = i.Room?.RoomNumber?.Replace(" ", "").Replace(".", "").ToUpperInvariant();
+                return !string.IsNullOrEmpty(rNum) && (
+                    cleanContent.Contains($"PHONG{rNum}") ||
+                    cleanContent.Contains($"P{rNum}")
+                );
+            });
+        }
+
+        if (matchedInvoice == null)
+        {
+            return new AutoReconcileResultDto(
+                false,
+                $"Không tìm thấy hóa đơn hoặc phòng cọc phù hợp với nội dung chuyển khoản: '{content}'.",
+                BankAccount: incomingAcc
+            );
+        }
+
+        var invLandlord = matchedInvoice.Room?.Zone?.Landlord ?? matchedLandlord;
+        var invTransferAmount = webhook.TransferAmount > 0 ? webhook.TransferAmount : matchedInvoice.TotalAmount;
+        var invBankDisplay = invLandlord != null && !string.IsNullOrEmpty(invLandlord.BankAccountNumber)
+            ? $"{invLandlord.BankName ?? webhook.Gateway ?? "Ngân hàng"} (STK {invLandlord.BankAccountNumber} - {invLandlord.FullName})"
+            : $"{webhook.Gateway ?? "Ngân hàng"} (STK {webhook.AccountNumber ?? "chưa rõ"})";
+
+        var payment = new Payment
+        {
+            InvoiceId = matchedInvoice.Id,
+            Amount = invTransferAmount,
+            Method = PaymentMethod.BankTransfer,
+            Status = PaymentStatus.Completed,
+            Note = $"[Tự động gạch nợ Webhook] {invBankDisplay} | Cổng: {webhook.Gateway ?? "VietQR"} | Mã GD: {webhook.ReferenceCode ?? webhook.Id?.ToString() ?? "SEPAY-" + DateTime.UtcNow.Ticks}. ND: {content}",
+            ConfirmedAt = DateTime.UtcNow,
+            ConfirmedBy = invLandlord?.Id
+        };
+
+        db.Payments.Add(payment);
+
+        matchedInvoice.Status = InvoiceStatus.Paid;
+        matchedInvoice.PaidDate = DateTime.UtcNow;
+
+        if (matchedInvoice.Room != null && matchedInvoice.Room.Status == RoomStatus.Vacant)
+        {
+            matchedInvoice.Room.Status = RoomStatus.Occupied;
+        }
+
+        await db.SaveChangesAsync();
+
+        // Gửi thông báo tự động đến Chủ trọ & Khách thuê
+        var landlordId = invLandlord?.Id ?? matchedInvoice.Room?.Zone?.LandlordId;
+        var tenantUserId = matchedInvoice.TenantProfile?.UserId;
+
+        if (landlordId.HasValue && landlordId.Value != Guid.Empty)
+        {
+            await notificationService.SendNotificationAsync(
+                tenantUserId ?? Guid.Empty,
+                $"⚡ Tự động gạch nợ: Hóa đơn {matchedInvoice.InvoiceCode} (Phòng {matchedInvoice.Room?.RoomNumber})",
+                $"Tài khoản {invBankDisplay} vừa nhận số tiền {invTransferAmount:N0}đ. Hệ thống SmartRent đã tự động đối soát và gạch nợ thành công cho hóa đơn {matchedInvoice.InvoiceCode}.",
+                NotificationTarget.User,
+                landlordId.Value
+            );
+        }
+
+        if (tenantUserId.HasValue && tenantUserId.Value != Guid.Empty)
+        {
+            await notificationService.SendNotificationAsync(
+                landlordId ?? Guid.Empty,
+                $"✅ Thanh toán thành công hóa đơn {matchedInvoice.InvoiceCode}",
+                $"Hệ thống đã nhận diện giao dịch chuyển khoản vào tài khoản {invBankDisplay} và tự động gạch nợ số tiền {invTransferAmount:N0}đ cho phòng {matchedInvoice.Room?.RoomNumber}.",
+                NotificationTarget.User,
+                tenantUserId.Value
+            );
+        }
+
+        return new AutoReconcileResultDto(
+            Success: true,
+            Message: $"Tự động gạch nợ thành công hóa đơn {matchedInvoice.InvoiceCode} qua {invBankDisplay}",
+            InvoiceId: matchedInvoice.Id,
+            InvoiceCode: matchedInvoice.InvoiceCode,
+            RoomNumber: matchedInvoice.Room?.RoomNumber,
+            Amount: invTransferAmount,
+            BankAccount: invLandlord?.BankAccountNumber ?? webhook.AccountNumber,
+            Type: "Invoice",
+            RoomId: matchedInvoice.RoomId,
+            LandlordName: invLandlord?.FullName
+        );
+    }
+
+    // Giả lập giao dịch chuyển khoản tiền phòng tháng để test tính năng tự động gạch nợ
+    public async Task<AutoReconcileResultDto> SimulateAutoClearAsync(Guid invoiceId)
+    {
+        var inv = await db.Invoices
+            .Include(i => i.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
+            .Include(i => i.TenantProfile)
+            .FirstOrDefaultAsync(i => i.Id == invoiceId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hóa đơn cần thanh toán.");
+
+        var landlord = inv.Room?.Zone?.Landlord;
+        var bankName = landlord?.BankName ?? "MB";
+        var accNo = landlord?.BankAccountNumber ?? "0379513393";
+
+        var mockWebhook = new SepayWebhookDto
+        {
+            Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Gateway = bankName,
+            AccountNumber = accNo,
+            TransferType = "in",
+            TransferAmount = inv.TotalAmount,
+            Content = $"Phong {inv.Room?.RoomNumber ?? "101"} thanh toan {inv.InvoiceCode}",
+            ReferenceCode = "SIM-" + new Random().Next(100000, 999999),
+            TransactionDate = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")
+        };
+
+        return await ProcessSepayWebhookAsync(mockWebhook);
+    }
+
+    // Giả lập giao dịch chuyển khoản tiền cọc phòng để test tính năng tự động gạch nợ cọc
+    public async Task<AutoReconcileResultDto> SimulateDepositAsync(SimulateDepositRequestDto req)
+    {
+        var room = await db.Rooms
+            .Include(r => r.Zone).ThenInclude(z => z.Landlord)
+            .FirstOrDefaultAsync(r => r.Id == req.RoomId)
+            ?? throw new KeyNotFoundException("Không tìm thấy phòng trọ cần cọc.");
+
+        var landlord = room.Zone?.Landlord;
+        var bankName = landlord?.BankName ?? "MB";
+        var accNo = landlord?.BankAccountNumber ?? "0379513393";
+        var phone = !string.IsNullOrWhiteSpace(req.TenantPhone) ? req.TenantPhone.Trim() : "03971818799";
+        var depositAmount = req.Amount > 0 
+            ? req.Amount 
+            : (room.DepositAmount.HasValue && room.DepositAmount.Value > 0 ? room.DepositAmount.Value : 500000m);
+
+        var mockWebhook = new SepayWebhookDto
+        {
+            Id = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Gateway = bankName,
+            AccountNumber = accNo,
+            TransferType = "in",
+            TransferAmount = depositAmount,
+            Content = $"COC {room.RoomNumber} {phone}",
+            ReferenceCode = "SIM-COC-" + new Random().Next(100000, 999999),
+            TransactionDate = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")
+        };
+
+        return await ProcessSepayWebhookAsync(mockWebhook);
     }
 
     private static PaymentDto MapPayment(Payment p) => new(

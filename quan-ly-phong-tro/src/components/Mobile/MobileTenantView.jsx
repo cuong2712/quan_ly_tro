@@ -7,7 +7,7 @@ import {
   LogOut, Plus, ChevronDown, CheckCheck, Upload, AlertCircle, X,
   FileCheck, Shield, DollarSign, Calendar, Search, Droplets,
   Lock, Wind, Image as ImageIcon, CreditCard, Bike, Car, Trash2,
-  ZoomIn, Eye, MessageSquare, AlertOctagon, HelpCircle
+  ZoomIn, Eye, MessageSquare, AlertOctagon, HelpCircle, Edit
 } from 'lucide-react';
 import {
   formatVND,
@@ -72,6 +72,25 @@ export const MobileTenantView = ({
   const [copiedField, setCopiedField] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState({ type: '', text: '' });
+
+  // ── Lọc hợp đồng chặt chẽ: chỉ hiển thị hợp đồng của chính khách thuê này ──
+  const myContracts = useMemo(() => {
+    if (!contracts || !Array.isArray(contracts)) return [];
+    const myProfileId = profile?.id || dashboard?.tenantProfileId;
+    const myRoomNumber = profile?.roomNumber || dashboard?.roomNumber;
+    const myEmail = profile?.email || dashboard?.email;
+    const myName = profile?.fullName || dashboard?.fullName;
+
+    const filtered = contracts.filter(c => {
+      if (myProfileId && c.tenantProfileId && c.tenantProfileId === myProfileId) return true;
+      if (myEmail && c.tenantEmail && c.tenantEmail.toLowerCase() === myEmail.toLowerCase()) return true;
+      if (myName && c.tenantName && c.tenantName.trim().toLowerCase() === myName.trim().toLowerCase()) return true;
+      if (myRoomNumber && c.roomNumber && String(c.roomNumber) === String(myRoomNumber)) return true;
+      return false;
+    });
+
+    return filtered.length > 0 ? filtered : (contracts.length > 0 ? [contracts[0]] : []);
+  }, [contracts, profile, dashboard]);
 
   // ── Form State: Khiếu nại hóa đơn ──
   const [disputeForm, setDisputeForm] = useState({
@@ -175,21 +194,37 @@ export const MobileTenantView = ({
   const currentRoomNumber = dashboard?.roomNumber || activeContract?.roomNumber || profile?.roomNumber || '---';
   const currentZoneName = dashboard?.zoneName || activeContract?.zoneName || profile?.zoneName || 'Nhà trọ SmartRent';
 
+  // Lắng nghe sự kiện điều hướng tab từ header / bottomSheet bên ngoài
+  useEffect(() => {
+    const handleTenantTab = (e) => {
+      if (e.detail?.tab) {
+        setActiveTab(e.detail.tab);
+        if (e.detail?.subTab) {
+          setProfileSubTab(e.detail.subTab);
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('smartrent:mobile-tenant-tab', handleTenantTab);
+    return () => window.removeEventListener('smartrent:mobile-tenant-tab', handleTenantTab);
+  }, []);
+
   // Đồng bộ thông tin khi mở form
   useEffect(() => {
-    if (profile) {
+    const p = profile || dashboard;
+    if (p) {
       setEditProfileForm({
-        fullName: profile.fullName || '',
-        phone: profile.phoneNumber || profile.phone || '',
-        hometown: profile.hometown || '',
-        cccd: profile.cccd || '',
+        fullName: p.fullName || p.tenantName || p.name || '',
+        phone: p.phoneNumber || p.phone || '',
+        hometown: p.hometown || '',
+        cccd: p.cccd || '',
         cccdFrontFile: null,
-        cccdFrontPreview: profile.cccdFrontUrl ? getImageUrl(profile.cccdFrontUrl) : '',
+        cccdFrontPreview: p.cccdFrontUrl ? getImageUrl(p.cccdFrontUrl) : '',
         cccdBackFile: null,
-        cccdBackPreview: profile.cccdBackUrl ? getImageUrl(profile.cccdBackUrl) : ''
+        cccdBackPreview: p.cccdBackUrl ? getImageUrl(p.cccdBackUrl) : ''
       });
     }
-  }, [profile]);
+  }, [profile, dashboard]);
 
   useEffect(() => {
     const count = Number(vehicle?.vehicleCount ?? profile?.vehicleCount ?? (vehicle?.licensePlate ? 1 : 0));
@@ -411,7 +446,8 @@ export const MobileTenantView = ({
         title: repairForm.title,
         description: repairForm.description,
         priority: repairForm.priority,
-        imageUrl: uploadedUrl
+        imageUrl: uploadedUrl,
+        roomId: dashboard?.roomId || profile?.roomId || undefined
       });
 
       showToast('success', '✅ Đã gửi phiếu báo hỏng tới Chủ trọ thành công!');
@@ -763,12 +799,82 @@ export const MobileTenantView = ({
               </div>
             </div>
 
-            {/* ── 5 LỐI TẮT THAO TÁC NGHIỆP VỤ NHANH DÀNH CHO KHÁCH THUÊ ── */}
+            {/* Card Hồ Sơ Cá Nhân & Định Danh CCCD của Khách Thuê */}
+            <div style={{
+              background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
+              border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+              borderRadius: '20px',
+              padding: '16px',
+              boxShadow: isLight ? '0 2px 10px rgba(0,0,0,0.03)' : 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <img
+                    src={getImageUrl(profile?.avatarUrl, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100')}
+                    alt="Avatar"
+                    style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid #10b981', objectFit: 'cover' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: isLight ? '#0f172a' : '#fff' }}>
+                      {profile?.fullName || dashboard?.tenantName || 'Khách thuê'}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                      {profile?.phoneNumber || profile?.phone || dashboard?.phone || 'Chưa cập nhật SĐT'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setActiveTab('profile'); setProfileSubTab('info'); }}
+                  style={{
+                    background: 'rgba(16,185,129,0.12)',
+                    color: '#10b981',
+                    border: '1px solid rgba(16,185,129,0.3)',
+                    borderRadius: 10,
+                    padding: '7px 12px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5
+                  }}
+                >
+                  <Edit size={13} /> Sửa hồ sơ
+                </button>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 8,
+                paddingTop: 10,
+                borderTop: `1px dashed ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.08)'}`,
+                fontSize: '11.5px'
+              }}>
+                <div style={{ background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: 8 }}>
+                  <div style={{ color: isLight ? '#64748b' : '#94a3b8' }}>Số CCCD:</div>
+                  <div style={{ fontWeight: 700, marginTop: 2, color: profile?.cccd ? (isLight ? '#0f172a' : '#fff') : '#f59e0b' }}>
+                    {profile?.cccd || 'Chưa định danh'}
+                  </div>
+                </div>
+                <div style={{ background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: 8 }}>
+                  <div style={{ color: isLight ? '#64748b' : '#94a3b8' }}>Quê quán:</div>
+                  <div style={{ fontWeight: 700, marginTop: 2, color: isLight ? '#0f172a' : '#fff' }}>
+                    {profile?.hometown || 'Chưa cập nhật'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── LỐI TẮT THAO TÁC NGHIỆP VỤ NHANH DÀNH CHO KHÁCH THUÊ ── */}
             <div>
               <div style={{ fontSize: '13px', fontWeight: 800, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Sparkles size={15} color="#f59e0b" /> Thao Tác Nghiệp Vụ Nhanh
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {[
                   {
                     label: 'Báo sửa', icon: Wrench, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',
@@ -779,19 +885,23 @@ export const MobileTenantView = ({
                     onClick: () => handleOpenQrPay()
                   },
                   {
-                    label: 'Khiếu nại', icon: AlertTriangle, color: '#ef4444', bg: 'rgba(239,68,68,0.12)',
-                    onClick: () => {
-                      if (unpaidInvoices.length > 0) handleOpenDispute(unpaidInvoices[0]);
-                      else setActiveTab('invoices');
-                    }
+                    label: 'Hồ sơ & CCCD', icon: User, color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)',
+                    onClick: () => { setActiveTab('profile'); setProfileSubTab('info'); }
+                  },
+                  {
+                    label: 'Đăng ký xe', icon: Bike, color: '#06b6d4', bg: 'rgba(6,182,212,0.12)',
+                    onClick: () => { setActiveTab('profile'); setProfileSubTab('vehicle'); }
                   },
                   {
                     label: 'Hợp đồng', icon: FileText, color: '#6366f1', bg: 'rgba(99,102,241,0.12)',
                     onClick: () => setActiveTab('contracts')
                   },
                   {
-                    label: 'Đăng ký xe', icon: Bike, color: '#06b6d4', bg: 'rgba(6,182,212,0.12)',
-                    onClick: () => { setActiveTab('profile'); setProfileSubTab('vehicle'); }
+                    label: 'Khiếu nại', icon: AlertTriangle, color: '#ef4444', bg: 'rgba(239,68,68,0.12)',
+                    onClick: () => {
+                      if (unpaidInvoices.length > 0) handleOpenDispute(unpaidInvoices[0]);
+                      else setActiveTab('invoices');
+                    }
                   }
                 ].map((act, i) => {
                   const Icon = act.icon;
@@ -802,19 +912,19 @@ export const MobileTenantView = ({
                       style={{
                         background: isLight ? '#ffffff' : 'rgba(17,24,39,0.8)',
                         border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-                        borderRadius: 14, padding: '12px 4px',
+                        borderRadius: 14, padding: '12px 6px',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                         cursor: 'pointer', transition: 'transform 0.15s ease'
                       }}
                     >
                       <div style={{
-                        width: 36, height: 36, borderRadius: 10,
+                        width: 38, height: 38, borderRadius: 10,
                         background: act.bg, color: act.color,
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
                         <Icon size={18} />
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: isLight ? '#334155' : '#cbd5e1' }}>
+                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: isLight ? '#334155' : '#cbd5e1' }}>
                         {act.label}
                       </span>
                     </button>
@@ -1271,9 +1381,9 @@ export const MobileTenantView = ({
                     {(() => {
                       const inv = selectedInvoice || unpaidInvoices[0] || invoices[0] || null;
                       const amt = inv ? inv.totalAmount : 0;
-                      const bank = inv?.landlordBankName || profile?.bankName || '';
-                      const accNo = inv?.landlordBankAccountNumber || profile?.bankAccountNumber || '';
-                      const accName = inv?.landlordBankAccountName || profile?.bankAccountName || '';
+                      const bank = inv?.landlordBankName || dashboard?.landlordBankName || '';
+                      const accNo = inv?.landlordBankAccountNumber || dashboard?.landlordBankAccountNumber || '';
+                      const accName = inv?.landlordBankAccountName || dashboard?.landlordBankAccountName || '';
                       const content = `Phong ${inv?.roomNumber || currentRoomNumber} thanh toan ${inv?.invoiceCode || 'tien nha'}`;
                       const qrUrl = accNo ? getVietQRUrl({
                         bankId: bank || 'BIDV',
@@ -1677,12 +1787,12 @@ export const MobileTenantView = ({
               <div>
                 <h3 style={{ fontSize: '17px', fontWeight: 900, margin: 0 }}>Hợp Đồng Của Tôi</h3>
                 <div style={{ fontSize: '12px', color: isLight ? '#64748b' : '#94a3b8' }}>
-                  {contracts.length} hợp đồng thuê phòng
+                  {myContracts.length} hợp đồng thuê phòng
                 </div>
               </div>
             </div>
 
-            {contracts.map(cont => {
+            {myContracts.map(cont => {
               const info = getContractStatusInfo(cont);
               const isPendingSign = cont.status === 'PendingSignature' || !cont.isSignedByTenant;
               const hasRenewPending = Boolean(cont.requestedRenewMonths);
@@ -1820,7 +1930,7 @@ export const MobileTenantView = ({
               );
             })}
 
-            {contracts.length === 0 && (
+            {myContracts.length === 0 && (
               <div style={{ textAlign: 'center', padding: '40px 10px', color: isLight ? '#64748b' : '#94a3b8' }}>
                 <FileText size={40} style={{ opacity: 0.3, marginBottom: 8 }} />
                 <div>Bạn chưa có hợp đồng thuê nhà nào trên hệ thống</div>
@@ -2230,8 +2340,8 @@ export const MobileTenantView = ({
         backdropFilter: 'blur(16px)',
         borderTop: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
         display: 'grid',
-        gridTemplateColumns: 'repeat(5, 1fr)',
-        padding: '8px 4px 14px',
+        gridTemplateColumns: 'repeat(6, 1fr)',
+        padding: '8px 2px 14px',
         flexShrink: 0,
         zIndex: 90
       }}>
@@ -2240,7 +2350,8 @@ export const MobileTenantView = ({
           { id: 'invoices', label: 'Hóa đơn', icon: Receipt, badge: unpaidInvoices.length > 0 ? String(unpaidInvoices.length) : null },
           { id: 'payments', label: 'Thanh toán', icon: CreditCard },
           { id: 'repairs', label: 'Báo sửa', icon: Wrench, badge: maintenanceRequests.length > 0 ? String(maintenanceRequests.length) : null },
-          { id: 'contracts', label: 'Hợp đồng', icon: FileText }
+          { id: 'contracts', label: 'Hợp đồng', icon: FileText },
+          { id: 'profile', label: 'Cá nhân', icon: User }
         ].map(tab => {
           const Icon = tab.icon;
           const isAct = activeTab === tab.id;

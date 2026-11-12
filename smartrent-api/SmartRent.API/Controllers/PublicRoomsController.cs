@@ -157,9 +157,10 @@ public class PublicRoomsController(AppDbContext db, NotificationService notifica
         room.DepositAmount = req.DepositAmount;
         room.DepositTenantName = req.TenantName.Trim();
         room.DepositTenantPhone = req.TenantPhone.Trim();
+        // Tự động lấy ngày khách cọc hôm nay
         room.ExpectedMoveInDate = req.ExpectedMoveInDate.HasValue 
             ? DateTime.SpecifyKind(req.ExpectedMoveInDate.Value, DateTimeKind.Utc) 
-            : null;
+            : DateTime.UtcNow;
         
         var txCode = string.IsNullOrWhiteSpace(req.TransactionCode) 
             ? $"VietQR-{DateTime.UtcNow:yyyyMMddHHmmss}" 
@@ -172,14 +173,12 @@ public class PublicRoomsController(AppDbContext db, NotificationService notifica
         // Gửi thông báo Notification thời gian thực tới Chủ trọ quản lý
         try
         {
-            var moveInText = req.ExpectedMoveInDate.HasValue 
-                ? req.ExpectedMoveInDate.Value.ToString("dd/MM/yyyy") 
-                : "Chưa xác định";
+            var depositDateText = (room.ExpectedMoveInDate ?? DateTime.UtcNow).ToString("dd/MM/yyyy");
 
             await notificationService.SendNotificationAsync(
                 senderId: room.Zone.LandlordId,
                 title: $"🎉 Có cọc mới: Phòng {room.RoomNumber} ({room.Zone.Name})",
-                content: $"Khách thuê {req.TenantName} ({req.TenantPhone}) đã chuyển cọc giữ chỗ {req.DepositAmount:N0}đ qua VietQR (Mã GD: {txCode}). Ngày dự kiến vào ở: {moveInText}.",
+                content: $"Khách thuê {req.TenantName} ({req.TenantPhone}) đã chuyển cọc giữ chỗ {req.DepositAmount:N0}đ qua VietQR (Mã GD: {txCode}). Ngày cọc: {depositDateText}.",
                 target: NotificationTarget.User,
                 targetId: room.Zone.LandlordId
             );

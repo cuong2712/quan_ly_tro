@@ -5,7 +5,7 @@ import {
   ChevronRight, ArrowLeft, Camera, ExternalLink, Sparkles, Smartphone,
   Monitor, Info, Building2, Zap, Send, Check, RefreshCw, Copy,
   LogOut, Plus, ChevronDown, CheckCheck, Upload, AlertCircle, X,
-  FileCheck, Shield, DollarSign, Calendar, Search
+  FileCheck, Shield, DollarSign, Calendar, Search, Edit, Settings, Bike, Lock
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,12 +36,6 @@ import { MobileTenantView } from '../components/Mobile/MobileTenantView';
 export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
   const navigate = useNavigate();
   const { user, login, logout, isAuthenticated } = useAuth();
-
-  // Chế độ xem: 'frame' (khung điện thoại trên PC) hoặc 'full' (toàn màn hình app)
-  const [viewMode, setViewMode] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return 'full';
-    return 'frame';
-  });
 
   // Vai trò: 'tenant' (Khách thuê) hoặc 'landlord' (Chủ trọ)
   const [role, setRole] = useState(() => {
@@ -101,13 +95,6 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
   const [notifFilter, setNotifFilter] = useState('all'); // 'all' | 'unread' | 'invoices' | 'repairs' | 'contracts' | 'system'
   const [notifSearch, setNotifSearch] = useState('');
   const [viewingNotif, setViewingNotif] = useState(null);
-
-  // Tự động nhận diện thiết bị: nếu màn hình nhỏ < 768px thì mặc định toàn màn hình
-  useEffect(() => {
-    if (window.innerWidth < 768) {
-      setViewMode('full');
-    }
-  }, []);
 
   // Cập nhật role theo user nếu user đăng nhập
   useEffect(() => {
@@ -490,232 +477,84 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
 
   return (
     <div style={{
+      width: '100%',
       minHeight: '100vh',
-      background: viewMode === 'frame'
-        ? (isLight ? '#e2e8f0' : '#040711')
-        : (isLight ? '#f8fafc' : '#090d16'),
+      background: isLight ? '#f8fafc' : '#090d16',
       color: isLight ? '#0f172a' : '#f8fafc',
       fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: viewMode === 'frame' ? '20px 16px' : 0,
-      transition: 'all 0.3s ease'
+      position: 'relative'
     }}>
 
-      {/* ── BAR ĐIỀU KHIỂN TRÊN MÁY TÍNH (Top Control Toolbar) ── */}
-      {viewMode === 'frame' && (
-        <div style={{
-          width: '100%',
-          maxWidth: 820,
-          background: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(17,24,39,0.85)',
-          border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.12)'}`,
-          backdropFilter: 'blur(16px)',
-          borderRadius: '16px',
-          padding: '12px 20px',
-          marginBottom: '18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 12,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.12)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button
-              onClick={() => navigate(-1)}
-              className="btn btn-sm btn-secondary"
-              title="Quay lại trang trước"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, padding: 0, borderRadius: 8 }}
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div style={{ fontWeight: 800, fontSize: '15px', color: '#10b981', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Smartphone size={18} /> SMARTRENT MOBILE APP
-            </div>
-            <span style={{ fontSize: '11px', background: 'rgba(16,185,129,0.15)', color: '#10b981', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>
-              🔴 Real API Live
-            </span>
+      {/* ── 1. HEADER DI ĐỘNG (Sticky Top Bar) ── */}
+      <header style={{
+        padding: '14px 16px',
+        background: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(11,17,32,0.95)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexShrink: 0,
+        zIndex: 100
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontWeight: 800, fontSize: 16,
+            boxShadow: '0 4px 10px rgba(16,185,129,0.3)'
+          }}>
+            SR
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Chuyển đổi vai trò Khách Thuê / Chủ Trọ */}
-            <div style={{ display: 'flex', background: isLight ? '#f1f5f9' : 'rgba(15,23,42,0.8)', padding: 3, borderRadius: 10, border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}` }}>
-              <button
-                onClick={() => { setRole('tenant'); setActiveTab('home'); }}
-                style={{
-                  padding: '5px 12px', borderRadius: 8, fontSize: '12px', fontWeight: 700,
-                  border: 'none', cursor: 'pointer',
-                  background: role === 'tenant' ? '#10b981' : 'transparent',
-                  color: role === 'tenant' ? '#fff' : (isLight ? '#64748b' : '#94a3b8'),
-                  transition: 'all 0.2s'
-                }}
-              >
-                👤 Khách Thuê
-              </button>
-              <button
-                onClick={() => { setRole('landlord'); setActiveTab('home'); }}
-                style={{
-                  padding: '5px 12px', borderRadius: 8, fontSize: '12px', fontWeight: 700,
-                  border: 'none', cursor: 'pointer',
-                  background: role === 'landlord' ? '#6366f1' : 'transparent',
-                  color: role === 'landlord' ? '#fff' : (isLight ? '#64748b' : '#94a3b8'),
-                  transition: 'all 0.2s'
-                }}
-              >
-                🏠 Chủ Trọ
-              </button>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '15px', color: isLight ? '#0f172a' : '#fff', lineHeight: 1.2 }}>
+              SmartRent
             </div>
-
-            {/* Chuyển chế độ xem Toàn Màn Hình / Khung ĐT */}
-            <button
-              onClick={() => setViewMode(viewMode === 'frame' ? 'full' : 'frame')}
-              className="btn btn-sm btn-secondary"
-              style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8 }}
-              title="Phóng to toàn màn hình hoặc xem trong khung điện thoại"
-            >
-              {viewMode === 'frame' ? <><Monitor size={14} /> Toàn Màn Hình</> : <><Smartphone size={14} /> Khung ĐT</>}
-            </button>
-
-            {/* Chuyển sang giao diện Desktop */}
-            {onSwitchToDesktop && (
-              <button
-                onClick={onSwitchToDesktop}
-                className="btn btn-sm btn-secondary"
-                style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8 }}
-                title="Chuyển sang giao diện máy tính (Desktop)"
-              >
-                <Monitor size={14} /> Bản Máy Tính
-              </button>
-            )}
+            <div style={{ fontSize: '11px', color: role === 'tenant' ? '#10b981' : '#6366f1', fontWeight: 700 }}>
+              {role === 'tenant' ? '👤 Khách Thuê Phòng' : '🏠 Chủ Khu Trọ'}
+            </div>
           </div>
         </div>
-      )}
 
-      {/* ── THÂN MÁY ĐIỆN THOẠI (iPhone Mockup Container) ── */}
-      <div style={{
-        width: viewMode === 'frame' ? '390px' : '100%',
-        maxWidth: viewMode === 'frame' ? '390px' : '520px',
-        height: viewMode === 'frame' ? '820px' : '100vh',
-        background: isLight ? '#ffffff' : '#0b1120',
-        borderRadius: viewMode === 'frame' ? '46px' : 0,
-        border: viewMode === 'frame' ? (isLight ? '10px solid #1e293b' : '10px solid #1f2937') : 'none',
-        boxShadow: viewMode === 'frame' ? '0 25px 60px -15px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)' : 'none',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative'
-      }}>
-
-        {/* Dynamic Island trên khung điện thoại */}
-        {viewMode === 'frame' && (
-          <div style={{
-            position: 'absolute',
-            top: '10px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '110px',
-            height: '24px',
-            background: '#000',
-            borderRadius: '20px',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 10px'
-          }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#1e293b' }} />
-          </div>
-        )}
-
-        {/* ── 1. HEADER DI ĐỘNG (Sticky Top Bar) ── */}
-        <header style={{
-          padding: viewMode === 'frame' ? '38px 16px 12px' : '16px 16px 12px',
-          background: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(11,17,32,0.95)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexShrink: 0,
-          zIndex: 100
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: 'linear-gradient(135deg, #10b981, #059669)',
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Nút Làm Mới Dữ Liệu */}
+          <button
+            onClick={() => loadData(true)}
+            style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
+              border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
+              color: isLight ? '#475569' : '#cbd5e1',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 800, fontSize: 16,
-              boxShadow: '0 4px 10px rgba(16,185,129,0.3)'
-            }}>
-              SR
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '15px', color: isLight ? '#0f172a' : '#fff', lineHeight: 1.2 }}>
-                SmartRent
-              </div>
-              <div style={{ fontSize: '11px', color: role === 'tenant' ? '#10b981' : '#6366f1', fontWeight: 700 }}>
-                {role === 'tenant' ? '👤 Khách Thuê Phòng' : '🏠 Chủ Khu Trọ'}
-              </div>
-            </div>
-          </div>
+              cursor: 'pointer'
+            }}
+            title="Cập nhật dữ liệu từ máy chủ"
+          >
+            <RefreshCw size={15} className={refreshing ? 'spin' : ''} />
+          </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Nút Làm Mới Dữ Liệu */}
-            <button
-              onClick={() => loadData(true)}
-              style={{
-                width: 34, height: 34, borderRadius: '50%',
-                background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
-                border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
-                color: isLight ? '#475569' : '#cbd5e1',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-              title="Cập nhật dữ liệu từ máy chủ"
-            >
-              <RefreshCw size={15} className={refreshing ? 'spin' : ''} />
-            </button>
+          {/* Nút Đổi Theme Sáng / Tối */}
+          <button
+            onClick={toggleTheme}
+            style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
+              border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
+              color: isLight ? '#d97706' : '#fbbf24',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+            title="Đổi giao diện Sáng / Tối"
+          >
+            {isLight ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
 
-            {/* Nút Chuyển Sang Bản Máy Tính */}
-            {onSwitchToDesktop && (
-              <button
-                onClick={onSwitchToDesktop}
-                style={{
-                  width: 34, height: 34, borderRadius: '50%',
-                  background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
-                  border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
-                  color: isLight ? '#475569' : '#cbd5e1',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer'
-                }}
-                title="Chuyển sang giao diện máy tính (Desktop site)"
-              >
-                <Monitor size={15} />
-              </button>
-            )}
-
-            {/* Nút Đổi Theme Sáng / Tối */}
-            <button
-              onClick={toggleTheme}
-              style={{
-                width: 34, height: 34, borderRadius: '50%',
-                background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
-                border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
-                color: isLight ? '#d97706' : '#fbbf24',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-              title="Đổi giao diện Sáng / Tối"
-            >
-              {isLight ? <Moon size={15} /> : <Sun size={15} />}
-            </button>
-
-            {/* Chuông Thông Báo */}
-            <button
-              onClick={() => setBottomSheet('notifications')}
+          {/* Chuông Thông Báo */}
+          <button
+            onClick={() => setBottomSheet('notifications')}
               style={{
                 width: 34, height: 34, borderRadius: '50%',
                 background: isLight ? '#f1f5f9' : 'rgba(255,255,255,0.08)',
@@ -1435,7 +1274,7 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                 border: bottomSheet === 'notifications' ? 'none' : `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
                 borderBottom: 'none',
                 padding: bottomSheet === 'notifications'
-                  ? (viewMode === 'frame' ? '38px 16px 16px' : '16px 16px 16px')
+                  ? '16px 16px 16px'
                   : '16px 20px 24px',
                 height: bottomSheet === 'notifications' ? '100%' : 'auto',
                 maxHeight: bottomSheet === 'notifications' ? '100%' : '90%',
@@ -1492,9 +1331,9 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                       {(() => {
                         const inv = selectedInvoice || unpaidInvoices[0] || null;
                         const amt = inv ? inv.totalAmount : 0;
-                        const bank = inv?.landlordBankName || profile?.bankName || 'BIDV';
-                        const accNo = inv?.landlordBankAccountNumber || profile?.bankAccountNumber || '';
-                        const accName = inv?.landlordBankAccountName || profile?.bankAccountName || '';
+                        const bank = inv?.landlordBankName || tenantDashboard?.landlordBankName || 'BIDV';
+                        const accNo = inv?.landlordBankAccountNumber || tenantDashboard?.landlordBankAccountNumber || '';
+                        const accName = inv?.landlordBankAccountName || tenantDashboard?.landlordBankAccountName || '';
                         const content = `Phong ${inv?.roomNumber || currentRoomNumber} thanh toan ${inv?.invoiceCode || 'tien nha'}`;
                         const qrUrl = accNo ? getVietQRUrl(bank, accNo, amt, content, accName) : '';
 
@@ -2267,6 +2106,156 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                     ))}
                   </div>
 
+                  {/* Nút Tác Vụ Cốt Lõi Cho Chủ Trọ */}
+                  {role === 'landlord' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBottomSheet(null);
+                          window.dispatchEvent(new CustomEvent('smartrent:mobile-landlord-nav', {
+                            detail: { subView: 'edit_profile' }
+                          }));
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 14,
+                          padding: '13px',
+                          fontSize: '14px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          boxShadow: '0 4px 14px rgba(99,102,241,0.25)'
+                        }}
+                      >
+                        <Edit size={17} /> Sửa Thông Tin Cá Nhân & Đổi Mật Khẩu
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBottomSheet(null);
+                          window.dispatchEvent(new CustomEvent('smartrent:mobile-landlord-nav', {
+                            detail: { subView: 'manage_services' }
+                          }));
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(6,182,212,0.12)',
+                          color: '#06b6d4',
+                          border: '1.5px solid rgba(6,182,212,0.3)',
+                          borderRadius: 14,
+                          padding: '12px',
+                          fontSize: '13.5px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8
+                        }}
+                      >
+                        <Settings size={17} /> Biểu Phí Dịch Vụ (Wifi, Rác, Xe...)
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Nút Tác Vụ Cốt Lõi Cho Khách Thuê */}
+                  {role === 'tenant' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBottomSheet(null);
+                          setActiveTab('profile');
+                          window.dispatchEvent(new CustomEvent('smartrent:mobile-tenant-tab', {
+                            detail: { tab: 'profile', subTab: 'info' }
+                          }));
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 14,
+                          padding: '13px',
+                          fontSize: '14px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          boxShadow: '0 4px 14px rgba(16,185,129,0.25)'
+                        }}
+                      >
+                        <Edit size={17} /> Sửa Thông Tin Cá Nhân & Ảnh CCCD
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBottomSheet(null);
+                          setActiveTab('profile');
+                          window.dispatchEvent(new CustomEvent('smartrent:mobile-tenant-tab', {
+                            detail: { tab: 'profile', subTab: 'vehicle' }
+                          }));
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(6,182,212,0.12)',
+                          color: '#06b6d4',
+                          border: '1.5px solid rgba(6,182,212,0.3)',
+                          borderRadius: 14,
+                          padding: '12px',
+                          fontSize: '13.5px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8
+                        }}
+                      >
+                        <Bike size={17} /> Đăng Ký / Cập Nhật Phương Tiện Xe
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBottomSheet(null);
+                          setActiveTab('profile');
+                          window.dispatchEvent(new CustomEvent('smartrent:mobile-tenant-tab', {
+                            detail: { tab: 'profile', subTab: 'password' }
+                          }));
+                        }}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(99,102,241,0.12)',
+                          color: '#6366f1',
+                          border: '1.5px solid rgba(99,102,241,0.3)',
+                          borderRadius: 14,
+                          padding: '12px',
+                          fontSize: '13.5px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8
+                        }}
+                      >
+                        <Lock size={17} /> Đổi Mật Khẩu Đăng Nhập
+                      </button>
+                    </div>
+                  )}
+
                   {/* Nút Đăng Xuất An Toàn để đổi tài khoản */}
                   <button
                     onClick={async () => {
@@ -2350,8 +2339,6 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
             </div>
           </div>
         )}
-
-      </div>
 
     </div>
   );

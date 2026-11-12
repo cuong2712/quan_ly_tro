@@ -5,6 +5,7 @@ import {
   DollarSign, ArrowUpRight, Plus, Eye
 } from 'lucide-react';
 import { Panorama360Viewer } from '../Common/Panorama360Viewer';
+import apiClient from '../../services/apiClient';
 import { fileService, roomService } from '../../services';
 import { formatVND } from '../../utils/formatters';
 import { getMediaUrl } from '../../utils/media';
@@ -101,12 +102,34 @@ export const RoomMediaStudioModal = ({ isOpen, onClose, room, onSaved }) => {
 
     setUploading360(true);
     try {
-      const res = await fileService.uploadPanorama(file);
-      const url = res?.url || res?.data?.url;
+      let url = null;
+      // 1. Thử qua fileService nếu hàm tồn tại
+      if (fileService && typeof fileService.uploadPanorama === 'function') {
+        try {
+          const res = await fileService.uploadPanorama(file);
+          url = res?.url || res?.data?.url;
+        } catch (err) {
+          console.warn('fileService.uploadPanorama failed, trying direct apiClient:', err);
+        }
+      }
+
+      // 2. Direct upload qua apiClient
+      if (!url) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await apiClient.post('/files/upload-panorama', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        url = res?.data?.url || res?.url || res?.data?.data?.url;
+      }
+
       if (url) {
         setForm(prev => ({ ...prev, panorama360Url: url }));
+      } else {
+        alert('❌ Không nhận được đường dẫn ảnh từ máy chủ.');
       }
     } catch (err) {
+      console.error('Lỗi upload 360:', err);
       alert('❌ Lỗi tải lên ảnh 360°: ' + (err.response?.data?.message || err.message));
     } finally {
       setUploading360(false);
@@ -114,26 +137,65 @@ export const RoomMediaStudioModal = ({ isOpen, onClose, room, onSaved }) => {
     }
   };
 
-  // Upload nhiều ảnh thực tế
+  // Upload nhiều ảnh thực tế (Bộ ảnh chụp thực tế phòng)
   const handleUploadGallery = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    const oversized = files.filter(f => f.size > 10 * 1024 * 1024);
+    if (oversized.length > 0) {
+      alert(`⚠️ Có ${oversized.length} ảnh vượt quá 10MB và sẽ bị bỏ qua.`);
+    }
+
+    const validFiles = files.filter(f => f.size <= 10 * 1024 * 1024);
+    if (validFiles.length === 0) return;
+
     setUploadingGallery(true);
     try {
-      const uploadedUrls = [];
-      for (const file of files) {
-        if (file.size > 10 * 1024 * 1024) continue;
-        const res = await fileService.uploadRoomImage(file);
-        const url = res.data?.url || res.url;
-        if (url) uploadedUrls.push(url);
+      let uploadedUrls = [];
+
+      // 1. Thử upload batch qua API upload-room-images
+      try {
+        const formData = new FormData();
+        validFiles.forEach(f => formData.append('files', f));
+        const res = await apiClient.post('/files/upload-room-images', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        const list = res?.data?.urls || res?.urls || res?.data?.data?.urls;
+        if (Array.isArray(list) && list.length > 0) {
+          uploadedUrls = list;
+        }
+      } catch (batchErr) {
+        console.warn('Batch upload via apiClient failed, falling back to individual upload:', batchErr);
       }
 
-      setForm(prev => ({
-        ...prev,
-        images: [...prev.images, ...uploadedUrls]
-      }));
+      // 2. Nếu batch không trả về URLs, thử từng file
+      if (uploadedUrls.length === 0) {
+        for (const file of validFiles) {
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await apiClient.post('/files/upload-room-image', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            const url = res?.data?.url || res?.url || res?.data?.data?.url;
+            if (url) uploadedUrls.push(url);
+          } catch (singleErr) {
+            console.error('Single file upload failed:', singleErr);
+          }
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        setForm(prev => ({
+          ...prev,
+          images: [...prev.images, ...uploadedUrls]
+        }));
+      } else {
+        alert('❌ Không thể tải lên ảnh nào. Vui lòng kiểm tra lại định dạng file (.jpg, .png, .webp).');
+      }
     } catch (err) {
+      console.error('Lỗi upload gallery:', err);
       alert('❌ Lỗi tải lên ảnh thực tế: ' + (err.response?.data?.message || err.message));
     } finally {
       setUploadingGallery(false);

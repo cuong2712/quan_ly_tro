@@ -5,19 +5,16 @@ using SmartRent.Core.Interfaces;
 
 namespace SmartRent.API.Services;
 
-// Dịch vụ gửi thông báo Realtime qua SignalR Hub
+// Dịch vụ gửi thông báo Realtime qua SignalR Hub (đảm bảo mỗi client nhận duy nhất 1 thông báo)
 public class RealtimeNotifier(IHubContext<NotificationHub> hubContext, ILogger<RealtimeNotifier> logger) : IRealtimeNotifier
 {
     public async Task SendToUserAsync(Guid userId, NotificationDto notification)
     {
         try
         {
-            var strId = userId.ToString();
-            var strLower = strId.ToLower();
-            var strUpper = strId.ToUpper();
-            // Gửi cả qua User ID và qua group của user để đảm bảo 100% nhận được
-            await hubContext.Clients.Users(strId, strLower, strUpper).SendAsync("ReceiveNotification", notification);
-            await hubContext.Clients.Groups(strId, strLower, strUpper, $"user_{strLower}", $"user_{strId}").SendAsync("ReceiveNotification", notification);
+            var strLower = userId.ToString().ToLower();
+            // Gửi duy nhất qua group chuẩn hóa của user
+            await hubContext.Clients.Group($"user_{strLower}").SendAsync("ReceiveNotification", notification);
         }
         catch (Exception ex)
         {
@@ -29,7 +26,8 @@ public class RealtimeNotifier(IHubContext<NotificationHub> hubContext, ILogger<R
     {
         try
         {
-            await hubContext.Clients.Groups(role, role.ToLower(), role.ToUpper()).SendAsync("ReceiveNotification", notification);
+            var roleLower = (role ?? "").ToLower();
+            await hubContext.Clients.Group(roleLower).SendAsync("ReceiveNotification", notification);
         }
         catch (Exception ex)
         {

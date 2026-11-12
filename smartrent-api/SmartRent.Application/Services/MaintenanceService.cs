@@ -80,24 +80,18 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
             .OrderByDescending(c => c.CreatedAt)
             .FirstOrDefaultAsync();
 
-        if (currentContract == null || currentContract.Status == ContractStatus.Liquidated)
-        {
-            throw new InvalidOperationException("Hợp đồng phòng trọ của bạn đã kết thúc hoặc bạn chưa được gán phòng nên không thể gửi yêu cầu bảo trì mới.");
-        }
-
-        // Kiểm tra hợp đồng hết hạn
-        if (currentContract.Status == ContractStatus.Expired || 
-            (currentContract.Status != ContractStatus.RenewRequested && currentContract.EndDate.Date < today))
-        {
-            throw new InvalidOperationException("Hợp đồng hết hạn vui lòng gia hạn hợp đồng");
-        }
-
         Guid roomId = Guid.Empty;
         if (profile.RoomId.HasValue && profile.RoomId.Value != Guid.Empty)
         {
             roomId = profile.RoomId.Value;
         }
-        else
+        else if (req.RoomId.HasValue && req.RoomId.Value != Guid.Empty)
+        {
+            roomId = req.RoomId.Value;
+            profile.RoomId = roomId;
+            await db.SaveChangesAsync();
+        }
+        else if (currentContract != null && currentContract.Status != ContractStatus.Liquidated)
         {
             roomId = currentContract.RoomId;
             profile.RoomId = roomId;
@@ -106,7 +100,12 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
 
         if (roomId == Guid.Empty)
         {
-            throw new InvalidOperationException("Hợp đồng phòng trọ của bạn đã kết thúc hoặc bạn chưa được gán phòng nên không thể gửi yêu cầu bảo trì mới.");
+            throw new InvalidOperationException("Bạn chưa được gán phòng trọ nên chưa thể gửi yêu cầu bảo trì. Vui lòng liên hệ Chủ trọ.");
+        }
+
+        if (currentContract != null && currentContract.Status == ContractStatus.Liquidated && (!profile.RoomId.HasValue || profile.RoomId.Value == Guid.Empty))
+        {
+            throw new InvalidOperationException("Hợp đồng phòng trọ của bạn đã thanh lý và bạn đã bàn giao phòng nên không thể gửi yêu cầu bảo trì mới.");
         }
 
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == roomId)
@@ -160,7 +159,15 @@ public class MaintenanceService(AppDbContext db, NotificationService notificatio
     {
         if (!req.RoomId.HasValue || req.RoomId.Value == Guid.Empty)
         {
-            throw new InvalidOperationException("Vui lòng chọn phòng cần bảo trì.");
+            var firstRoom = await db.Rooms.FirstOrDefaultAsync(r => r.Zone.LandlordId == landlordId);
+            if (firstRoom != null)
+            {
+                req = req with { RoomId = firstRoom.Id };
+            }
+            else
+            {
+                throw new InvalidOperationException("Vui lòng chọn phòng cần bảo trì.");
+            }
         }
 
         var room = await db.Rooms

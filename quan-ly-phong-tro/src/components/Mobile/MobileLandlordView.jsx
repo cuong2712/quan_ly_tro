@@ -4,7 +4,8 @@ import {
   CheckCircle2, Clock, AlertTriangle, ArrowLeft, RefreshCw, X,
   Phone, Mail, Calendar, DollarSign, Shield, FileText, Check,
   ChevronRight, Edit, Trash2, KeyRound, Bike, Send, Image as ImageIcon,
-  CreditCard, Eye, Settings, FileSpreadsheet, Download, UploadCloud
+  CreditCard, Eye, Settings, FileSpreadsheet, Download, UploadCloud,
+  Camera, MapPin, Box, Sparkles, ShieldCheck
 } from 'lucide-react';
 import {
   zoneService, roomService, utilityService, invoiceService,
@@ -21,6 +22,9 @@ import { LandlordVietQRReviewView } from './LandlordVietQRReviewView';
 import { LandlordRoomCreateView } from './LandlordRoomCreateView';
 import { LandlordTenantCreateView } from './LandlordTenantCreateView';
 import { LandlordNotificationView } from './LandlordNotificationView';
+import { LandlordProfileEditView } from './LandlordProfileEditView';
+import { LandlordServiceMgmtView } from './LandlordServiceMgmtView';
+import { RoomMediaStudioModal } from '../Landlord/RoomMediaStudioModal';
 
 export function MobileLandlordView({
   dashboard, rooms = [], zones = [], invoices = [],
@@ -28,7 +32,7 @@ export function MobileLandlordView({
   profile, onRefresh, isLight, theme
 }) {
   // Dedicated Full-Screen Sub-pages:
-  // 'record_utility' | 'create_invoice' | 'review_vietqr' | 'create_room' | 'create_tenant' | 'send_notify' | null
+  // 'record_utility' | 'create_invoice' | 'review_vietqr' | 'create_room' | 'create_tenant' | 'send_notify' | 'manage_services' | 'edit_profile' | null
   const [subView, setSubView] = useState(null);
 
   // Sub-tabs: 'home' | 'utilities' | 'invoices' | 'rooms' | 'tenants_contracts' | 'more'
@@ -36,10 +40,31 @@ export function MobileLandlordView({
 
   // Modal Bottom Sheets:
   // 'record_utility' | 'bulk_utility' | 'utility_rates' | 'create_invoice' |
-  // 'invoice_detail' | 'view_proof' | 'room_detail' | 'create_room' |
+  // 'invoice_detail' | 'view_proof' | 'room_detail' | 'create_room' | 'create_zone' |
   // 'tenant_detail' | 'create_tenant' | 'create_contract' | 'maintenance_detail' |
   // 'send_notify' | 'bank_settings' | null
   const [activeSheet, setActiveSheet] = useState(null);
+
+  // Media Studio Modal state for room photos & 360 panorama
+  const [mediaStudioRoom, setMediaStudioRoom] = useState(null);
+
+  // Zone creation form
+  const [zoneForm, setZoneForm] = useState({
+    name: '',
+    address: '',
+    description: '',
+    totalRooms: 10
+  });
+
+  // Room detail full info (equipments & occupants)
+  const [roomDetailData, setRoomDetailData] = useState(null);
+  const [loadingRoomDetail, setLoadingRoomDetail] = useState(false);
+  const [showAddEquip, setShowAddEquip] = useState(false);
+  const [equipForm, setEquipForm] = useState({
+    name: '',
+    quantity: 1,
+    condition: 'Tốt'
+  });
 
   // Loading & Filter states
   const [loading, setLoading] = useState(false);
@@ -409,6 +434,78 @@ export function MobileLandlordView({
     }
   };
 
+  // 11. Tạo khu trọ mới
+  const handleCreateZone = async (e) => {
+    e?.preventDefault();
+    if (!zoneForm.name?.trim()) return alert('Vui lòng nhập tên khu trọ!');
+    if (!zoneForm.address?.trim()) return alert('Vui lòng nhập địa chỉ khu trọ!');
+    setActionLoading(true);
+    try {
+      await zoneService.createZone({
+        name: zoneForm.name.trim(),
+        address: zoneForm.address.trim(),
+        description: zoneForm.description?.trim() || '',
+        totalRooms: parseInt(zoneForm.totalRooms) || 10
+      });
+      alert('✅ Tạo khu trọ mới thành công!');
+      setZoneForm({ name: '', address: '', description: '', totalRooms: 10 });
+      setActiveSheet(null);
+      onRefresh?.();
+    } catch (err) {
+      alert('Lỗi tạo khu trọ: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 12. Tải chi tiết phòng bao gồm trang thiết bị bàn giao & ảnh
+  const loadRoomDetail = async (roomId) => {
+    if (!roomId) return;
+    setLoadingRoomDetail(true);
+    try {
+      const res = await roomService.getRoomDetail(roomId);
+      setRoomDetailData(res);
+    } catch (e) {
+      console.warn('loadRoomDetail error:', e);
+      setRoomDetailData(null);
+    } finally {
+      setLoadingRoomDetail(false);
+    }
+  };
+
+  // 13. Thêm trang thiết bị bàn giao phòng
+  const handleAddEquipment = async (e) => {
+    e?.preventDefault();
+    if (!selectedRoom?.id || !equipForm.name?.trim()) return alert('Vui lòng nhập tên thiết bị!');
+    setActionLoading(true);
+    try {
+      await roomService.addEquipment(selectedRoom.id, {
+        name: equipForm.name.trim(),
+        quantity: parseInt(equipForm.quantity) || 1,
+        condition: equipForm.condition || 'Tốt'
+      });
+      setEquipForm({ name: '', quantity: 1, condition: 'Tốt' });
+      setShowAddEquip(false);
+      await loadRoomDetail(selectedRoom.id);
+      alert('✅ Đã thêm thiết bị bàn giao cho phòng!');
+    } catch (err) {
+      alert('Lỗi thêm thiết bị: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 14. Xóa thiết bị bàn giao phòng
+  const handleDeleteEquipment = async (equipId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa thiết bị này khỏi danh sách bàn giao?')) return;
+    try {
+      await roomService.deleteEquipment(equipId);
+      await loadRoomDetail(selectedRoom.id);
+    } catch (err) {
+      alert('Lỗi xóa thiết bị: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   // ── RENDER DEDICATED FULL-PAGE SUB-VIEWS (FLUSH TO TOP HEADER) ──
   if (subView) {
     return (
@@ -501,6 +598,25 @@ export function MobileLandlordView({
             }}
           />
         )}
+        {subView === 'manage_services' && (
+          <LandlordServiceMgmtView
+            zones={zones}
+            isLight={isLight}
+            onBack={() => setSubView(null)}
+            onRefreshParent={onRefresh}
+          />
+        )}
+        {subView === 'edit_profile' && (
+          <LandlordProfileEditView
+            profile={profile}
+            isLight={isLight}
+            onBack={() => setSubView(null)}
+            onSuccess={() => {
+              setSubView(null);
+              onRefresh?.();
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -566,7 +682,7 @@ export function MobileLandlordView({
             </div>
           </div>
 
-          {/* 6 Nút Tác Vụ Nhanh Cốt Lõi Trên Điện Thoại */}
+          {/* 9 Nút Tác Vụ Nhanh Cốt Lõi Trên Điện Thoại */}
           <div>
             <div style={{ fontSize: '12.5px', fontWeight: 800, color: isLight ? '#475569' : '#94a3b8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               ⚡ Thao Tác Nghiệp Vụ Nhanh
@@ -576,9 +692,12 @@ export function MobileLandlordView({
                 { label: 'Chốt điện nước', icon: Zap, color: '#f59e0b', action: () => setSubView('record_utility') },
                 { label: 'Lập hóa đơn', icon: Receipt, color: '#10b981', action: () => setSubView('create_invoice') },
                 { label: 'Duyệt VietQR', icon: CreditCard, color: '#6366f1', action: () => setSubView('review_vietqr') },
+                { label: 'Phí dịch vụ', icon: Settings, color: '#06b6d4', action: () => setSubView('manage_services') },
                 { label: 'Thêm phòng', icon: Plus, color: '#3b82f6', action: () => setSubView('create_room') },
+                { label: 'Tạo khu trọ', icon: Building2, color: '#8b5cf6', action: () => setActiveSheet('create_zone') },
                 { label: 'Thêm khách', icon: Users, color: '#ec4899', action: () => setSubView('create_tenant') },
-                { label: 'Gửi thông báo', icon: Send, color: '#8b5cf6', action: () => setSubView('send_notify') }
+                { label: 'Sửa hồ sơ', icon: ShieldCheck, color: '#14b8a6', action: () => setSubView('edit_profile') },
+                { label: 'Gửi thông báo', icon: Send, color: '#f43f5e', action: () => setSubView('send_notify') }
               ].map((item, i) => {
                 const Icon = item.icon;
                 return (
@@ -978,16 +1097,80 @@ export function MobileLandlordView({
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'rooms' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Header & Quick Action Buttons */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Building2 size={18} color="#3b82f6" /> Danh Sách Phòng Trọ
+              <Building2 size={18} color="#3b82f6" /> Danh Sách Phòng ({filteredRooms.length}/{rooms.length})
             </h3>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={() => setActiveSheet('create_zone')}
+                style={{
+                  background: 'rgba(99,102,241,0.12)', color: '#6366f1',
+                  border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8,
+                  padding: '6px 10px', fontSize: '11px', fontWeight: 800,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                }}
+              >
+                <Plus size={13} /> Thêm Khu
+              </button>
+              <button
+                onClick={() => setSubView('manage_services')}
+                style={{
+                  background: 'rgba(6,182,212,0.12)', color: '#06b6d4',
+                  border: '1px solid rgba(6,182,212,0.25)', borderRadius: 8,
+                  padding: '6px 10px', fontSize: '11px', fontWeight: 800,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                }}
+              >
+                <Settings size={13} /> Biểu Phí
+              </button>
+              <button
+                onClick={() => setSubView('create_room')}
+                style={{
+                  background: '#3b82f6', color: '#fff', border: 'none',
+                  borderRadius: 8, padding: '6px 12px', fontSize: '11px',
+                  fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                }}
+              >
+                <Plus size={14} /> Thêm Phòng
+              </button>
+            </div>
+          </div>
+
+          {/* Thanh Lọc Theo Khu Trọ (Zone Selector Pills) */}
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
             <button
-              onClick={() => setSubView('create_room')}
-              style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: '11px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+              onClick={() => setSelectedZoneId('')}
+              style={{
+                flexShrink: 0, padding: '5px 12px', borderRadius: 20, fontSize: '11.5px', fontWeight: 700,
+                border: !selectedZoneId ? 'none' : `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
+                background: !selectedZoneId ? '#3b82f6' : (isLight ? '#fff' : 'rgba(255,255,255,0.05)'),
+                color: !selectedZoneId ? '#fff' : (isLight ? '#64748b' : '#94a3b8'),
+                cursor: 'pointer'
+              }}
             >
-              <Plus size={14} /> Thêm Phòng
+              Tất cả khu ({rooms.length})
             </button>
+            {zones.map(z => {
+              const isSelected = selectedZoneId === z.id;
+              const zCount = rooms.filter(r => r.zoneId === z.id || r.ZoneId === z.id).length;
+              return (
+                <button
+                  key={z.id}
+                  onClick={() => setSelectedZoneId(z.id)}
+                  style={{
+                    flexShrink: 0, padding: '5px 12px', borderRadius: 20, fontSize: '11.5px', fontWeight: 700,
+                    border: isSelected ? 'none' : `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`,
+                    background: isSelected ? '#3b82f6' : (isLight ? '#fff' : 'rgba(255,255,255,0.05)'),
+                    color: isSelected ? '#fff' : (isLight ? '#64748b' : '#94a3b8'),
+                    cursor: 'pointer'
+                  }}
+                >
+                  {z.name} ({zCount})
+                </button>
+              );
+            })}
           </div>
 
           {/* Ô Tìm Kiếm Phòng */}
@@ -1008,39 +1191,72 @@ export function MobileLandlordView({
           </div>
 
           {/* Danh Sách Phòng Chi Tiết */}
-          {filteredRooms.map(r => (
-            <div
-              key={r.id}
-              onClick={() => { setSelectedRoom(r); setActiveSheet('room_detail'); }}
-              style={{
-                background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
-                border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-                borderRadius: 14, padding: '14px', cursor: 'pointer',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '15px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  Phòng {r.roomNumber}
-                  <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 600 }}>({r.zoneName || 'Khu trọ'})</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filteredRooms.map(r => (
+              <div
+                key={r.id}
+                onClick={() => {
+                  setSelectedRoom(r);
+                  loadRoomDetail(r.id);
+                  setActiveSheet('room_detail');
+                }}
+                style={{
+                  background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
+                  border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                  borderRadius: 14, padding: '12px 14px', cursor: 'pointer',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '15px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    Phòng {r.roomNumber}
+                    <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 600 }}>({r.zoneName || 'Khu trọ'})</span>
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: isLight ? '#64748b' : '#94a3b8', marginTop: 2 }}>
+                    Giá: <strong style={{ color: '#10b981' }}>{formatVND(r.price)}</strong> • Tối đa: {r.maxRenters || 2} người
+                  </div>
+                  <div style={{ fontSize: '11px', color: isLight ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                    ⚡ Điện: {r.elecMeter || 0} kWh • 💧 Nước: {r.waterMeter || 0} m³
+                  </div>
                 </div>
-                <div style={{ fontSize: '11.5px', color: isLight ? '#64748b' : '#94a3b8', marginTop: 2 }}>
-                  Giá: <strong>{formatVND(r.price)}</strong> • Tối đa: {r.maxRenters || 2} người
-                </div>
-              </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{
-                  fontSize: '11px', fontWeight: 800, padding: '3px 8px', borderRadius: 6,
-                  background: r.status === 'Occupied' ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)',
-                  color: r.status === 'Occupied' ? '#10b981' : '#3b82f6'
-                }}>
-                  {r.status === 'Occupied' ? 'Đang thuê' : 'Còn trống'}
-                </span>
-                <ChevronRight size={16} color="#94a3b8" />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{
+                      fontSize: '11px', fontWeight: 800, padding: '3px 8px', borderRadius: 6,
+                      background: r.status === 'Occupied' ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)',
+                      color: r.status === 'Occupied' ? '#10b981' : '#3b82f6'
+                    }}>
+                      {r.status === 'Occupied' ? 'Đang thuê' : 'Còn trống'}
+                    </span>
+                    <ChevronRight size={16} color="#94a3b8" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMediaStudioRoom(r);
+                    }}
+                    style={{
+                      background: 'rgba(236,72,153,0.12)', color: '#ec4899',
+                      border: '1px solid rgba(236,72,153,0.25)', borderRadius: 6,
+                      padding: '3px 8px', fontSize: '10.5px', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer'
+                    }}
+                  >
+                    <Camera size={11} /> Ảnh & 360°
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+            {filteredRooms.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '32px 16px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                <Building2 size={36} style={{ opacity: 0.25, margin: '0 auto 8px' }} />
+                <div>Không tìm thấy phòng nào phù hợp</div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1177,11 +1393,115 @@ export function MobileLandlordView({
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* ────────────── TAB 6: KHÁC (BẢO TRÌ & CÀI ĐẶT) ───────────── */}
+      {/* ────────────── TAB 6: KHÁC (DỊCH VỤ, HỒ SƠ & BẢO TRÌ) ────── */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === 'more' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Cài Đặt Tài Khoản Nhận Tiền VietQR */}
+          {/* Card 1: Hồ Sơ Cá Nhân & Bảo Mật */}
+          <div style={{
+            background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
+            border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(99,102,241,0.3)'}`,
+            borderRadius: '16px', padding: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontWeight: 800, fontSize: '14.5px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <ShieldCheck size={18} color="#6366f1" /> Hồ Sơ & Bảo Mật Chủ Trọ
+              </div>
+              <button
+                onClick={() => setSubView('edit_profile')}
+                style={{
+                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                  color: '#fff', border: 'none', borderRadius: 8,
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 800,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                }}
+              >
+                <Edit size={12} /> Sửa Hồ Sơ
+              </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+              <img
+                src={getImageUrl(profile?.avatarUrl, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120')}
+                alt="Avatar"
+                style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid #6366f1' }}
+              />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '15px' }}>{profile?.fullName || 'Chủ Trọ SmartRent'}</div>
+                <div style={{ fontSize: '12px', color: isLight ? '#64748b' : '#94a3b8' }}>
+                  📞 {profile?.phoneNumber || profile?.phone || '0987.654.321'} • CCCD: {profile?.cccd || 'Chưa cập nhật'}
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: '11.5px', color: isLight ? '#64748b' : '#94a3b8', borderTop: `1px dashed ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`, paddingTop: 8 }}>
+              Hỗ trợ cập nhật họ tên, ảnh đại diện, số CCCD, tài khoản VietQR và đổi mật khẩu bảo vệ tài khoản.
+            </div>
+          </div>
+
+          {/* Card 2: Biểu Phí Dịch Vụ Tòa Nhà */}
+          <div style={{
+            background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
+            border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(6,182,212,0.3)'}`,
+            borderRadius: '16px', padding: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: '14.5px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Settings size={18} color="#06b6d4" /> Biểu Phí Dịch Vụ Cố Định
+              </div>
+              <button
+                onClick={() => setSubView('manage_services')}
+                style={{
+                  background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+                  color: '#fff', border: 'none', borderRadius: 8,
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 800,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                }}
+              >
+                <Plus size={12} /> Cài Đặt Phí
+              </button>
+            </div>
+            <div style={{ fontSize: '12px', color: isLight ? '#475569' : '#cbd5e1', lineHeight: '1.5' }}>
+              Quản lý chi tiết các khoản phí thu hàng tháng như: Tiền rác, Internet/Wifi, gửi xe máy/ô tô, bảo vệ, thang máy, nước sinh hoạt khoán...
+            </div>
+          </div>
+
+          {/* Card 3: Quản Lý Khu Trọ */}
+          <div style={{
+            background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
+            border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(139,92,246,0.3)'}`,
+            borderRadius: '16px', padding: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: '14.5px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Building2 size={18} color="#8b5cf6" /> Khu Trọ Đang Quản Lý ({zones.length})
+              </div>
+              <button
+                onClick={() => setActiveSheet('create_zone')}
+                style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                  color: '#fff', border: 'none', borderRadius: 8,
+                  padding: '6px 12px', fontSize: '11px', fontWeight: 800,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                }}
+              >
+                <Plus size={12} /> Tạo Khu Mới
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {zones.map(z => (
+                <div key={z.id} style={{ fontSize: '12px', display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)'}` }}>
+                  <div>
+                    <strong>{z.name}</strong>
+                    <div style={{ fontSize: '11px', color: isLight ? '#64748b' : '#94a3b8' }}>{z.address}</div>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 700 }}>
+                    {rooms.filter(r => r.zoneId === z.id || r.ZoneId === z.id).length} phòng
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card 4: Cài Đặt Tài Khoản Nhận Tiền VietQR */}
           <div style={{
             background: isLight ? '#ffffff' : 'rgba(17,24,39,0.85)',
             border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(99,102,241,0.3)'}`,
@@ -1205,17 +1525,17 @@ export function MobileLandlordView({
             </div>
           </div>
 
-          {/* Xử Lý Báo Hỏng Thiết Bị */}
+          {/* Card 5: Xử Lý Báo Hỏng Thiết Bị */}
           <div style={{
             background: isLight ? '#ffffff' : 'rgba(17,24,39,0.7)',
             border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
             borderRadius: '16px', padding: '16px'
           }}>
             <h4 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Wrench size={16} color="#f59e0b" /> Quản Lý Phiếu Bảo Trì Sửa Chữa
+              <Wrench size={16} color="#f59e0b" /> Quản Lý Phiếu Bảo Trì Sửa Chữa ({maintenanceRequests.length})
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {maintenanceRequests.map(req => (
+              {maintenanceRequests.slice(0, 10).map(req => (
                 <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)'}` }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '13px' }}>{req.title}</div>
@@ -1233,6 +1553,11 @@ export function MobileLandlordView({
                   )}
                 </div>
               ))}
+              {maintenanceRequests.length === 0 && (
+                <div style={{ fontSize: '12px', color: isLight ? '#64748b' : '#94a3b8', textAlign: 'center', padding: '12px 0' }}>
+                  Không có yêu cầu sửa chữa nào đang chờ.
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1247,7 +1572,7 @@ export function MobileLandlordView({
         background: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(11,17,32,0.96)',
         backdropFilter: 'blur(16px)',
         borderTop: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
-        display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
+        display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)',
         padding: '8px 2px 14px', zIndex: 90
       }}>
         {[
@@ -1255,7 +1580,8 @@ export function MobileLandlordView({
           { id: 'utilities', label: 'Điện Nước', icon: Zap },
           { id: 'invoices', label: 'Hóa đơn', icon: Receipt },
           { id: 'rooms', label: 'Phòng trọ', icon: Building2 },
-          { id: 'tenants_contracts', label: 'Cư dân', icon: Users }
+          { id: 'tenants_contracts', label: 'Cư dân', icon: Users },
+          { id: 'more', label: 'Cài đặt', icon: Settings }
         ].map(tab => {
           const Icon = tab.icon;
           const isAct = activeTab === tab.id;
@@ -1620,6 +1946,60 @@ export function MobileLandlordView({
               </form>
             )}
 
+            {/* MODAL: TẠO KHU TRỌ MỚI */}
+            {activeSheet === 'create_zone' && (
+              <form onSubmit={handleCreateZone} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Building2 size={18} color="#8b5cf6" /> Thêm Khu Trọ Mới
+                  </h3>
+                  <button type="button" onClick={() => setActiveSheet(null)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✕</button>
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: 4 }}>Tên khu trọ / Tòa nhà (*):</label>
+                  <input
+                    type="text" placeholder="Ví dụ: Khu Nhà Trọ Bình Thạnh"
+                    value={zoneForm.name} onChange={e => setZoneForm({ ...zoneForm, name: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: 8, background: isLight ? '#f8fafc' : '#1f2937', color: isLight ? '#0f172a' : '#fff', border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`, boxSizing: 'border-box' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: 4 }}>Địa chỉ chi tiết (*):</label>
+                  <input
+                    type="text" placeholder="Ví dụ: 123/45 Đường Nơ Trang Long, P.13, Q.Bình Thạnh, TP.HCM"
+                    value={zoneForm.address} onChange={e => setZoneForm({ ...zoneForm, address: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: 8, background: isLight ? '#f8fafc' : '#1f2937', color: isLight ? '#0f172a' : '#fff', border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`, boxSizing: 'border-box' }}
+                    required
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: 4 }}>Số phòng dự kiến:</label>
+                    <input
+                      type="number" min="1" max="200"
+                      value={zoneForm.totalRooms} onChange={e => setZoneForm({ ...zoneForm, totalRooms: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: 8, background: isLight ? '#f8fafc' : '#1f2937', color: isLight ? '#0f172a' : '#fff', border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`, boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, display: 'block', marginBottom: 4 }}>Mô tả ngắn:</label>
+                    <input
+                      type="text" placeholder="Gần chợ, có thang máy..."
+                      value={zoneForm.description} onChange={e => setZoneForm({ ...zoneForm, description: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: 8, background: isLight ? '#f8fafc' : '#1f2937', color: isLight ? '#0f172a' : '#fff', border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`, boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit" disabled={actionLoading}
+                  style={{ width: '100%', padding: '12px', borderRadius: 10, background: '#8b5cf6', color: '#fff', border: 'none', fontWeight: 800, fontSize: '14px', cursor: 'pointer', marginTop: 6 }}
+                >
+                  {actionLoading ? 'Đang tạo khu trọ...' : 'Tạo Khu Trọ Mới'}
+                </button>
+              </form>
+            )}
+
             {/* MODAL 8: CHI TIẾT PHÒNG */}
             {activeSheet === 'room_detail' && selectedRoom && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1627,6 +2007,7 @@ export function MobileLandlordView({
                   <h3 style={{ fontSize: '17px', fontWeight: 800, margin: 0 }}>🏠 Chi Tiết Phòng {selectedRoom.roomNumber}</h3>
                   <button onClick={() => setActiveSheet(null)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>✕</button>
                 </div>
+
                 <div style={{ background: isLight ? '#f8fafc' : 'rgba(15,23,42,0.6)', padding: 12, borderRadius: 12, fontSize: '13px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div>Khu: <strong>{selectedRoom.zoneName}</strong></div>
                   <div>Giá thuê: <strong style={{ color: '#10b981' }}>{formatVND(selectedRoom.price)}/tháng</strong></div>
@@ -1634,15 +2015,127 @@ export function MobileLandlordView({
                   <div>Đồng hồ điện hiện tại: <strong>{selectedRoom.elecMeter || 0} kWh</strong></div>
                   <div>Đồng hồ nước hiện tại: <strong>{selectedRoom.waterMeter || 0} m³</strong></div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+
+                {/* Phần Quản Lý Trang Thiết Bị Bàn Giao */}
+                <div style={{
+                  background: isLight ? '#ffffff' : 'rgba(17,24,39,0.7)',
+                  border: `1px solid ${isLight ? '#e2e8f0' : 'rgba(255,255,255,0.08)'}`,
+                  borderRadius: 12, padding: 12
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Box size={15} color="#6366f1" /> Thiết Bị Bàn Giao ({roomDetailData?.equipments?.length || 0})
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddEquip(!showAddEquip)}
+                      style={{
+                        background: 'rgba(99,102,241,0.12)', color: '#6366f1',
+                        border: 'none', borderRadius: 6, padding: '3px 8px',
+                        fontSize: '11px', fontWeight: 700, cursor: 'pointer'
+                      }}
+                    >
+                      {showAddEquip ? 'Đóng' : '+ Thêm thiết bị'}
+                    </button>
+                  </div>
+
+                  {showAddEquip && (
+                    <form onSubmit={handleAddEquipment} style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, padding: 10, background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
+                      <input
+                        type="text" placeholder="Tên thiết bị (ví dụ: Máy lạnh Daikin 1HP)"
+                        value={equipForm.name} onChange={e => setEquipForm({ ...equipForm, name: e.target.value })}
+                        style={{ width: '100%', padding: '7px 10px', borderRadius: 6, fontSize: '12px', background: isLight ? '#fff' : '#1f2937', color: isLight ? '#0f172a' : '#fff', border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`, boxSizing: 'border-box' }}
+                        required
+                      />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                        <input
+                          type="number" min="1" placeholder="Số lượng"
+                          value={equipForm.quantity} onChange={e => setEquipForm({ ...equipForm, quantity: e.target.value })}
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, fontSize: '12px', background: isLight ? '#fff' : '#1f2937', color: isLight ? '#0f172a' : '#fff', border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`, boxSizing: 'border-box' }}
+                        />
+                        <select
+                          value={equipForm.condition} onChange={e => setEquipForm({ ...equipForm, condition: e.target.value })}
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, fontSize: '12px', background: isLight ? '#fff' : '#1f2937', color: isLight ? '#0f172a' : '#fff', border: `1px solid ${isLight ? '#cbd5e1' : 'rgba(255,255,255,0.1)'}`, boxSizing: 'border-box' }}
+                        >
+                          <option value="Mới 100%">Mới 100%</option>
+                          <option value="Tốt">Hoạt động tốt</option>
+                          <option value="Bình thường">Bình thường</option>
+                          <option value="Cũ">Hơi cũ</option>
+                        </select>
+                      </div>
+                      <button
+                        type="submit" disabled={actionLoading}
+                        style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 6, padding: '7px', fontSize: '12px', fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        {actionLoading ? 'Đang lưu...' : 'Lưu Thiết Bị'}
+                      </button>
+                    </form>
+                  )}
+
+                  {loadingRoomDetail ? (
+                    <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', padding: '8px 0' }}>Đang tải danh sách thiết bị...</div>
+                  ) : (roomDetailData?.equipments?.length || 0) === 0 ? (
+                    <div style={{ fontSize: '12px', color: isLight ? '#64748b' : '#94a3b8', textAlign: 'center', padding: '6px 0' }}>
+                      Chưa có thiết bị nào được ghi nhận bàn giao.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {roomDetailData.equipments.map(eq => (
+                        <div key={eq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', padding: '5px 0', borderBottom: `1px dashed ${isLight ? '#f1f5f9' : 'rgba(255,255,255,0.05)'}` }}>
+                          <div>
+                            <strong>{eq.name}</strong> <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>(x{eq.quantity || 1})</span>
+                            <span style={{ marginLeft: 6, fontSize: '10.5px', background: 'rgba(16,185,129,0.12)', color: '#10b981', padding: '1px 6px', borderRadius: 4 }}>
+                              {eq.condition || 'Tốt'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEquipment(eq.id)}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 2 }}
+                            title="Xóa thiết bị"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Các Nút Thao Tác Nhanh Với Phòng */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      const targetRoom = selectedRoom;
+                      setActiveSheet(null);
+                      setMediaStudioRoom(targetRoom);
+                    }}
+                    style={{
+                      padding: '10px 6px', borderRadius: 8,
+                      background: 'rgba(236,72,153,0.12)', color: '#ec4899',
+                      border: '1px solid rgba(236,72,153,0.25)',
+                      fontWeight: 700, fontSize: '11px', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4
+                    }}
+                  >
+                    <Camera size={16} />
+                    <span>Ảnh & 360°</span>
+                  </button>
                   <button
                     onClick={() => {
                       setActiveSheet(null);
                       setSubView('record_utility');
                     }}
-                    style={{ padding: '10px', borderRadius: 8, background: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+                    style={{
+                      padding: '10px 6px', borderRadius: 8,
+                      background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
+                      border: '1px solid rgba(245,158,11,0.25)',
+                      fontWeight: 700, fontSize: '11px', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4
+                    }}
                   >
-                    ⚡ Chốt điện nước
+                    <Zap size={16} />
+                    <span>Chốt điện nước</span>
                   </button>
                   <button
                     onClick={async () => {
@@ -1656,9 +2149,16 @@ export function MobileLandlordView({
                         } catch (e) { alert('Lỗi: ' + e.message); }
                       }
                     }}
-                    style={{ padding: '10px', borderRadius: 8, background: '#3b82f6', color: '#fff', border: 'none', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+                    style={{
+                      padding: '10px 6px', borderRadius: 8,
+                      background: 'rgba(59,130,246,0.12)', color: '#3b82f6',
+                      border: '1px solid rgba(59,130,246,0.25)',
+                      fontWeight: 700, fontSize: '11px', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4
+                    }}
                   >
-                    Đổi trạng thái
+                    <RefreshCw size={16} />
+                    <span>Đổi trạng thái</span>
                   </button>
                 </div>
               </div>
@@ -1699,6 +2199,22 @@ export function MobileLandlordView({
 
           </div>
         </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* ────────────── MODAL STUDIO BỘ ẢNH & 360 PANORAMA ───────── */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {mediaStudioRoom && (
+        <RoomMediaStudioModal
+          isOpen={!!mediaStudioRoom}
+          room={mediaStudioRoom}
+          onClose={() => setMediaStudioRoom(null)}
+          onSaved={() => {
+            setMediaStudioRoom(null);
+            onRefresh?.();
+            if (selectedRoom?.id) loadRoomDetail(selectedRoom.id);
+          }}
+        />
       )}
 
     </div>

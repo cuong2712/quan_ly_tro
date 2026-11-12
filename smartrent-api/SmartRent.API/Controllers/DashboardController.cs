@@ -39,13 +39,21 @@ public class DashboardController(AppDbContext db) : ControllerBase
     [Authorize(Roles = "Tenant")]
     public async Task<IActionResult> GetTenantDashboard()
     {
-        var profile = await db.TenantProfiles.AsNoTracking().Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts).FirstOrDefaultAsync(t => t.UserId == CurrentUserId);
+        var profile = await db.TenantProfiles.AsNoTracking()
+            .Include(t => t.Room).ThenInclude(r => r!.Zone).ThenInclude(z => z.Landlord)
+            .Include(t => t.Landlord)
+            .Include(t => t.Contracts)
+            .FirstOrDefaultAsync(t => t.UserId == CurrentUserId);
         if (profile == null)
         {
             var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == CurrentUserId);
             if (user != null)
             {
-                profile = await db.TenantProfiles.AsNoTracking().Include(t => t.Room).ThenInclude(r => r!.Zone).Include(t => t.Contracts).FirstOrDefaultAsync(t => t.User.Email == user.Email);
+                profile = await db.TenantProfiles.AsNoTracking()
+                    .Include(t => t.Room).ThenInclude(r => r!.Zone).ThenInclude(z => z.Landlord)
+                    .Include(t => t.Landlord)
+                    .Include(t => t.Contracts)
+                    .FirstOrDefaultAsync(t => t.User.Email == user.Email);
             }
         }
         if (profile is null) return NotFound(new { message = "Không tìm thấy hồ sơ người thuê." });
@@ -55,7 +63,7 @@ public class DashboardController(AppDbContext db) : ControllerBase
         var maintenanceCount = await db.MaintenanceRequests.CountAsync(m => m.TenantProfileId == profile.Id || (m.TenantProfile != null && m.TenantProfile.UserId == CurrentUserId));
         
         var tenantContracts = await db.Contracts
-            .Include(c => c.Room).ThenInclude(r => r.Zone)
+            .Include(c => c.Room).ThenInclude(r => r.Zone).ThenInclude(z => z.Landlord)
             .Where(c => c.TenantProfileId == profile.Id || (c.TenantProfile != null && c.TenantProfile.UserId == CurrentUserId))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
@@ -64,6 +72,17 @@ public class DashboardController(AppDbContext db) : ControllerBase
         var latestContract = tenantContracts.FirstOrDefault();
 
         var room = activeContract?.Room ?? (latestContract != null && latestContract.Status != ContractStatus.Liquidated ? latestContract.Room : profile.Room);
+
+        // Lấy thông tin tài khoản ngân hàng của Chủ trọ quản lý phòng này
+        var landlord = room?.Zone?.Landlord ?? profile.Landlord;
+        if (landlord == null && room?.Zone != null && room.Zone.LandlordId != Guid.Empty)
+        {
+            landlord = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == room.Zone.LandlordId);
+        }
+        if (landlord == null && profile.LandlordId.HasValue && profile.LandlordId.Value != Guid.Empty)
+        {
+            landlord = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == profile.LandlordId.Value);
+        }
 
         return Ok(new { 
             roomNumber = room?.RoomNumber, 
@@ -78,7 +97,12 @@ public class DashboardController(AppDbContext db) : ControllerBase
             vehicleCount = profile.VehicleCount,
             vehicleInfo = profile.VehicleInfo,
             cccd = profile.CCCD,
-            hometown = profile.Hometown
+            hometown = profile.Hometown,
+            landlordBankName = landlord?.BankName,
+            landlordBankAccountNumber = landlord?.BankAccountNumber,
+            landlordBankAccountName = landlord?.BankAccountName ?? landlord?.FullName,
+            landlordName = landlord?.FullName,
+            landlordPhone = landlord?.Phone
         });
     }
 }

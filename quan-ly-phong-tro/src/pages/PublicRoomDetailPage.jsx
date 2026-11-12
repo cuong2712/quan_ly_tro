@@ -92,8 +92,8 @@ export const PublicRoomDetailPage = () => {
   // Tạo URL mã VietQR theo chuẩn Napas
   const getVietQrUrl = () => {
     const bankName = room?.bankName || 'MB';
-    const accountNo = room?.bankAccountNumber || '0397181879';
-    const accountName = room?.bankAccountName || 'NGUYEN VAN HAI';
+    const accountNo = room?.bankAccountNumber || '0379513393';
+    const accountName = room?.bankAccountName || room?.landlordName || 'LÊ THỊ THÙY GIANG';
     const memo = getTransferMemo();
     return `https://img.vietqr.io/image/${bankName}-${accountNo}-compact2.png?amount=${depositAmount}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(accountName)}`;
   };
@@ -119,7 +119,7 @@ export const PublicRoomDetailPage = () => {
         tenantName: tenantName.trim(),
         tenantPhone: tenantPhone.trim(),
         depositAmount: Number(depositAmount),
-        expectedMoveInDate: expectedMoveInDate ? new Date(expectedMoveInDate).toISOString() : null,
+        expectedMoveInDate: new Date().toISOString(),
         note: note.trim(),
         transactionCode: isSimulation 
           ? `TEST-SIM-${Date.now().toString().slice(-6)}` 
@@ -845,24 +845,19 @@ export const PublicRoomDetailPage = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: '#334155', marginBottom: 6 }}>
-                      Ngày dự kiến vào ở
-                    </label>
-                    <input
-                      type="date"
-                      value={expectedMoveInDate}
-                      onChange={(e) => setExpectedMoveInDate(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: '1.5px solid #cbd5e1',
-                        fontSize: '14px',
-                        outline: 'none',
-                        boxSizing: 'border-box',
-                      }}
-                    />
+                  {/* Thời gian cọc: Hệ thống tự động ghi nhận theo thời điểm hiện tại */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '11px 14px',
+                    borderRadius: '10px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '13px'
+                  }}>
+                    <span style={{ color: '#64748b', fontWeight: 600 }}>Thời gian cọc giữ phòng:</span>
+                    <strong style={{ color: '#0f172a' }}>Hôm nay ({new Date().toLocaleDateString('vi-VN')})</strong>
                   </div>
 
                   <div>

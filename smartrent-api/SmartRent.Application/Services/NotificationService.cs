@@ -100,9 +100,7 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
         var sender = await db.Users.FindAsync(senderId);
         var dto = new NotificationDto(n.Id, sender?.FullName ?? "Hệ thống", n.Title, n.Content, n.Target.ToString(), n.TargetId, false, DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc));
 
-        // Phát thông báo Realtime
-        await notifier.SendNotificationAsync(dto);
-        // Phát thông báo Realtime chuẩn xác đối tượng
+        // Phát thông báo Realtime chuẩn xác đối tượng (chỉ gọi 1 lần duy nhất)
         await DispatchRealtimeNotificationAsync(dto, target, req.TargetId, senderId);
 
         // Gửi thông báo tới Telegram của SuperAdmin nếu đối tượng nhận là SuperAdmin
@@ -134,13 +132,10 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
         if (sender != null) senderName = sender.FullName;
 
         var dto = new NotificationDto(n.Id, senderName, n.Title, n.Content, n.Target.ToString(), n.TargetId, false, DateTime.SpecifyKind(n.CreatedAt, DateTimeKind.Utc));
-        await notifier.SendNotificationAsync(dto);
         
-        // Phát thông báo Realtime chuẩn xác đối tượng
+        // Phát thông báo Realtime chuẩn xác đối tượng (chỉ gọi 1 lần duy nhất)
         await DispatchRealtimeNotificationAsync(dto, target, targetId, senderId);
 
-        // Gửi thông báo tới Telegram của SuperAdmin nếu đối tượng nhận là SuperAdmin
-        if (target == NotificationTarget.SuperAdmin)
         // Gửi thông báo tới Telegram của SuperAdmin nếu đối tượng nhận là SuperAdmin và notifyTelegram = true
         if (target == NotificationTarget.SuperAdmin && notifyTelegram)
         {
@@ -160,6 +155,7 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
                 var userIds = await db.TenantProfiles
                     .Where(tp => tp.RoomId == targetId.Value)
                     .Select(tp => tp.UserId)
+                    .Distinct()
                     .ToListAsync();
                 foreach (var uid in userIds)
                 {
@@ -171,6 +167,7 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
                 var userIds = await db.TenantProfiles
                     .Where(tp => tp.Room != null && tp.Room.ZoneId == targetId.Value)
                     .Select(tp => tp.UserId)
+                    .Distinct()
                     .ToListAsync();
                 foreach (var uid in userIds)
                 {
@@ -185,6 +182,7 @@ public class NotificationService(AppDbContext db, IRealtimeNotifier notifier, IT
                     var userIds = await db.TenantProfiles
                         .Where(tp => tp.Room != null && tp.Room.Zone.LandlordId == senderId)
                         .Select(tp => tp.UserId)
+                        .Distinct()
                         .ToListAsync();
                     foreach (var uid in userIds)
                     {

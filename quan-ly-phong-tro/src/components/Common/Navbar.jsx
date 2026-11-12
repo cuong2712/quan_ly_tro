@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, CheckCheck, X, Wrench, FileText, Smartphone } from 'lucide-react';
+import { Shield, Home, User, Bell, Sun, Moon, LogOut, ChevronDown, CheckCheck, X, Wrench, FileText } from 'lucide-react';
 import { useNotification } from '../../contexts/NotificationContext';
 import { formatDateTime, formatRelativeTime, getImageUrl } from '../../utils/formatters';
 
@@ -94,30 +94,6 @@ export const Navbar = ({
 
       {/* RIGHT: Actions — luôn luôn nằm bên phải */}
       <div className="top-navbar-actions">
-
-        {/* Mobile App button */}
-        <a
-          href="/mobile"
-          className="btn btn-sm btn-secondary"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            textDecoration: 'none',
-            fontSize: '12px',
-            padding: '5px 12px',
-            borderRadius: '8px',
-            fontWeight: 700,
-            background: 'rgba(16,185,129,0.15)',
-            color: '#10b981',
-            border: '1px solid rgba(16,185,129,0.3)'
-          }}
-          title="Mở giao diện ứng dụng điện thoại di động (Mobile App)"
-        >
-          <Smartphone size={15} />
-          <span>📱 Giao diện Mobile</span>
-        </a>
-
         {/* 1. Toggle Light/Dark */}
         <button
           className="icon-btn"

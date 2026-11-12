@@ -14,7 +14,6 @@ public class NotificationHub : Hub
             ?? Context.User?.FindFirst("role")?.Value;
         if (!string.IsNullOrEmpty(role))
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, role);
             await Groups.AddToGroupAsync(Context.ConnectionId, role.ToLower());
         }
 
@@ -25,8 +24,6 @@ public class NotificationHub : Hub
 
         if (!string.IsNullOrEmpty(userId))
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, userId);
-            await Groups.AddToGroupAsync(Context.ConnectionId, userId.ToLower());
             await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId.ToLower()}");
         }
 
@@ -40,7 +37,6 @@ public class NotificationHub : Hub
             ?? Context.User?.FindFirst("role")?.Value;
         if (!string.IsNullOrEmpty(role))
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, role);
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, role.ToLower());
         }
 
@@ -51,8 +47,6 @@ public class NotificationHub : Hub
 
         if (!string.IsNullOrEmpty(userId))
         {
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId);
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, userId.ToLower());
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{userId.ToLower()}");
         }
 

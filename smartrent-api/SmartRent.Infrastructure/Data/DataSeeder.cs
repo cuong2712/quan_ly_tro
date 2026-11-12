@@ -35,6 +35,28 @@ public static class DataSeeder
         }
         catch (Exception ex) { Console.WriteLine("Add Contracts cols error: " + ex.Message); }
 
+        // Migration: Cập nhật thời hạn hợp đồng demo luôn có hiệu lực Active
+        try 
+        { 
+            await context.Database.ExecuteSqlRawAsync(@"
+                UPDATE ""Contracts"" 
+                SET ""Status"" = 1, ""EndDate"" = '2027-12-31 00:00:00+00'
+                WHERE ""Id"" IN ('40000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000003');
+            "); 
+        }
+        catch (Exception ex) { Console.WriteLine("Update Contracts dates error: " + ex.Message); }
+
+        // Migration: Cập nhật tài khoản nhận tiền mặc định cho tài khoản demo (chỉ khi chưa có)
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                UPDATE ""Users""
+                SET ""BankName"" = 'BIDV', ""BankAccountNumber"" = '0397181879', ""BankAccountName"" = 'NGUYEN VAN HAI'
+                WHERE ""Email"" = 'landlord@smartrent.vn' AND (""BankAccountNumber"" IS NULL OR ""BankAccountNumber"" = '');
+            ");
+        }
+        catch (Exception ex) { Console.WriteLine("Update Landlord BIDV bank error: " + ex.Message); }
+
         // Migration: Hệ thống Hợp đồng Ở Ghép (Co-Tenant Contract System)
         try 
         { 

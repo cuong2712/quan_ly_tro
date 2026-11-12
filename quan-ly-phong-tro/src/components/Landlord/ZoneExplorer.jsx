@@ -2485,15 +2485,78 @@ const RoomDetail = ({ room, zone, onBack }) => {
                 </div>
               </div>
 
-              <div style={{ marginTop: 24 }}>
-                <span className="data-label" style={{ display: 'block', marginBottom: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Hình ảnh thực tế căn hộ (4 ảnh):</span>
-                <div className="gallery-preview" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                  <img src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80" alt="Phòng ngủ" className="gallery-thumb" style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: '1px solid var(--border-color)' }} />
-                  <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=400&q=80" alt="Phòng khách" className="gallery-thumb" style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: '1px solid var(--border-color)' }} />
-                  <img src="https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=400&q=80" alt="Bếp" className="gallery-thumb" style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: '1px solid var(--border-color)' }} />
-                  <img src="https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=400&q=80" alt="Nhà vệ sinh" className="gallery-thumb" style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: '1px solid var(--border-color)' }} />
-                </div>
-              </div>
+              {(() => {
+                const rawImages = roomDetail?.images || room?.images;
+                let parsed = [];
+                if (Array.isArray(rawImages)) {
+                  parsed = rawImages;
+                } else if (typeof rawImages === 'string' && rawImages.trim()) {
+                  try {
+                    const p = JSON.parse(rawImages);
+                    parsed = Array.isArray(p) ? p : [rawImages];
+                  } catch {
+                    parsed = rawImages.split(',').map(s => s.trim()).filter(Boolean);
+                  }
+                }
+
+                if (parsed.length === 0) {
+                  return (
+                    <div style={{ marginTop: 24 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <span className="data-label" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>Bộ ảnh chụp thực tế phòng:</span>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setIsStudioOpen(true)}
+                          style={{ fontSize: 12, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        >
+                          <Camera size={13} /> Thêm ảnh phòng
+                        </button>
+                      </div>
+                      <div style={{ padding: '16px', borderRadius: 10, border: '1px dashed var(--border-color)', background: 'rgba(0,0,0,0.1)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                        Chưa có ảnh chụp thực tế nào. Bấm <strong>"Thêm ảnh phòng"</strong> hoặc <strong>"Studio Ảnh 360°"</strong> để tải bộ ảnh lên.
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ marginTop: 24 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <span className="data-label" style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        Bộ ảnh chụp thực tế phòng ({parsed.length} ảnh):
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setIsStudioOpen(true)}
+                        style={{ fontSize: 12, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      >
+                        <Camera size={13} /> Quản lý bộ ảnh
+                      </button>
+                    </div>
+                    <div className="gallery-preview" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
+                      {parsed.map((imgUrl, i) => (
+                        <div key={i} style={{ position: 'relative' }}>
+                          <img
+                            src={getImageUrl(imgUrl)}
+                            alt={`Ảnh phòng ${i + 1}`}
+                            className="gallery-thumb"
+                            style={{ height: 90, borderRadius: 10, objectFit: 'cover', width: '100%', border: i === 0 ? '2px solid #6366f1' : '1px solid var(--border-color)', cursor: 'pointer' }}
+                            onClick={() => setIsStudioOpen(true)}
+                            title="Bấm để mở Studio quản lý ảnh"
+                          />
+                          {i === 0 && (
+                            <span style={{ position: 'absolute', bottom: 4, left: 4, background: '#6366f1', color: '#fff', fontSize: 10, padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                              Ảnh bìa
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Panel: Danh Mục Nội Thất & Thiết Bị Bàn Giao */}

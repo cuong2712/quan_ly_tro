@@ -90,4 +90,61 @@ public class FilesController(FileService fileService) : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    // Upload 1 ảnh chụp thực tế phòng trọ
+    [HttpPost("upload-room-image")]
+    public async Task<IActionResult> UploadRoomImage([FromForm] FileUploadDto? dto)
+    {
+        try
+        {
+            var file = dto?.File ?? Request.Form.Files.FirstOrDefault();
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "Vui lòng chọn file hình ảnh hợp lệ" });
+
+            var url = await fileService.UploadRoomImageAsync(file);
+            return Ok(new { url, message = "Upload ảnh phòng thành công" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Upload nhiều ảnh chụp thực tế phòng trọ cùng lúc (Bộ ảnh chụp thực tế)
+    [HttpPost("upload-room-images")]
+    public async Task<IActionResult> UploadRoomImages()
+    {
+        try
+        {
+            var files = Request.Form.Files.ToList();
+            if (files.Count == 0)
+                return BadRequest(new { message = "Vui lòng chọn ít nhất một hình ảnh" });
+
+            var urls = await fileService.UploadRoomImagesAsync(files);
+            return Ok(new { urls, message = "Upload bộ ảnh phòng thành công" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Upload ảnh không gian 360 độ Panorama (Tour Virtual)
+    [HttpPost("upload-panorama")]
+    public async Task<IActionResult> UploadPanorama([FromForm] FileUploadDto? dto)
+    {
+        try
+        {
+            var file = dto?.File ?? Request.Form.Files.FirstOrDefault();
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "Vui lòng chọn file hình ảnh 360° hợp lệ" });
+
+            var url = await fileService.UploadPanoramaAsync(file);
+            return Ok(new { url, message = "Upload ảnh 360° toàn cảnh thành công" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

@@ -3,10 +3,10 @@ import {
   Receipt, Plus, Search, Edit, Trash2, Printer, 
   CheckCircle, AlertTriangle, 
   MessageSquare, Check, X, Eye, 
-  FileSpreadsheet, Download
+  FileSpreadsheet, Download, Zap
 } from 'lucide-react';
 import { formatVND, formatDate, exportToPDF, exportToExcel, formatNumberWithDots, parseNumberFromDots } from '../../utils/formatters';
-import { invoiceService, utilityService } from '../../services';
+import { invoiceService, utilityService, paymentService } from '../../services';
 import { BulkUtilityModal } from './BulkUtilityModal';
 import { Pagination } from '../Common/Pagination';
 const API_BASE_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5000';
@@ -861,6 +861,38 @@ export const InvoiceMgmt = ({ invoices = [], setInvoices, rooms = [], zones = []
                         ) : (
                           <button className="btn btn-sm btn-secondary" style={{ padding: '4px 8px', height: '32px', borderRadius: '6px' }} title="Chỉnh Sửa Hóa Đơn" onClick={() => handleOpenEdit(inv)}>
                             <Edit size={15} color="#f59e0b" />
+                          </button>
+                        )}
+                        {(inv.status || '').toLowerCase() !== 'paid' && (
+                          <button
+                            className="btn btn-sm"
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              border: '1px solid #10b981',
+                              color: '#10b981',
+                              padding: '4px 8px',
+                              height: '32px',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer'
+                            }}
+                            title="Test Tự Động Gạch Nợ Hóa Đơn Này"
+                            onClick={async () => {
+                              if (!window.confirm(`Giả lập chuyển khoản và tự động gạch nợ cho hóa đơn ${inv.invoiceCode || inv.id}?`)) return;
+                              try {
+                                const res = await paymentService.simulateAutoPaid(inv.id);
+                                alert(res?.data?.message || res?.message || '✅ Đã tự động gạch nợ thành công!');
+                                onRefresh?.();
+                              } catch (err) {
+                                alert('Lỗi gạch nợ: ' + (err.response?.data?.message || err.message));
+                              }
+                            }}
+                          >
+                            <Zap size={14} /> Gạch nợ
                           </button>
                         )}
                         <button 

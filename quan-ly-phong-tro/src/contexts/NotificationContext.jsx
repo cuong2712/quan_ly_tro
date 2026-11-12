@@ -14,6 +14,7 @@ export function NotificationProvider({ children }) {
   const [isConnected, setIsConnected] = useState(false);
   const connectionRef = useRef(null);
   const alertTimerRef = useRef(null);
+  const recentToastIdsRef = useRef(new Map()); // Map<notificationId, timestamp> chống trùng lặp tuyệt đối
 
   // Tính số thông báo chưa đọc
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -65,21 +66,37 @@ export function NotificationProvider({ children }) {
     }, 4000);
   }, []);
 
-  // Hàm thêm một toast mới kèm tự động đóng sau 6s
+  // Hàm thêm một toast mới kèm tự động đóng sau 5s (chống trùng lặp tuyệt đối theo cả ID, Title và Content)
   const addToast = useCallback((notification) => {
-    const toastId = 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-    const toastItem = { ...notification, toastId };
+    if (!notification) return;
+    const notifId = String(notification.id || notification.Id || `${notification.title}_${notification.content}`);
 
-    setToasts(prev => [toastItem, ...prev.slice(0, 4)]); // Tối đa 5 toast cùng lúc
-    triggerRecentAlert(notification);
+    setToasts(prev => {
+      // 1. Chống trùng lặp: Nếu toast với ID hoặc Title+Content này đã đang hiển thị -> không hiển thị lại
+      if (prev.some(t => 
+        (t.id && String(t.id) === notifId) || 
+        (t.Id && String(t.Id) === notifId) ||
+        (t.title === notification.title && t.content === notification.content)
+      )) {
+        return prev;
+      }
 
-    // Phát âm thanh báo hiệu
-    playNotificationSound();
+      const toastId = 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const toastItem = { ...notification, toastId, id: notifId };
 
-    // Tự động đóng sau 6 giây
-    setTimeout(() => {
-      dismissToast(toastId);
-    }, 6000);
+      triggerRecentAlert(notification);
+
+      // Phát âm thanh báo hiệu
+      playNotificationSound();
+
+      // Tự động đóng sau 5 giây
+      setTimeout(() => {
+        dismissToast(toastId);
+      }, 5000);
+
+      // Giới hạn tối đa 3 toast hiển thị cùng lúc để không che kín màn hình
+      return [toastItem, ...prev.slice(0, 2)];
+    });
   }, [dismissToast, triggerRecentAlert]);
 
   // Ref để lưu addToast mới nhất tránh re-run useEffect khi addToast thay đổi reference
@@ -90,8 +107,12 @@ export function NotificationProvider({ children }) {
 
   // Khởi tạo kết nối SignalR Realtime Hub
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    const currentUserId = user?.id;
+    if (!isAuthenticated || !currentUserId) {
       if (connectionRef.current) {
+        try {
+          connectionRef.current.off('ReceiveNotification');
+        } catch {}
         connectionRef.current.stop().catch(() => {});
         connectionRef.current = null;
         setIsConnected(false);
@@ -117,9 +138,33 @@ export function NotificationProvider({ children }) {
 
     // Lắng nghe sự kiện ReceiveNotification từ server
     connection.on('ReceiveNotification', (newNotif) => {
+      if (!newNotif) return;
+
+      const notifId = String(newNotif.id || newNotif.Id || `${newNotif.title}_${newNotif.content}`);
+      const dedupeKey = `${notifId}_${newNotif.title}`;
+      const now = Date.now();
+
+      // Chống trùng lặp tuyệt đối: Nếu thông báo này đã được xử lý trong vòng 15 giây, bỏ qua
+      const lastSeen = recentToastIdsRef.current.get(dedupeKey);
+      if (lastSeen && (now - lastSeen < 15000)) {
+        return;
+      }
+      recentToastIdsRef.current.set(dedupeKey, now);
+
+      // Dọn dẹp cache cũ hơn 60s
+      for (const [key, time] of recentToastIdsRef.current.entries()) {
+        if (now - time > 60000) {
+          recentToastIdsRef.current.delete(key);
+        }
+      }
+
       // 1. Cập nhật danh sách thông báo trong state
       setNotifications(prev => {
-        const exists = prev.some(n => n.id === newNotif.id);
+        const exists = prev.some(n => 
+          (n.id && String(n.id) === notifId) || 
+          (n.Id && String(n.Id) === notifId) ||
+          (n.title === newNotif.title && n.content === newNotif.content)
+        );
         if (exists) return prev;
         return [newNotif, ...prev];
       });
@@ -129,7 +174,7 @@ export function NotificationProvider({ children }) {
 
       // 3. Phát CustomEvent toàn cục để các trang tự động reload dữ liệu realtime không cần F5
       window.dispatchEvent(new CustomEvent('smartrent:realtime-update', {
-        detail: { notification: newNotif, timestamp: Date.now() }
+        detail: { notification: newNotif, timestamp: now }
       }));
     });
 
@@ -140,6 +185,9 @@ export function NotificationProvider({ children }) {
           setIsConnected(true);
           connectionRef.current = connection;
         } else {
+          try {
+            connection.off('ReceiveNotification');
+          } catch {}
           connection.stop().catch(() => {});
         }
       })
@@ -156,10 +204,13 @@ export function NotificationProvider({ children }) {
 
     return () => {
       isCancelled = true;
+      try {
+        connection.off('ReceiveNotification');
+      } catch {}
       connection.stop().catch(() => {});
       connectionRef.current = null;
     };
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user?.id]);
 
   // Đánh dấu đã đọc một thông báo
   const markAsRead = async (id) => {
