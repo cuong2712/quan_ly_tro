@@ -29,9 +29,13 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 
 // ===== Database =====
-var rawConnection = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? Environment.GetEnvironmentVariable("DATABASE_URL")
-    ?? "";
+var envDbUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+var envConn = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+var rawConnection = !string.IsNullOrWhiteSpace(envDbUrl)
+    ? envDbUrl
+    : (!string.IsNullOrWhiteSpace(envConn)
+        ? envConn
+        : builder.Configuration.GetConnectionString("DefaultConnection") ?? "");
 
 var connectionString = ConvertPostgresUrlToConnectionString(rawConnection);
 
