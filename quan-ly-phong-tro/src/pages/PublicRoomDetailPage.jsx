@@ -72,6 +72,27 @@ export const PublicRoomDetailPage = () => {
     }
   };
 
+  // Tự động kiểm tra trạng thái cọc của phòng khi đang ở màn hình quét mã QR
+  useEffect(() => {
+    if (!isDepositModalOpen || depositStep !== 2 || !id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/PublicRooms/${id}`);
+        const rData = res.data?.data || res.data;
+        if (rData && (rData.status === 'Deposit' || rData.status === 'Occupied')) {
+          setRoom(rData);
+          setDepositResult(rData);
+          setDepositStep(3); // Tự động nhảy sang màn hình Đặt cọc thành công!
+        }
+      } catch (err) {
+        // bỏ qua lỗi tạm thời khi polling
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isDepositModalOpen, depositStep, id]);
+
   const formatPrice = (val) => {
     return new Intl.NumberFormat('vi-VN').format(val || 0) + ' đ';
   };
@@ -995,7 +1016,7 @@ export const PublicRoomDetailPage = () => {
                   </div>
                 </div>
 
-                {/* Trạng thái chờ quét & Nút giả lập test */}
+                {/* Trạng thái chờ quét & Nút xác nhận thanh toán */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div
                     style={{
@@ -1012,31 +1033,55 @@ export const PublicRoomDetailPage = () => {
                     }}
                   >
                     <RefreshCw size={15} style={{ animation: 'spin 3s linear infinite' }} />
-                    <span>Hệ thống đang sẵn sàng ghi nhận thanh toán...</span>
+                    <span>Sau khi chuyển tiền xong, bấm xác nhận bên dưới:</span>
                   </div>
 
-                  {/* NÚT TEST GIẢ LẬP NHẬN TIỀN NGAY LẬP TỨC */}
+                  {/* NÚT XÁC NHẬN ĐÃ CHUYỂN TIỀN CỌC XONG */}
                   <button
-                    onClick={() => handleConfirmPayment(true)}
+                    onClick={() => handleConfirmPayment(false)}
                     disabled={submitting}
                     style={{
                       width: '100%',
-                      backgroundColor: '#10b981',
+                      backgroundColor: '#16a34a',
                       color: '#fff',
                       border: 'none',
                       padding: '13px',
                       borderRadius: '12px',
-                      fontSize: '14.5px',
-                      fontWeight: 750,
+                      fontSize: '15px',
+                      fontWeight: 800,
                       cursor: submitting ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: 8,
-                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                      boxShadow: '0 4px 14px rgba(22, 163, 74, 0.35)',
                     }}
                   >
-                    <span>⚡ [Test] Giả Lập Đã Nhận Tiền Từ Ngân Hàng</span>
+                    <Check size={18} />
+                    <span>{submitting ? 'Đang xác nhận...' : '✅ Tôi Đã Chuyển Tiền Cọc Xong (Xác Nhận)'}</span>
+                  </button>
+
+                  {/* Nút giả lập test nhanh nếu không muốn chuyển thật */}
+                  <button
+                    onClick={() => handleConfirmPayment(true)}
+                    disabled={submitting}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#f1f5f9',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      padding: '9px',
+                      borderRadius: '10px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: submitting ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>⚡ Giả lập nhanh (Mô phỏng nhận tiền từ ngân hàng để test)</span>
                   </button>
 
                   <button

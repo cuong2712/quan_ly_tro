@@ -329,7 +329,8 @@ export const TenantContract = ({ activeTenant, contracts = [], _rooms = [], setC
       )}
 
       {myContract ? (
-        <div className="card-table-container" style={{ padding: '28px' }} id="tenant-contract-pdf">
+        <div className="card-table-container" style={{ padding: '28px' }}>
+          {/* Thanh tiêu đề & nút thao tác trên web (không xuất vào PDF) */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '20px', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -388,45 +389,69 @@ export const TenantContract = ({ activeTenant, contracts = [], _rooms = [], setC
             </button>
           </div>
 
-          {myContract.customContent ? (
-            <div style={{ background: '#ffffff', color: '#0f172a', padding: '32px 40px', borderRadius: '12px', whiteSpace: 'pre-wrap', lineHeight: '1.9', fontSize: '14.5px', fontFamily: 'Times New Roman, serif', border: '1px solid #cbd5e1' }}>
-              {myContract.customContent}
-            </div>
-          ) : (
-            <div style={{ lineHeight: '1.8', fontSize: '14px' }}>
-              <div className="form-row" style={{ marginBottom: '16px' }}>
-                <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <strong>Bên Cho Thuê (Chủ nhà):</strong> {myContract.landlordName || 'Chủ trọ'}<br />
-                  <strong>SĐT:</strong> {myContract.landlordPhone || 'Chưa cập nhật'}<br />
-                  {myContract.zoneName && <small style={{ color: 'var(--text-muted)' }}>Khu: {myContract.zoneName} {myContract.zoneAddress ? `(${myContract.zoneAddress})` : ''}</small>}
+          {/* Vùng văn bản in PDF: Chỉ bắt đầu từ Quốc hiệu 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM' trở xuống */}
+          <div id="tenant-contract-pdf" style={{ background: '#ffffff', color: '#0f172a', padding: '36px 44px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+            {myContract.customContent ? (
+              <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.9', fontSize: '14.5px', fontFamily: 'Times New Roman, serif' }}>
+                {myContract.customContent}
+              </div>
+            ) : (
+              <div style={{ lineHeight: '1.8', fontSize: '14px', fontFamily: 'Times New Roman, serif' }}>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ fontSize: '19px', textTransform: 'uppercase', color: '#0f172a', fontWeight: '800', margin: 0 }}>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
+                  <p style={{ fontWeight: 'bold', color: '#0f172a', marginTop: '4px', marginBottom: 0 }}>Độc lập - Tự do - Hạnh phúc</p>
+                  <p style={{ color: '#0f172a', margin: '4px 0' }}>--------------------------</p>
+                  <h3 style={{ marginTop: '16px', marginBottom: '4px', fontSize: '18px', color: '#0f172a', fontWeight: '700' }}>HỢP ĐỒNG THUÊ PHÒNG TRỌ / NHÀ Ở</h3>
+                  <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>Mã hợp đồng: {myContract.contractCode}</p>
+                  <p style={{ fontSize: '13px', color: '#475569', margin: '2px 0 0' }}>Ngày lập: {formatDate(myContract.startDate || myContract.createdAt)}</p>
                 </div>
-                <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <strong>{isCoTenant ? 'Bên Ở Ghép (Khách):' : 'Bên Thuê (Khách):'}</strong> {myContract.tenantName || activeTenant?.fullName || activeTenant?.name || 'Khách thuê'}<br />
-                  <strong>SĐT:</strong> {myContract.tenantPhone || activeTenant?.phone || 'Chưa cập nhật'}<br />
-                  <strong>CCCD:</strong> {myContract.tenantCccd || activeTenant?.cccd || 'Đã cập nhật'}
+
+                <div style={{ marginBottom: '16px' }}>
+                  <p style={{ margin: '6px 0' }}><strong>BÊN CHO THUÊ (BÊN A):</strong></p>
+                  <p style={{ margin: '4px 0', paddingLeft: 12 }}>- Họ và tên: {myContract.landlordName || 'Chủ trọ'}</p>
+                  <p style={{ margin: '4px 0', paddingLeft: 12 }}>- Số điện thoại: {myContract.landlordPhone || 'Chưa cập nhật'}</p>
+                  {myContract.zoneName && <p style={{ margin: '4px 0', paddingLeft: 12 }}>- Khu trọ: {myContract.zoneName} {myContract.zoneAddress ? `(${myContract.zoneAddress})` : ''}</p>}
+
+                  <p style={{ margin: '12px 0 6px' }}><strong>{isCoTenant ? 'BÊN Ở GHÉP (BÊN B):' : 'BÊN THUÊ (BÊN B):'}</strong></p>
+                  <p style={{ margin: '4px 0', paddingLeft: 12 }}>- Họ và tên: {myContract.tenantName || activeTenant?.fullName || activeTenant?.name || 'Khách thuê'}</p>
+                  <p style={{ margin: '4px 0', paddingLeft: 12 }}>- Số điện thoại: {myContract.tenantPhone || activeTenant?.phone || 'Chưa cập nhật'}</p>
+                  <p style={{ margin: '4px 0', paddingLeft: 12 }}>- Số CCCD/CMND: {myContract.tenantCccd || activeTenant?.cccd || 'Đã cập nhật'}</p>
+                </div>
+
+                <p style={{ margin: '6px 0' }}><strong>Phòng Thuê:</strong> Phòng {roomNum} {myContract.zoneName ? `(${myContract.zoneName})` : ''}</p>
+                <p style={{ margin: '6px 0' }}><strong>Thời Hạn Hợp Đồng:</strong> Từ <strong>{formatDate(myContract.startDate)}</strong> đến <strong>{formatDate(myContract.endDate)}</strong></p>
+                <p style={{ margin: '6px 0' }}><strong>Giá Thuê Cả Phòng:</strong> <strong>{formatVND(myContract.rentAmount)} / tháng</strong></p>
+                {isCoTenant ? (
+                  <>
+                    <p style={{ margin: '6px 0' }}><strong>Tiền Cọc Riêng Của Bạn:</strong> <strong>{formatVND(myContract.individualDeposit || myContract.deposit || 0)}</strong></p>
+                    {myContract.sharedRentAmount > 0 && (
+                      <p style={{ margin: '6px 0' }}><strong>Đóng Góp Tiền Phòng Thỏa Thuận:</strong> <strong>{formatVND(myContract.sharedRentAmount)} / tháng</strong></p>
+                    )}
+                  </>
+                ) : (
+                  <p style={{ margin: '6px 0' }}><strong>Tiền Đặt Cọc:</strong> {formatVND(myContract.deposit)}</p>
+                )}
+
+                <h4 style={{ marginTop: '20px', marginBottom: '8px', fontSize: '15px' }}>Nội Dung Điều Khoản & Quy Định Phòng Trọ:</h4>
+                <div style={{ padding: '14px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', whiteSpace: 'pre-wrap' }}>
+                  {myContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', padding: '0 20px', textAlign: 'center' }}>
+                  <div>
+                    <strong>ĐẠI DIỆN BÊN A</strong><br />
+                    <small>(Ký và ghi rõ họ tên)</small><br /><br /><br />
+                    <span>{myContract.landlordName || 'Chủ trọ'}</span>
+                  </div>
+                  <div>
+                    <strong>ĐẠI DIỆN BÊN B</strong><br />
+                    <small>(Ký và ghi rõ họ tên)</small><br /><br /><br />
+                    <span>{myContract.tenantName || activeTenant?.fullName || 'Khách thuê'}</span>
+                  </div>
                 </div>
               </div>
-
-              <p><strong>Phòng Thuê:</strong> Phòng {roomNum} {myContract.zoneName ? `(${myContract.zoneName})` : ''}</p>
-              <p><strong>Thời Hạn Hợp Đồng:</strong> Từ <strong>{formatDate(myContract.startDate)}</strong> đến <strong>{formatDate(myContract.endDate)}</strong></p>
-              <p><strong>Giá Thuê Cả Phòng:</strong> <strong style={{ color: '#10b981' }}>{formatVND(myContract.rentAmount)} / tháng</strong></p>
-              {isCoTenant ? (
-                <>
-                  <p><strong>Tiền Cọc Riêng Của Bạn:</strong> <strong style={{ color: '#6366f1' }}>{formatVND(myContract.individualDeposit || myContract.deposit || 0)}</strong></p>
-                  {myContract.sharedRentAmount > 0 && (
-                    <p><strong>Đóng Góp Tiền Phòng Thỏa Thuận:</strong> <strong style={{ color: '#f59e0b' }}>{formatVND(myContract.sharedRentAmount)} / tháng</strong></p>
-                  )}
-                </>
-              ) : (
-                <p><strong>Tiền Đặt Cọc:</strong> {formatVND(myContract.deposit)}</p>
-              )}
-
-              <h4 style={{ marginTop: '20px', fontSize: '15px', color: 'var(--primary)' }}>Nội Dung Điều Khoản & Quy Định Phòng Trọ:</h4>
-              <div className="sub-box" style={{ background: 'var(--bg-dark)', padding: '16px', borderRadius: '8px', marginTop: '8px', border: '1px solid var(--border-color)' }}>
-                {myContract.terms || 'Các bên tuân thủ quy định chung của nhà trọ.'}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       ) : (
         <div className="card-table-container" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
