@@ -86,7 +86,7 @@ export const getImageUrl = (url, defaultFallback = '') => {
   if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
     return url;
   }
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  const apiBase = (import.meta.env.VITE_API_URL || 'https://smartrent-api-vsuy.onrender.com/api').replace('smartrent-api-dopp', 'smartrent-api-vsuy').replace(/\/api\/?$/, '');
   return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 

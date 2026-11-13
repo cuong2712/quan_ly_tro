@@ -17,7 +17,7 @@ export const getMediaUrl = (url) => {
   }
 
   // Các file lưu trữ trên Backend (ví dụ: /uploads/panoramas/..., /uploads/rooms/..., /uploads/avatars/...)
-  const baseApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  const baseApiUrl = (import.meta.env.VITE_API_URL || 'https://smartrent-api-vsuy.onrender.com/api').replace('smartrent-api-dopp', 'smartrent-api-vsuy').replace(/\/api\/?$/, '');
   const cleanPath = url.startsWith('/') ? url : `/${url}`;
   return `${baseApiUrl}${cleanPath}`;
 };

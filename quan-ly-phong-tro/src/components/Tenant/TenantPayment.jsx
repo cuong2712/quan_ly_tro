@@ -6,7 +6,7 @@ import {
 import { formatVND, formatDate, getVietQRUrl, VIETNAM_BANKS } from '../../utils/formatters';
 import { paymentService, fileService } from '../../services';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://smartrent-api-vsuy.onrender.com/api').replace('smartrent-api-dopp', 'smartrent-api-vsuy').replace(/\/api$/, '');
 
 const getImageFullUrl = (url) => {
   if (!url) return '';

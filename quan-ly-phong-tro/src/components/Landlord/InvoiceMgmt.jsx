@@ -9,7 +9,7 @@ import { formatVND, formatDate, exportToPDF, exportToExcel, formatNumberWithDots
 import { invoiceService, utilityService, paymentService } from '../../services';
 import { BulkUtilityModal } from './BulkUtilityModal';
 import { Pagination } from '../Common/Pagination';
-const API_BASE_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://smartrent-api-vsuy.onrender.com/api').replace('smartrent-api-dopp', 'smartrent-api-vsuy').replace(/\/api$/, '');
 
 const getImageFullUrl = (url) => {
   if (!url) return '';

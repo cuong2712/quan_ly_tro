@@ -124,7 +124,7 @@ export function NotificationProvider({ children }) {
     if (!token) return;
 
     let isCancelled = false;
-    const baseApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+    const baseApiUrl = (import.meta.env.VITE_API_URL || 'https://smartrent-api-vsuy.onrender.com/api').replace('smartrent-api-dopp', 'smartrent-api-vsuy').replace(/\/api\/?$/, '');
     const hubUrl = `${baseApiUrl}/hubs/notifications`;
 
     const connection = new signalR.HubConnectionBuilder()
