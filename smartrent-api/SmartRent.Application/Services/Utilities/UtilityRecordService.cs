@@ -16,8 +16,8 @@ public class UtilityRecordService(AppDbContext db, NotificationService notificat
         var room = await db.Rooms.Include(r => r.Zone).FirstOrDefaultAsync(r => r.Id == req.RoomId && r.Zone.LandlordId == landlordId)
             ?? throw new KeyNotFoundException("Phòng không tồn tại");
         var rate = await db.UtilityRates.FirstOrDefaultAsync(r => r.LandlordId == landlordId);
-        decimal elecPrice = rate?.ElecPrice ?? 3500;
-        decimal waterPrice = rate?.WaterPrice ?? 18000;
+        decimal elecPrice = room.Zone?.ElecPrice is > 0 ? room.Zone.ElecPrice.Value : (rate?.ElecPrice ?? 3500);
+        decimal waterPrice = room.Zone?.WaterPrice is > 0 ? room.Zone.WaterPrice.Value : (rate?.WaterPrice ?? 18000);
 
         var elecUsed = req.NewElec - room.ElecMeter;
         var waterUsed = req.NewWater - room.WaterMeter;
@@ -156,9 +156,9 @@ public class UtilityRecordService(AppDbContext db, NotificationService notificat
             throw new InvalidOperationException("Danh sách phòng chốt điện nước trống.");
         }
 
-        var rate = await db.UtilityRates.AsNoTracking().FirstOrDefaultAsync(r => r.LandlordId == landlordId);
-        decimal elecPrice = rate?.ElecPrice ?? 3500;
-        decimal waterPrice = rate?.WaterPrice ?? 18000;
+        var defaultRate = await db.UtilityRates.AsNoTracking().FirstOrDefaultAsync(r => r.LandlordId == landlordId);
+        decimal defaultElecPrice = defaultRate?.ElecPrice ?? 3500;
+        decimal defaultWaterPrice = defaultRate?.WaterPrice ?? 18000;
 
         var landlordRooms = await db.Rooms
             .Include(r => r.Zone)
@@ -241,7 +241,9 @@ public class UtilityRecordService(AppDbContext db, NotificationService notificat
                     continue;
                 }
 
-                // 3. Tính toán lượng tiêu thụ & chi phí
+                // 3. Tính toán lượng tiêu thụ & chi phí (ưu tiên giá riêng của khu, fallback về giá chung của chủ trọ)
+                decimal elecPrice = room.Zone?.ElecPrice is > 0 ? room.Zone.ElecPrice.Value : defaultElecPrice;
+                decimal waterPrice = room.Zone?.WaterPrice is > 0 ? room.Zone.WaterPrice.Value : defaultWaterPrice;
                 var elecUsed = item.NewElec - room.ElecMeter;
                 var waterUsed = item.NewWater - room.WaterMeter;
                 var elecCost = elecUsed * elecPrice;

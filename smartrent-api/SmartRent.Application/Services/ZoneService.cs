@@ -21,20 +21,29 @@ public class ZoneService(AppDbContext db)
                 .Skip((p - 1) * ps)
                 .Take(ps)
                 .ToListAsync();
-            var dtos = items.Select(z => new ZoneDto(z.Id, z.Name, z.Address, z.Description, z.TotalRooms, z.Rooms.Count, z.CreatedAt));
+            var dtos = items.Select(z => new ZoneDto(z.Id, z.Name, z.Address, z.Description, z.TotalRooms, z.Rooms.Count, z.CreatedAt, z.ElecPrice, z.WaterPrice));
             return PagedResult<ZoneDto>.Create(dtos, totalItems, p, ps);
         }
         var list = await query.OrderByDescending(z => z.CreatedAt).ToListAsync();
-        return list.Select(z => new ZoneDto(z.Id, z.Name, z.Address, z.Description, z.TotalRooms, z.Rooms.Count, z.CreatedAt));
+        return list.Select(z => new ZoneDto(z.Id, z.Name, z.Address, z.Description, z.TotalRooms, z.Rooms.Count, z.CreatedAt, z.ElecPrice, z.WaterPrice));
     }
 
     // Tạo mới một Khu trọ / Tòa nhà.
     public async Task<ZoneDto> CreateAsync(Guid landlordId, CreateZoneRequest req)
     {
-        var zone = new Zone { LandlordId = landlordId, Name = req.Name, Address = req.Address, Description = req.Description, TotalRooms = req.TotalRooms };
+        var zone = new Zone 
+        { 
+            LandlordId = landlordId, 
+            Name = req.Name, 
+            Address = req.Address, 
+            Description = req.Description, 
+            TotalRooms = req.TotalRooms,
+            ElecPrice = req.ElecPrice,
+            WaterPrice = req.WaterPrice
+        };
         db.Zones.Add(zone);
         await db.SaveChangesAsync();
-        return new ZoneDto(zone.Id, zone.Name, zone.Address, zone.Description, zone.TotalRooms, 0, zone.CreatedAt);
+        return new ZoneDto(zone.Id, zone.Name, zone.Address, zone.Description, zone.TotalRooms, 0, zone.CreatedAt, zone.ElecPrice, zone.WaterPrice);
     }
 
     // Cập nhật thông tin Khu trọ / Tòa nhà (kiểm tra quyền sở hữu).
@@ -47,8 +56,10 @@ public class ZoneService(AppDbContext db)
         zone.Address = req.Address; 
         zone.Description = req.Description; 
         zone.TotalRooms = req.TotalRooms;
+        zone.ElecPrice = req.ElecPrice;
+        zone.WaterPrice = req.WaterPrice;
         await db.SaveChangesAsync();
-        return new ZoneDto(zone.Id, zone.Name, zone.Address, zone.Description, zone.TotalRooms, zone.Rooms.Count, zone.CreatedAt);
+        return new ZoneDto(zone.Id, zone.Name, zone.Address, zone.Description, zone.TotalRooms, zone.Rooms.Count, zone.CreatedAt, zone.ElecPrice, zone.WaterPrice);
     }
 
     // Xóa một Khu trọ theo ID (kiểm tra quyền sở hữu).

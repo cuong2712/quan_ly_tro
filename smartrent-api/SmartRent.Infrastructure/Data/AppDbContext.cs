@@ -51,6 +51,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Zone>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.ElecPrice).HasColumnType("decimal(10,2)");
+            e.Property(x => x.WaterPrice).HasColumnType("decimal(10,2)");
             e.HasOne(x => x.Landlord).WithMany(u => u.Zones).HasForeignKey(x => x.LandlordId).OnDelete(DeleteBehavior.Restrict);
         });
 

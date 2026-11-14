@@ -37,6 +37,8 @@ public class Zone
     public string Address { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int TotalRooms { get; set; }
+    public decimal? ElecPrice { get; set; }
+    public decimal? WaterPrice { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

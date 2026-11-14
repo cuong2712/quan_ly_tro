@@ -135,10 +135,14 @@ export const BulkUtilityModal = ({
         message = `Số nước mới (${newWater}) nhỏ hơn số cũ (${oldWater})`;
       }
 
+      const roomZone = matchedRoom ? zones.find(z => (z.id || z.Id) === (matchedRoom.zoneId || matchedRoom.ZoneId)) : null;
+      const roomElecPrice = (roomZone?.elecPrice > 0 ? roomZone.elecPrice : null) ?? elecPrice;
+      const roomWaterPrice = (roomZone?.waterPrice > 0 ? roomZone.waterPrice : null) ?? waterPrice;
+
       const elecUsed = (newElec !== null && newElec >= oldElec) ? (newElec - oldElec) : 0;
       const waterUsed = (newWater !== null && newWater >= oldWater) ? (newWater - oldWater) : 0;
-      const elecCost = elecUsed * elecPrice;
-      const waterCost = waterUsed * waterPrice;
+      const elecCost = elecUsed * roomElecPrice;
+      const waterCost = waterUsed * roomWaterPrice;
       const totalCost = elecCost + waterCost;
 
       return {
@@ -587,7 +591,7 @@ export const BulkUtilityModal = ({
           <div style={{ marginTop: 16, fontSize: 12.5, color: 'var(--text-muted)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
             <Info size={16} style={{ flexShrink: 0, marginTop: 2 }} />
             <div>
-              <strong>Lưu ý:</strong> Đơn giá áp dụng: Điện <strong>{formatVND(elecPrice)}/kWh</strong>, Nước <strong>{formatVND(waterPrice)}/m³</strong>. Khi chốt số, hệ thống sẽ tự động gom các phí dịch vụ phòng (xe, wifi, rác...) và tiền phòng để tạo hoặc cập nhật Hóa đơn tương ứng trong tháng.
+              <strong>Lưu ý:</strong> Đơn giá mặc định: Điện <strong>{formatVND(elecPrice)}/kWh</strong>, Nước <strong>{formatVND(waterPrice)}/m³</strong> (nếu khu trọ có đơn giá riêng, hệ thống sẽ tự động áp dụng đơn giá riêng của từng khu). Khi chốt số, hệ thống sẽ tự động gom các phí dịch vụ phòng (xe, wifi, rác...) và tiền phòng để tạo hoặc cập nhật Hóa đơn tương ứng trong tháng.
             </div>
           </div>
 

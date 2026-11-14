@@ -138,8 +138,8 @@ Hai bên cùng thỏa thuận và thống nhất ký kết Hợp đồng thuê p
             ["{{NGAY_KET_THUC}}"] = contract.EndDate.ToString("dd/MM/yyyy", VnCulture),
             ["{{THOI_HAN_THUE}}"] = $"{months} tháng",
             ["{{NGAY_DONG_TIEN}}"] = $"Ngày {contract.PaymentTermDay:D2} hàng tháng",
-            ["{{GIA_DIEN}}"] = rate != null ? $"{FormatVnd(rate.ElecPrice)}/kWh" : "3.500 đ/kWh",
-            ["{{GIA_NUOC}}"] = rate != null ? $"{FormatVnd(rate.WaterPrice)}/m³" : "18.000 đ/m³",
+            ["{{GIA_DIEN}}"] = $"{FormatVnd(room?.Zone?.ElecPrice is > 0 ? room.Zone.ElecPrice.Value : (rate?.ElecPrice ?? 3500))}/kWh",
+            ["{{GIA_NUOC}}"] = $"{FormatVnd(room?.Zone?.WaterPrice is > 0 ? room.Zone.WaterPrice.Value : (rate?.WaterPrice ?? 18000))}/m³",
             ["{{CHI_SO_DIEN_BAN_DAU}}"] = room != null ? $"{room.ElecMeter:N0} kWh" : "0 kWh",
             ["{{CHI_SO_NUOC_BAN_DAU}}"] = room != null ? $"{room.WaterMeter:N0} m³" : "0 m³",
             ["{{DIEU_KHOAN_RIENG}}"] = !string.IsNullOrWhiteSpace(contract.Terms) ? contract.Terms : "Bên B chấp hành đúng nội quy tòa nhà, giữ gìn trật tự và vệ sinh chung."
@@ -263,8 +263,8 @@ Phụ lục này có giá trị pháp lý gắn liền với Hợp đồng thuê
             ["{{NGAY_BAT_DAU}}"] = contract.StartDate.ToString("dd/MM/yyyy", VnCulture),
             ["{{NGAY_KET_THUC}}"] = contract.EndDate.ToString("dd/MM/yyyy", VnCulture),
             ["{{THOI_HAN_THUE}}"] = $"{months} tháng",
-            ["{{GIA_DIEN}}"] = rate != null ? $"{FormatVnd(rate.ElecPrice)}/kWh" : "3.500 đ/kWh",
-            ["{{GIA_NUOC}}"] = rate != null ? $"{FormatVnd(rate.WaterPrice)}/m³" : "18.000 đ/m³",
+            ["{{GIA_DIEN}}"] = $"{FormatVnd(room?.Zone?.ElecPrice is > 0 ? room.Zone.ElecPrice.Value : (rate?.ElecPrice ?? 3500))}/kWh",
+            ["{{GIA_NUOC}}"] = $"{FormatVnd(room?.Zone?.WaterPrice is > 0 ? room.Zone.WaterPrice.Value : (rate?.WaterPrice ?? 18000))}/m³",
             ["{{DIEU_KHOAN_RIENG}}"] = !string.IsNullOrWhiteSpace(contract.Terms) ? contract.Terms : "Thành viên chấp hành nghiêm nội quy phòng trọ, bảo quản tài sản chung và giữ gìn nếp sống văn minh."
         };
 

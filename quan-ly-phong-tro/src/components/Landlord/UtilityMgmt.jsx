@@ -50,13 +50,18 @@ export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], u
   };
 
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+  const selectedRoomZone = selectedRoom ? zones.find(z => (z.id || z.Id) === (selectedRoom.zoneId || selectedRoom.ZoneId)) : null;
+  const effectiveElecPrice = (selectedRoomZone?.elecPrice > 0 ? selectedRoomZone.elecPrice : null) ?? (currentRate.elecPrice || 3500);
+  const effectiveWaterPrice = (selectedRoomZone?.waterPrice > 0 ? selectedRoomZone.waterPrice : null) ?? (currentRate.waterPrice || 18000);
+  const isCustomZoneRate = selectedRoomZone?.elecPrice > 0 || selectedRoomZone?.waterPrice > 0;
+
   const selectedRoomInvoice = selectedRoom ? getInvoiceForRoom(selectedRoom.id, selectedRoom.roomNumber, month) : null;
   const isSelectedRoomBilled = !!selectedRoomInvoice;
 
   const elecUsed = selectedRoom ? Math.max(0, elecNew - selectedRoom.elecMeter) : 0;
   const waterUsed = selectedRoom ? Math.max(0, waterNew - selectedRoom.waterMeter) : 0;
-  const elecCost = elecUsed * currentRate.elecPrice;
-  const waterCost = waterUsed * currentRate.waterPrice;
+  const elecCost = elecUsed * effectiveElecPrice;
+  const waterCost = waterUsed * effectiveWaterPrice;
 
   const handleDeleteLog = async (id) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa bản ghi chỉ số điện nước này? Đồng hồ của phòng sẽ được hoàn tác về số cũ.')) return;
@@ -413,6 +418,30 @@ export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], u
                       <CheckCircle size={14} /> <strong>Phòng {selectedRoom.roomNumber} CHƯA tạo hóa đơn Tháng {month}</strong>. Khi chốt số sẽ tự động xuất hóa đơn mới!
                     </div>
                   )
+                )}
+
+                {/* Đơn giá áp dụng cho phòng */}
+                {selectedRoom && (
+                  <div style={{
+                    fontSize: '12px',
+                    background: isCustomZoneRate ? 'rgba(99, 102, 241, 0.08)' : 'rgba(100, 116, 139, 0.08)',
+                    border: `1px solid ${isCustomZoneRate ? 'rgba(99, 102, 241, 0.3)' : 'rgba(100, 116, 139, 0.2)'}`,
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    marginBottom: '14px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 6
+                  }}>
+                    <span>
+                      Đơn giá: ⚡ <strong>{formatVND(effectiveElecPrice)}/kWh</strong> • 💧 <strong>{formatVND(effectiveWaterPrice)}/m³</strong>
+                    </span>
+                    <span style={{ fontSize: '11px', color: isCustomZoneRate ? '#6366f1' : 'var(--text-muted)', fontWeight: 600 }}>
+                      {isCustomZoneRate ? `✨ Giá riêng: ${selectedRoomZone?.name || 'Khu trọ'}` : '🌐 Đơn giá chung chủ trọ'}
+                    </span>
+                  </div>
                 )}
 
                 {/* 5. Nhập Chỉ Số Điện Nước Mới */}

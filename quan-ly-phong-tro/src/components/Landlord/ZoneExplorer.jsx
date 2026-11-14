@@ -66,8 +66,24 @@ const ZoneList = ({ onSelectZone }) => {
 
   useEffect(() => { load(); }, [load]);
 
-  const openAdd = () => { setEditingZone(null); setForm({ name: '', address: '', description: '', totalRooms: 10 }); setIsModalOpen(true); };
-  const openEdit = (z, e) => { e.stopPropagation(); setEditingZone(z); setForm({ name: z.name, address: z.address, description: z.description || '', totalRooms: z.totalRooms }); setIsModalOpen(true); };
+  const openAdd = () => { 
+    setEditingZone(null); 
+    setForm({ name: '', address: '', description: '', totalRooms: 10, elecPrice: '', waterPrice: '' }); 
+    setIsModalOpen(true); 
+  };
+  const openEdit = (z, e) => { 
+    e.stopPropagation(); 
+    setEditingZone(z); 
+    setForm({ 
+      name: z.name, 
+      address: z.address, 
+      description: z.description || '', 
+      totalRooms: z.totalRooms,
+      elecPrice: z.elecPrice != null ? z.elecPrice : '',
+      waterPrice: z.waterPrice != null ? z.waterPrice : ''
+    }); 
+    setIsModalOpen(true); 
+  };
   const handleDelete = async (z, e) => {
     e.stopPropagation();
     if (!confirm(`Bạn có chắc chắn muốn xóa khu trọ "${z.name}"?`)) return;
@@ -79,7 +95,14 @@ const ZoneList = ({ onSelectZone }) => {
     if (!form.address?.trim()) { alert('Địa chỉ khu trọ không được để trống.'); return; }
     setSaving(true);
     try {
-      const payload = { name: form.name.trim(), address: form.address.trim(), description: form.description?.trim(), totalRooms: Number(form.totalRooms) };
+      const payload = { 
+        name: form.name.trim(), 
+        address: form.address.trim(), 
+        description: form.description?.trim(), 
+        totalRooms: Number(form.totalRooms),
+        elecPrice: form.elecPrice !== '' && form.elecPrice != null ? Number(form.elecPrice) : null,
+        waterPrice: form.waterPrice !== '' && form.waterPrice != null ? Number(form.waterPrice) : null
+      };
       if (editingZone) await zoneService.updateZone(editingZone.id, payload);
       else await zoneService.createZone(payload);
       setIsModalOpen(false); await load();
@@ -217,6 +240,27 @@ const ZoneList = ({ onSelectZone }) => {
                   </p>
                 )}
 
+                {/* Đơn giá điện nước riêng của khu (nếu có) */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {z.elecPrice > 0 || z.waterPrice > 0 ? (
+                    <>
+                      <span style={{ fontSize: '11.5px', background: 'rgba(234, 179, 8, 0.12)', color: '#d97706', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                        ⚡ {formatVND(z.elecPrice || 3500)}/kWh
+                      </span>
+                      <span style={{ fontSize: '11.5px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                        💧 {formatVND(z.waterPrice || 18000)}/m³
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#6366f1', fontStyle: 'italic' }}>
+                        (Giá riêng)
+                      </span>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '11.5px', background: 'rgba(100, 116, 139, 0.1)', color: 'var(--text-muted)', padding: '3px 8px', borderRadius: '6px', fontWeight: 500 }}>
+                      ⚡💧 Điện nước: Đơn giá chung
+                    </span>
+                  )}
+                </div>
+
                 {/* Footer */}
                 <div style={{
                   display: 'flex',
@@ -286,6 +330,54 @@ const ZoneList = ({ onSelectZone }) => {
                 <div className="form-group">
                   <label className="form-label">Tổng số phòng quy mô *</label>
                   <input type="number" className="form-control" required min="1" max="500" value={form.totalRooms} onChange={e => setForm({ ...form, totalRooms: e.target.value })} />
+                </div>
+
+                {/* Đơn giá điện nước riêng của khu */}
+                <div style={{
+                  background: 'rgba(99, 102, 241, 0.05)',
+                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  marginTop: '12px'
+                }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#6366f1', marginBottom: '8px' }}>
+                    ⚡💧 Đơn giá điện nước riêng của khu
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                        Điện (đ/kWh)
+                      </label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        min="0"
+                        step="100"
+                        placeholder="VD: 3800"
+                        value={form.elecPrice}
+                        onChange={e => setForm({ ...form, elecPrice: e.target.value })}
+                        style={{ height: '36px', fontSize: '13px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                        Nước (đ/m³)
+                      </label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        min="0"
+                        step="500"
+                        placeholder="VD: 20000"
+                        value={form.waterPrice}
+                        onChange={e => setForm({ ...form, waterPrice: e.target.value })}
+                        style={{ height: '36px', fontSize: '13px' }}
+                      />
+                    </div>
+                  </div>
+                  <small style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginTop: '6px', fontStyle: 'italic' }}>
+                    * Để trống nếu áp dụng đơn giá điện/nước chung của chủ trọ.
+                  </small>
                 </div>
               </div>
               <div className="modal-footer">
