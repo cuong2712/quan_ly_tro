@@ -5,7 +5,7 @@ import { utilityService } from '../../services';
 import { Pagination } from '../Common/Pagination';
 import { BulkUtilityModal } from './BulkUtilityModal';
 
-export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], utilityLogs = [], setUtilityLogs, utilityRates = [], onRefresh }) => {
+export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], utilityLogs = [], setUtilityLogs, utilityRates = [], setUtilityRates, onRefresh }) => {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -130,7 +130,9 @@ export const UtilityMgmt = ({ rooms = [], setRooms, zones = [], invoices = [], u
         waterPrice: Number(tempRates.waterPrice),
       };
       const updated = await utilityService.updateRate(payload);
-      setUtilityRates([updated]);
+      if (typeof setUtilityRates === 'function') {
+        setUtilityRates([updated]);
+      }
       setIsRateModalOpen(false);
       alert('✅ Đã cập nhật đơn giá điện nước thành công!');
       onRefresh?.();
