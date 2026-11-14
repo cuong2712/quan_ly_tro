@@ -27,6 +27,7 @@ import {
   formatDateTime,
   formatRelativeTime,
   getVietQRUrl,
+  getBankInfo,
   getImageUrl,
   VIETNAM_BANKS
 } from '../utils/formatters';
@@ -1379,7 +1380,7 @@ export default function MobileDemoPage({ initialRole, onSwitchToDesktop }) {
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>Ngân hàng</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <strong>{bank}</strong>
+                                  <strong>{getBankInfo(bank)?.shortName || bank || 'Chưa thiết lập'}</strong>
                                 </div>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -90,20 +90,50 @@ export const getImageUrl = (url, defaultFallback = '') => {
   return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-// Tạo liên kết hình ảnh QR Code chuyển khoản ngân hàng VietQR
-export const getVietQRUrl = ({ bankId = 'BIDV', accountNo = '', accountName = '', amount = 0, addInfo = '' }) => {
+// ─── TÌM KIẾM & CHUẨN HÓA THÔNG TIN NGÂN HÀNG (TRÁNH LỖI NHẬN NHẦM MB SANG VIETCOMBANK) ───
+export const getBankInfo = (bankIdentifier) => {
+  if (!bankIdentifier) return null;
+  const clean = String(bankIdentifier).trim();
+  if (!clean) return null;
+  const upper = clean.toUpperCase();
+  const noSpace = clean.replace(/\s+/g, '').toUpperCase();
+
+  // Ưu tiên 1: Khớp chính xác Mã ngân hàng (Code: MB, VCB, BIDV...)
+  const matchCode = VIETNAM_BANKS.find(b => b.code.toUpperCase() === upper);
+  if (matchCode) return matchCode;
+
+  // Ưu tiên 2: Khớp chính xác Tên viết tắt (ShortName: MBBank, Vietcombank, BIDV...)
+  const matchShort = VIETNAM_BANKS.find(b => b.shortName.toUpperCase() === upper || b.shortName.toUpperCase() === noSpace);
+  if (matchShort) return matchShort;
+
+  // Ưu tiên 3: Tìm theo từ khóa trong Tên ngân hàng đầy đủ (chỉ tìm khi độ dài >= 3 ký tự để tránh nhầm MB với VietcoMBank)
+  if (clean.length >= 3) {
+    const matchName = VIETNAM_BANKS.find(b => b.name.toLowerCase().includes(clean.toLowerCase()));
+    if (matchName) return matchName;
+  }
+
+  return { code: clean, shortName: clean, name: clean };
+};
+
+// Tạo liên kết hình ảnh QR Code chuyển khoản ngân hàng VietQR (Hỗ trợ cả truyền Object hoặc từng tham số)
+export const getVietQRUrl = (optionsOrBankId = {}, posAccNo, posAmount, posAddInfo, posAccName) => {
+  let bankId, accountNo, accountName, amount, addInfo;
+
+  if (typeof optionsOrBankId === 'object' && optionsOrBankId !== null) {
+    ({ bankId = 'MB', accountNo = '', accountName = '', amount = 0, addInfo = '' } = optionsOrBankId);
+  } else {
+    bankId = optionsOrBankId || 'MB';
+    accountNo = posAccNo || '';
+    amount = posAmount || 0;
+    addInfo = posAddInfo || '';
+    accountName = posAccName || '';
+  }
+
   const cleanAccNo = String(accountNo || '').replace(/\D/g, '');
   if (!cleanAccNo) return '';
 
-  let cleanBankId = String(bankId || 'BIDV').trim();
-  // Tự động đối chiếu mã ngân hàng chuẩn (Ưu tiên khớp chính xác mã Code, sau đó tên viết tắt ShortName)
-  const upper = cleanBankId.toUpperCase();
-  const matchedBank = VIETNAM_BANKS.find(b => b.code.toUpperCase() === upper)
-    || VIETNAM_BANKS.find(b => b.shortName.toUpperCase() === upper)
-    || VIETNAM_BANKS.find(b => b.name.toLowerCase().includes(cleanBankId.toLowerCase()));
-  if (matchedBank) {
-    cleanBankId = matchedBank.code;
-  }
+  const bankInfo = getBankInfo(bankId);
+  const cleanBankId = bankInfo?.code || String(bankId || 'MB').trim().toUpperCase();
 
   const cleanInfo = encodeURIComponent(addInfo || 'Thanh toan tien nha');
   const cleanName = encodeURIComponent(accountName || '');

@@ -3,7 +3,7 @@ import {
   CreditCard, Upload, CheckCircle, Clock, Image as ImageIcon, Eye, 
   Copy, Check, RefreshCw, Maximize2, ZoomIn, Receipt, Zap
 } from 'lucide-react';
-import { formatVND, formatDate, getVietQRUrl, VIETNAM_BANKS } from '../../utils/formatters';
+import { formatVND, formatDate, getVietQRUrl, getBankInfo, VIETNAM_BANKS } from '../../utils/formatters';
 import { paymentService, fileService } from '../../services';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://smartrent-api-vsuy.onrender.com/api').replace('smartrent-api-dopp', 'smartrent-api-vsuy').replace(/\/api$/, '');
@@ -55,13 +55,8 @@ export const TenantPayment = ({ activeTenant, invoices = [], payments = [], setP
   const landlordAccNo = selectedInvoice?.landlordBankAccountNumber || invoices.find(i => i.landlordBankAccountNumber)?.landlordBankAccountNumber || activeTenant?.landlordBankAccountNumber || '';
   const landlordAccName = selectedInvoice?.landlordBankAccountName || invoices.find(i => i.landlordBankAccountName)?.landlordBankAccountName || activeTenant?.landlordBankAccountName || '';
 
-  const bankObj = VIETNAM_BANKS.find(b => 
-    b.code.toUpperCase() === (landlordBank || '').toUpperCase() || 
-    b.shortName.toLowerCase() === (landlordBank || '').toLowerCase() ||
-    (b.name && b.name.toLowerCase().includes((landlordBank || '').toLowerCase()))
-  ) || (landlordBank ? { code: landlordBank, shortName: landlordBank } : null);
-  
-  const bankCode = bankObj?.code || landlordBank || '';
+  const bankObj = getBankInfo(landlordBank);
+  const bankCode = bankObj?.code || (landlordBank || '').trim() || 'MB';
   const bankDisplay = bankObj?.shortName || bankObj?.name || landlordBank || (landlordAccNo ? 'Chưa rõ' : 'Chưa thiết lập');
 
   const qrUrl = landlordAccNo ? getVietQRUrl({

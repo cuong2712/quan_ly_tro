@@ -15,6 +15,7 @@ import {
   formatDateTime,
   formatRelativeTime,
   getVietQRUrl,
+  getBankInfo,
   getImageUrl,
   getContractStatusInfo,
   VIETNAM_BANKS
@@ -1451,7 +1452,7 @@ export const MobileTenantView = ({
                           }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>Ngân hàng:</span>
-                              <strong>{bank || 'Chưa thiết lập'}</strong>
+                              <strong>{getBankInfo(bank)?.shortName || getBankInfo(bank)?.name || bank || 'Chưa thiết lập'}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: isLight ? '#64748b' : '#94a3b8' }}>Số tài khoản:</span>
