@@ -245,7 +245,16 @@ var app = builder.Build();
 
 // ===== Middleware Pipeline =====
 app.UseAllSecurityMiddlewares();
-app.UseStaticFiles();
+app.UseCors("AllowFrontend");
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+        ctx.Context.Response.Headers["Access-Control-Allow-Methods"] = "GET, HEAD, OPTIONS";
+        ctx.Context.Response.Headers["Access-Control-Allow-Headers"] = "*";
+    }
+});
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>
@@ -256,7 +265,6 @@ app.UseSwaggerUI(c =>
     c.DefaultModelsExpandDepth(-1);
 });
 
-app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

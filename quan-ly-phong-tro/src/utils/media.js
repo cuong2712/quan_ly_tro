@@ -11,9 +11,9 @@ export const getMediaUrl = (url) => {
     return url;
   }
 
-  // Nếu là file tĩnh cục bộ trong frontend public/ (ví dụ /sample_room_360.jpg hoặc /lib/...)
-  if (url === '/sample_room_360.jpg' || url.startsWith('/lib/') || url.startsWith('/icons/') || url.startsWith('/images/')) {
-    return url;
+  // Nếu là file tĩnh cục bộ trong frontend public/ (ví dụ sample_room_360.jpg hoặc /lib/...)
+  if (url.includes('sample_room_360.jpg') || url.startsWith('/lib/') || url.startsWith('/icons/') || url.startsWith('/images/')) {
+    return url.startsWith('/') ? url : `/${url}`;
   }
 
   // Các file lưu trữ trên Backend (ví dụ: /uploads/panoramas/..., /uploads/rooms/..., /uploads/avatars/...)

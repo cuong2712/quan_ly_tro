@@ -59,10 +59,6 @@ export const PublicRoomDetailPage = () => {
         if (r.depositAmount && Number(r.depositAmount) > 0) {
           setDepositAmount(Number(r.depositAmount));
         }
-        // Nếu không có ảnh 360, chuyển sang tab gallery
-        if (!r.panorama360Url) {
-          setActiveTab('gallery');
-        }
       }
     } catch (err) {
       console.error('Error loading room detail:', err);
@@ -192,7 +188,8 @@ export const PublicRoomDetailPage = () => {
 
   const isVacant = room.status === 'Vacant';
   const isDeposit = room.status === 'Deposit';
-  const has360 = Boolean(room.panorama360Url);
+  const effective360Url = room.panorama360Url || '/sample_room_360.jpg';
+  const has360 = Boolean(effective360Url);
   const rawImages = room.images && room.images.length > 0
     ? room.images
     : ['https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=1000&auto=format&fit=crop'];
@@ -309,7 +306,7 @@ export const PublicRoomDetailPage = () => {
         <div style={{ marginBottom: 32 }}>
           {activeTab === '360' && has360 ? (
             <Panorama360Viewer
-              imageUrl={room.panorama360Url}
+              imageUrl={effective360Url}
               title={`Phòng ${room.roomNumber} - ${room.zoneName}`}
               height="540px"
             />

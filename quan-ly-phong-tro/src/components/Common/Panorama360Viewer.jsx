@@ -18,9 +18,14 @@ export const Panorama360Viewer = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isRotating, setIsRotating] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const viewerId = useRef(`panorama-viewer-${Math.random().toString(36).substring(2, 9)}`);
-  
-  const resolvedImageUrl = useMemo(() => getMediaUrl(imageUrl), [imageUrl]);
+  const [currentImg, setCurrentImg] = useState(() => getMediaUrl(imageUrl) || '/sample_room_360.jpg');
+
+  // Cập nhật khi prop imageUrl thay đổi
+  useEffect(() => {
+    const nextUrl = getMediaUrl(imageUrl) || '/sample_room_360.jpg';
+    setCurrentImg(nextUrl);
+    setLoadError(null);
+  }, [imageUrl]);
 
   useEffect(() => {
     let scriptEl = document.getElementById('pannellum-script');
@@ -46,11 +51,20 @@ export const Panorama360Viewer = ({
           } catch {
             // ignore
           }
+          viewerInstanceRef.current = null;
         }
 
-        viewerInstanceRef.current = window.pannellum.viewer(viewerId.current, {
+        // Dọn sạch phần tử container để tránh lỗi trùng lặp DOM / WebGL
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+          containerRef.current.className = '';
+        }
+
+        const isLocalSample = currentImg.includes('sample_room_360.jpg');
+
+        viewerInstanceRef.current = window.pannellum.viewer(containerRef.current, {
           type: 'equirectangular',
-          panorama: resolvedImageUrl,
+          panorama: currentImg,
           autoLoad: true,
           autoRotate: autoRotateSpeed,
           autoRotateInactivityDelay: 3000,
@@ -61,7 +75,7 @@ export const Panorama360Viewer = ({
           hfov: 100,
           minHfov: 50,
           maxHfov: 120,
-          crossOrigin: 'anonymous',
+          crossOrigin: isLocalSample ? 'anonymous' : 'anonymous',
           strings: {
             loadingLabel: 'Đang tải toàn cảnh 360°...',
             loadButtonLabel: 'Nhấn để xem 360°',
@@ -75,12 +89,21 @@ export const Panorama360Viewer = ({
         });
 
         viewerInstanceRef.current.on('error', (err) => {
-          console.warn('Pannellum load warning:', err);
-          setIsLoaded(true); // Vẫn cho hiển thị
+          console.warn('Pannellum error, attempting fallback to /sample_room_360.jpg:', err);
+          if (!currentImg.includes('sample_room_360.jpg')) {
+            setCurrentImg('/sample_room_360.jpg');
+          } else {
+            setIsLoaded(true);
+            setLoadError('Không thể nạp trình xem ảnh 360°');
+          }
         });
       } catch (err) {
         console.error('Error initializing Pannellum:', err);
-        setLoadError(err.message || 'Lỗi khởi tạo trình xem 360°');
+        if (!currentImg.includes('sample_room_360.jpg')) {
+          setCurrentImg('/sample_room_360.jpg');
+        } else {
+          setLoadError(err.message || 'Lỗi khởi tạo trình xem 360°');
+        }
       }
     };
 
@@ -114,9 +137,10 @@ export const Panorama360Viewer = ({
         } catch {
           // ignore
         }
+        viewerInstanceRef.current = null;
       }
     };
-  }, [imageUrl, autoRotateSpeed]);
+  }, [currentImg, autoRotateSpeed]);
 
   const toggleAutoRotate = () => {
     if (viewerInstanceRef.current) {
