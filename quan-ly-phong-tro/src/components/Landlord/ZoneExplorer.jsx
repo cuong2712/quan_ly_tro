@@ -767,7 +767,9 @@ const RoomList = ({ zone, initialTab = 'rooms', onSelectRoom, onBack }) => {
           password: quickTenantForm.password.trim(),
           cccd: quickTenantForm.cccd.trim() || '000000000000',
           hometown: quickTenantForm.hometown.trim() || 'TP. Hồ Chí Minh',
-          roomId: contractRoom.id
+          roomId: contractRoom.id,
+          moveInDate: contractForm.startDate || new Date().toISOString(),
+          deposit: Number(contractForm.deposit || 0)
         });
         targetTenantId = createdTenant?.id || createdTenant?.data?.id;
       }
@@ -2228,7 +2230,9 @@ const RoomDetail = ({ room, zone, onBack }) => {
           password: quickTenantForm.password.trim(),
           cccd: quickTenantForm.cccd.trim() || '000000000000',
           hometown: quickTenantForm.hometown.trim() || 'TP. Hồ Chí Minh',
-          roomId: currentRoomData.id
+          roomId: currentRoomData.id,
+          moveInDate: contractForm.startDate || new Date().toISOString(),
+          deposit: Number(contractForm.deposit || 0)
         });
         targetTenantId = createdTenant?.id || createdTenant?.data?.id;
       }

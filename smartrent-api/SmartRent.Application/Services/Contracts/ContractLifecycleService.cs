@@ -67,7 +67,7 @@ public class ContractLifecycleService(AppDbContext db, NotificationService notif
             }
         }
         tenant.RoomId = req.RoomId;
-        if (tenant.MoveInDate == null) tenant.MoveInDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc);
+        if (tenant.MoveInDate == null || tenant.MoveInDate.Value.Year <= 1900) tenant.MoveInDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc);
         if (tenant.Deposit == 0 && req.Deposit > 0) tenant.Deposit = req.Deposit;
 
         // Cập nhật chỉ số điện nước ban đầu nếu có cung cấp
@@ -634,7 +634,7 @@ public class ContractLifecycleService(AppDbContext db, NotificationService notif
         {
             tenant.RoomId = req.RoomId;
             tenant.LandlordId = landlordId;
-            if (tenant.MoveInDate == null) tenant.MoveInDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc);
+            if (tenant.MoveInDate == null || tenant.MoveInDate.Value.Year <= 1900) tenant.MoveInDate = DateTime.SpecifyKind(req.StartDate, DateTimeKind.Utc);
             if (tenant.Deposit == 0 && req.IndividualDeposit > 0) tenant.Deposit = req.IndividualDeposit;
         }
 

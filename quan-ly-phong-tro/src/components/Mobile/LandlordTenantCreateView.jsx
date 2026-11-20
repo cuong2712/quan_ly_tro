@@ -51,7 +51,8 @@ export function LandlordTenantCreateView({
         cccd: cccd.trim() || undefined,
         hometown: hometown.trim() || undefined,
         password: password.trim() || 'Tenant@123456',
-        roomId: selectedRoomId || undefined
+        roomId: selectedRoomId || undefined,
+        moveInDate: new Date().toISOString()
       });
       alert(`✅ Đã thêm cư dân ${fullName} và cấp tài khoản thành công!`);
       onSuccess?.();

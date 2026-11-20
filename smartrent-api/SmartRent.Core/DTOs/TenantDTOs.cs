@@ -12,8 +12,8 @@ public record TenantDto(
 public record CreateTenantRequest(
     string FullName, string Email, string Phone, string Password,
     string CCCD, string? Hometown, Guid RoomId,
-    DateTime MoveInDate, decimal Deposit,
-    string? CccdFrontUrl, string? CccdBackUrl,
+    DateTime? MoveInDate = null, decimal Deposit = 0,
+    string? CccdFrontUrl = null, string? CccdBackUrl = null,
     int VehicleCount = 0, string? VehicleInfo = null,
     string? AvatarUrl = null
 );
@@ -24,7 +24,9 @@ public record UpdateTenantRequest(
     Guid? RoomId = null,
     int VehicleCount = 0, string? VehicleInfo = null,
     string? AvatarUrl = null,
-    string? CCCD = null
+    string? CCCD = null,
+    DateTime? MoveInDate = null,
+    decimal? Deposit = null
 );
 
 public record TransferRoomRequest(Guid NewRoomId, DateTime TransferDate);

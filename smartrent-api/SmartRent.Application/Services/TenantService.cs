@@ -96,6 +96,10 @@ public class TenantService(AppDbContext db)
         var user = new User { Email = req.Email, PasswordHash = BCrypt.Net.BCrypt.HashPassword(password), FullName = req.FullName, Phone = req.Phone, Role = UserRole.Tenant, AvatarUrl = req.AvatarUrl };
         db.Users.Add(user);
 
+        var moveIn = req.MoveInDate.HasValue && req.MoveInDate.Value.Year > 1900
+            ? DateTime.SpecifyKind(req.MoveInDate.Value, DateTimeKind.Utc)
+            : DateTime.UtcNow;
+
         var profile = new TenantProfile
         {
             UserId = user.Id,
@@ -103,7 +107,7 @@ public class TenantService(AppDbContext db)
             LandlordId = landlordId,
             CCCD = req.CCCD,
             Hometown = req.Hometown,
-            MoveInDate = req.MoveInDate,
+            MoveInDate = moveIn,
             Deposit = req.Deposit,
             CccdFrontUrl = req.CccdFrontUrl,
             CccdBackUrl = req.CccdBackUrl,
@@ -143,6 +147,14 @@ public class TenantService(AppDbContext db)
         if (!string.IsNullOrEmpty(req.CccdBackUrl)) t.CccdBackUrl = req.CccdBackUrl;
         if (!string.IsNullOrEmpty(req.AvatarUrl)) t.User.AvatarUrl = req.AvatarUrl;
         if (!string.IsNullOrEmpty(req.CCCD)) t.CCCD = req.CCCD;
+        if (req.MoveInDate.HasValue && req.MoveInDate.Value.Year > 1900)
+        {
+            t.MoveInDate = DateTime.SpecifyKind(req.MoveInDate.Value, DateTimeKind.Utc);
+        }
+        if (req.Deposit.HasValue)
+        {
+            t.Deposit = req.Deposit.Value;
+        }
 
         if (req.RoomId.HasValue && t.RoomId != req.RoomId.Value)
         {

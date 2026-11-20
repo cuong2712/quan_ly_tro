@@ -335,6 +335,15 @@ app.MapHub<NotificationHub>("/hubs/notifications");
                     ALTER TABLE ""TenantProfiles"" ADD COLUMN ""LandlordId"" uuid NULL;
                 END IF;
             END $$;
+
+            -- Tự động sửa các dòng MoveInDate bị lỗi 0001-01-01 hoặc NULL về StartDate của hợp đồng hoặc CreatedAt
+            UPDATE ""TenantProfiles"" tp
+            SET ""MoveInDate"" = COALESCE(
+                (SELECT c.""StartDate"" FROM ""Contracts"" c WHERE c.""TenantProfileId"" = tp.""Id"" AND c.""Status"" = 0 ORDER BY c.""CreatedAt"" DESC LIMIT 1),
+                (SELECT c.""StartDate"" FROM ""Contracts"" c WHERE c.""TenantProfileId"" = tp.""Id"" ORDER BY c.""CreatedAt"" DESC LIMIT 1),
+                tp.""CreatedAt""
+            )
+            WHERE tp.""MoveInDate"" IS NULL OR tp.""MoveInDate"" <= '1900-01-01'::timestamp with time zone;
         ");
         await DataSeeder.SeedAsync(db);
     }

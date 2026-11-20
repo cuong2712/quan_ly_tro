@@ -38,8 +38,11 @@ export const parseVietnamDate = (dateStr) => {
 // Định dạng Ngày Tháng (DD/MM/YYYY) theo múi giờ Việt Nam
 export const formatDate = (dateStr) => {
   if (!dateStr) return '';
+  const str = String(dateStr).trim();
+  if (str.startsWith('0001-01-01') || str.startsWith('0001')) return '—';
   const d = parseVietnamDate(dateStr);
   if (!d) return String(dateStr);
+  if (d.getFullYear() <= 1900) return '—';
   return new Intl.DateTimeFormat('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     day: '2-digit',
@@ -51,8 +54,11 @@ export const formatDate = (dateStr) => {
 // Định dạng Giờ:Phút:Giây Ngày/Tháng/Năm theo múi giờ Việt Nam (GMT+7)
 export const formatDateTime = (dateStr) => {
   if (!dateStr) return '—';
+  const str = String(dateStr).trim();
+  if (str.startsWith('0001-01-01') || str.startsWith('0001')) return '—';
   const d = parseVietnamDate(dateStr);
   if (!d) return String(dateStr);
+  if (d.getFullYear() <= 1900) return '—';
   return new Intl.DateTimeFormat('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     hour: '2-digit',

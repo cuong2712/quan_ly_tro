@@ -87,8 +87,11 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
     setEditingTenant(t);
     const currentRoom = rooms.find(r => r.id === (t.roomId || t.RoomId));
     setSelectedZoneId(currentRoom?.zoneId || currentRoom?.ZoneId || zones[0]?.id || '');
+    const cleanMoveInDate = t.moveInDate && !String(t.moveInDate).startsWith('0001') ? t.moveInDate : '';
     setFormData({
       ...t,
+      moveInDate: cleanMoveInDate,
+      deposit: t.deposit ?? 0,
       name: t.fullName || t.name || '',
       avatarUrl: t.avatarUrl || '',
       cccd: t.cccd || t.CCCD || '',
@@ -199,6 +202,8 @@ export const TenantMgmt = ({ tenants = [], setTenants, rooms = [], zones = [], c
             phone: formData.phone,
             hometown: formData.hometown,
             roomId: formData.roomId,
+            moveInDate: formData.moveInDate || null,
+            deposit: Number(formData.deposit || 0),
             vehicleCount: Number(formData.vehicleCount || 0),
             vehicleInfo: formData.vehicleInfo || '',
             cccdFrontUrl: formData.cccdFrontUrl,

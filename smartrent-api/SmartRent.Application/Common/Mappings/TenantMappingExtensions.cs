@@ -8,10 +8,14 @@ public static class TenantMappingExtensions
 {
     public static TenantDto ToTenantDto(this TenantProfile t)
     {
-        var activeContractCode = t.Contracts?
+        var activeContract = t.Contracts?
             .Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.RenewRequested)
             .OrderByDescending(c => c.CreatedAt)
-            .FirstOrDefault()?.ContractCode;
+            .FirstOrDefault();
+
+        var effectiveMoveInDate = (t.MoveInDate.HasValue && t.MoveInDate.Value.Year > 1900)
+            ? t.MoveInDate
+            : (activeContract?.StartDate ?? t.Contracts?.OrderByDescending(c => c.CreatedAt).FirstOrDefault()?.StartDate ?? t.CreatedAt);
 
         return new(
             t.Id,
@@ -22,14 +26,14 @@ public static class TenantMappingExtensions
             t.User?.AvatarUrl,
             t.CCCD,
             t.Hometown,
-            t.MoveInDate,
+            effectiveMoveInDate,
             t.Deposit,
             t.RoomId,
             t.Room?.RoomNumber,
             t.Room?.Zone?.Name,
             t.CccdFrontUrl,
             t.CccdBackUrl,
-            activeContractCode,
+            activeContract?.ContractCode,
             t.VehicleCount,
             t.VehicleInfo
         );
