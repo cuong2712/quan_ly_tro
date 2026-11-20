@@ -1,7 +1,7 @@
 // test_suite.mjs - Automated End-to-End Test Suite for SmartRent API & System
 import fs from 'fs';
 
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL = process.env.API_URL || 'https://smartrent-api-vsuy.onrender.com/api';
 
 const results = [];
 
