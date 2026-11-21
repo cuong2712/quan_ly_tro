@@ -254,7 +254,11 @@ export const RoomMediaStudioModal = ({ isOpen, onClose, room, onSaved }) => {
       };
 
       await roomService.updateRoom(room.id, payload);
-      if (onSaved) onSaved({ ...room, ...payload });
+      try {
+        if (onSaved) onSaved({ ...room, ...payload });
+      } catch (callbackErr) {
+        console.error('Error in onSaved callback:', callbackErr);
+      }
 
       if (openPreviewAfterSave) {
         window.open(publicUrl, '_blank');

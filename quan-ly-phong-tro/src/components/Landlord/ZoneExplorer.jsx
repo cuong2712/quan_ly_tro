@@ -4698,7 +4698,7 @@ const RoomDetail = ({ room, zone, onBack }) => {
           onClose={() => setIsStudioOpen(false)}
           onSaved={(updated) => {
             setRoomDetail(prev => ({ ...(prev || {}), ...updated }));
-            fetchDetail();
+            loadDetail();
           }}
         />
       )}
