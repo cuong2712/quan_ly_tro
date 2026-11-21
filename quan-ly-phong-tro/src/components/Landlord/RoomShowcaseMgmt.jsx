@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Globe, Compass, Eye, Sparkles, Search, Filter,
   Building2, Camera, ExternalLink, Check, Copy, AlertCircle,
-  CheckCircle2, DollarSign, Home, Image as ImageIcon
+  CheckCircle2, DollarSign, Home, Image as ImageIcon, X, RotateCcw
 } from 'lucide-react';
 import { roomService, zoneService } from '../../services';
 import { formatVND } from '../../utils/formatters';
@@ -87,6 +87,17 @@ export const RoomShowcaseMgmt = () => {
   const publicRoomsCount = rooms.filter(r => r.isPublic ?? true).length;
   const has360RoomsCount = rooms.filter(r => !!r.panorama360Url).length;
   const depositRoomsCount = rooms.filter(r => r.status === 'Deposit' || (r.depositAmount > 0)).length;
+  const vacantRoomsCount = rooms.filter(r => r.status === 'Vacant').length;
+  const occupiedRoomsCount = rooms.filter(r => r.status === 'Occupied').length;
+
+  const hasActiveFilters = searchTerm.trim() !== '' || selectedZoneId !== 'all' || statusFilter !== 'all' || mediaFilter !== 'all';
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setSelectedZoneId('all');
+    setStatusFilter('all');
+    setMediaFilter('all');
+  };
 
   // Lọc phòng
   const filteredRooms = rooms.filter(r => {
@@ -176,62 +187,165 @@ export const RoomShowcaseMgmt = () => {
 
       {/* Filter Bar */}
       <div className="card" style={{
-        padding: '16px 20px', borderRadius: 14, background: 'var(--bg-card)',
-        border: '1px solid var(--border-color)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center'
+        padding: '14px 18px', borderRadius: 14, background: 'var(--bg-card)',
+        border: '1px solid var(--border-color)', display: 'flex', flexWrap: 'wrap',
+        gap: 12, alignItems: 'center', justifyContent: 'space-between'
       }}>
-        {/* Search */}
-        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 200 }}>
-          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Tìm theo số phòng, khu trọ..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{ paddingLeft: 36, fontSize: 13 }}
-          />
+        {/* Left: Search input, Khu trọ dropdown, Media 360 selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 auto' }}>
+          {/* Ô tìm kiếm gọn gàng */}
+          <div style={{ position: 'relative', width: 250, maxWidth: '100%' }}>
+            <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              placeholder="Tìm theo số phòng, khu..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 28px 8px 34px',
+                fontSize: 13,
+                borderRadius: 9,
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-dark)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                style={{
+                  position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', padding: 2, display: 'flex'
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Chọn khu trọ */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Building2 size={15} color="var(--text-secondary)" style={{ position: 'absolute', left: 10, pointerEvents: 'none' }} />
+            <select
+              value={selectedZoneId}
+              onChange={e => setSelectedZoneId(e.target.value)}
+              style={{
+                padding: '8px 12px 8px 32px',
+                fontSize: 13,
+                borderRadius: 9,
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-dark)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: 160
+              }}
+            >
+              <option value="all">🏢 Tất cả khu trọ</option>
+              {zones.map(z => (
+                <option key={z.id} value={z.id}>{z.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Lọc ảnh 360° */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Compass size={15} color="#8b5cf6" style={{ position: 'absolute', left: 10, pointerEvents: 'none' }} />
+            <select
+              value={mediaFilter}
+              onChange={e => setMediaFilter(e.target.value)}
+              style={{
+                padding: '8px 12px 8px 32px',
+                fontSize: 13,
+                borderRadius: 9,
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-dark)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: 155
+              }}
+            >
+              <option value="all">Tất cả ảnh & 360°</option>
+              <option value="has360">🌀 Đã có Tour 360°</option>
+              <option value="no360">Chưa có ảnh 360°</option>
+            </select>
+          </div>
         </div>
 
-        {/* Khu trọ */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Building2 size={16} color="var(--text-secondary)" />
-          <select
-            className="form-control"
-            value={selectedZoneId}
-            onChange={e => setSelectedZoneId(e.target.value)}
-            style={{ fontSize: 13, padding: '7px 12px', minWidth: 150 }}
-          >
-            <option value="all">Tất cả khu trọ</option>
-            {zones.map(z => (
-              <option key={z.id} value={z.id}>{z.name}</option>
-            ))}
-          </select>
+        {/* Right: Nhóm nút trạng thái dạng Pills & Reset */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            { id: 'all', label: 'Tất cả', count: totalRooms },
+            { id: 'Vacant', label: 'Còn trống', count: vacantRoomsCount, color: '#10b981' },
+            { id: 'Deposit', label: 'Đã cọc', count: depositRoomsCount, color: '#f59e0b' },
+            { id: 'Occupied', label: 'Đang thuê', count: occupiedRoomsCount, color: '#6366f1' },
+          ].map(tab => {
+            const isActive = statusFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setStatusFilter(tab.id)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  fontSize: 12.5,
+                  fontWeight: isActive ? 700 : 500,
+                  cursor: 'pointer',
+                  border: isActive ? '1px solid #6366f1' : '1px solid var(--border-color)',
+                  background: isActive ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'var(--bg-dark)',
+                  color: isActive ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <span>{tab.label}</span>
+                <span style={{
+                  fontSize: 11,
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  background: isActive ? 'rgba(255,255,255,0.25)' : 'var(--bg-card)',
+                  color: isActive ? '#fff' : (tab.color || 'var(--text-muted)'),
+                  fontWeight: 700
+                }}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              title="Đặt lại bộ lọc về mặc định"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '6px 10px',
+                borderRadius: 8,
+                fontSize: 12,
+                cursor: 'pointer',
+                border: '1px solid var(--border-color)',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                marginLeft: 4
+              }}
+            >
+              <RotateCcw size={13} />
+              <span>Xóa lọc</span>
+            </button>
+          )}
         </div>
-
-        {/* Trạng thái phòng */}
-        <select
-          className="form-control"
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          style={{ fontSize: 13, padding: '7px 12px', minWidth: 130 }}
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="Vacant">Còn trống</option>
-          <option value="Deposit">Đã cọc</option>
-          <option value="Occupied">Đang thuê</option>
-        </select>
-
-        {/* Media 360 */}
-        <select
-          className="form-control"
-          value={mediaFilter}
-          onChange={e => setMediaFilter(e.target.value)}
-          style={{ fontSize: 13, padding: '7px 12px', minWidth: 140 }}
-        >
-          <option value="all">Tất cả phòng</option>
-          <option value="has360">Đã có Tour 360°</option>
-          <option value="no360">Chưa có ảnh 360°</option>
-        </select>
       </div>
 
       {/* Room Showcase Grid */}
