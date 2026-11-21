@@ -29,6 +29,7 @@ const PaymentMgmt       = lazy(() => import('../components/Landlord/PaymentMgmt'
 const MaintenanceMgmt   = lazy(() => import('../components/Landlord/MaintenanceMgmt').then(m => ({ default: m.MaintenanceMgmt })));
 const LandlordNotify    = lazy(() => import('../components/Landlord/LandlordNotify').then(m => ({ default: m.LandlordNotify })));
 const LandlordProfile   = lazy(() => import('../components/Landlord/LandlordProfile').then(m => ({ default: m.LandlordProfile })));
+const RoomShowcaseMgmt  = lazy(() => import('../components/Landlord/RoomShowcaseMgmt').then(m => ({ default: m.RoomShowcaseMgmt })));
 
 // Mapping tab → API fetchers (chỉ fetch khi tab active)
 const TAB_FETCHERS = {
@@ -84,6 +85,7 @@ const TAB_FETCHERS = {
     tenants: tenantService.getTenants,
   },
   ll_zones: {},   // ZoneExplorer quản lý fetch nội bộ
+  ll_showcase: {}, // RoomShowcaseMgmt quản lý fetch nội bộ
   ll_profile: {}, // Không cần fetch
 };
 
@@ -92,7 +94,7 @@ const TAB_KEY = 'landlord_active_tab';
 const ACTIVE_TABS = new Set([
   'll_dashboard', 'll_zones', 'll_tenants', 'll_contracts',
   'll_invoices', 'll_payments', 'll_maintenance', 'll_utilities', 
-  'll_services', 'll_notifications', 'll_profile'
+  'll_services', 'll_notifications', 'll_profile', 'll_showcase'
 ]);
 
 export default function LandlordPage() {
@@ -307,6 +309,12 @@ export default function LandlordPage() {
               rooms={d.rooms || []}
               onRefresh={() => handleRefresh()}
             />
+          </Suspense>
+        );
+      case 'll_showcase':
+        return (
+          <Suspense fallback={<TabLoader />}>
+            <RoomShowcaseMgmt />
           </Suspense>
         );
       case 'll_notifications':

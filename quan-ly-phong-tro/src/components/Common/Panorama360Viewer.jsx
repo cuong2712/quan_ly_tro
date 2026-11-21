@@ -15,6 +15,7 @@ export const Panorama360Viewer = ({
 }) => {
   const containerRef = useRef(null);
   const viewerInstanceRef = useRef(null);
+  const viewerId = useRef(`pannellum-viewer-${Math.random().toString(36).slice(2, 9)}`);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isRotating, setIsRotating] = useState(true);
   const [loadError, setLoadError] = useState(null);
